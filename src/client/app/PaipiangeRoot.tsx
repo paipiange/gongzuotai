@@ -40,11 +40,10 @@ import {
   type StudioId,
 } from './data'
 import {
-  loadWorkspace,
-  persistWorkspace,
+  loadCreations,
   removeCreation,
-  updateCreationStatus,
-  upsertCreation,
+  saveCreation as persistCreation,
+  setStatus,
   type CreationDraft,
   type CreationRecord,
   type CreationStatus,
@@ -499,7 +498,7 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
   studio: StudioId
   initialCreation: CreationRecord | null
   onBack: () => void
-  onSave: (draft: CreationDraft) => CreationRecord | null
+  onSave: (draft: CreationDraft) => Promise<CreationRecord | null>
   onToast: (message: string, tone?: ToastState['tone']) => void
 }) {
   const [creationId, setCreationId] = useState<string | undefined>(initialCreation?.id)
@@ -520,7 +519,7 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
     setRequirement(initialCreation?.requirement ?? '')
   }, [initialCreation, studio])
 
-  const save = (status: CreationStatus = initialCreation?.status ?? 'draft') => {
+  const save = async (status: CreationStatus = initialCreation?.status ?? 'draft') => {
     if (isVideo) {
       onToast('视频功能仅为未开放占位，不会创建记录或任务', 'warning')
       return null
@@ -529,7 +528,7 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
       onToast('请至少填写标题或创作主题', 'warning')
       return null
     }
-    const saved = onSave({
+    const saved = await onSave({
       id: creationId,
       studio,
       title,
@@ -713,9 +712,10 @@ function PublishPage({ creations, onOpen, onStatus, onCreate }: {
   )
 }
 
-function WorkspacePage({ page, creations, onNavigate, onOpenStudio, onOpenCreation, onStatus, onDelete, onToast }: {
+function WorkspacePage({ page, creations, storageSource, onNavigate, onOpenStudio, onOpenCreation, onStatus, onDelete, onToast }: {
   page: Exclude<PageId, 'home' | 'create'>
   creations: CreationRecord[]
+  storageSource: 'host' | 'local' | 'loading'
   onNavigate: (page: PageId) => void
   onOpenStudio: (studio: StudioId) => void
   onOpenCreation: (creation: CreationRecord) => void
@@ -754,7 +754,7 @@ function WorkspacePage({ page, creations, onNavigate, onOpenStudio, onOpenCreati
       <div className="pa-page">
         <PageIntro title={meta.title} description={meta.description} />
         <div className="pa-settings-grid">
-          {[['文本模型', '复用 Harness 已配置的模型，不在浏览器保存密钥。'], ['本地草稿', `当前浏览器已保存 ${creations.length} 条记录；后续迁移到 Host SQLite。`], ['主题与界面', '当前使用暖棕金国风深色主题。']].map(([title, description], index) => <section key={title} className="pa-panel pa-setting-card"><div className="pa-setting-card__icon">{index === 0 ? <Sparkle aria-hidden="true" size={23} /> : index === 1 ? <FolderOpen aria-hidden="true" size={23} /> : <GearSix aria-hidden="true" size={23} />}</div><div><h2>{title}</h2><p>{description}</p></div><button type="button" className="pa-secondary-button" onClick={() => onToast(index === 1 ? '草稿仅保存在当前浏览器，不会上传或提交到仓库' : `${title}将在后续功能阶段接入`)}>查看</button></section>)}
+          {[['文本模型', '复用 Harness 已配置的模型，不在浏览器保存密钥。'], ['本地草稿', storageSource === 'host' ? `已连接本地服务，当前共 ${creations.length} 条记录保存在 Host SQLite。` : `当前共 ${creations.length} 条记录，保存在浏览器本地（Host 未连接时降级）。`], ['主题与界面', '当前使用暖棕金国风深色主题。']].map(([title, description], index) => <section key={title} className="pa-panel pa-setting-card"><div className="pa-setting-card__icon">{index === 0 ? <Sparkle aria-hidden="true" size={23} /> : index === 1 ? <FolderOpen aria-hidden="true" size={23} /> : <GearSix aria-hidden="true" size={23} />}</div><div><h2>{title}</h2><p>{description}</p></div><button type="button" className="pa-secondary-button" onClick={() => onToast(index === 1 ? (storageSource === 'host' ? '草稿保存在本地 Host SQLite 数据库' : '草稿仅保存在当前浏览器，不会上传或提交到仓库') : `${title}将在后续功能阶段接入`)}>查看</button></section>)}
           <ImageGenSettings onToast={onToast} />
         </div>
       </div>
@@ -785,7 +785,8 @@ export function PaipiangeRoot() {
   const [activePage, setActivePage] = useState<PageId>('home')
   const [studio, setStudio] = useState<StudioId | null>(null)
   const [selectedCreation, setSelectedCreation] = useState<CreationRecord | null>(null)
-  const [creations, setCreations] = useState<CreationRecord[]>(() => loadWorkspace().creations)
+  const [creations, setCreations] = useState<CreationRecord[]>([])
+  const [storageSource, setStorageSource] = useState<'host' | 'local' | 'loading'>('loading')
   const [activeCategory, setActiveCategory] = useState('热门推荐')
   const [inspirationIndex, setInspirationIndex] = useState(0)
   const [collapsed, setCollapsed] = useState(false)
@@ -794,6 +795,19 @@ export function PaipiangeRoot() {
   const mainRef = useRef<HTMLElement>(null)
 
   const showToast = (message: string, tone: ToastState['tone'] = 'info') => setToast({ message, tone })
+
+  // Initial load from Host (with local fallback).
+  useEffect(() => {
+    let cancelled = false
+    loadCreations().then(({ creations: loaded, source }) => {
+      if (cancelled) return
+      setCreations(loaded)
+      setStorageSource(source)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     if (!toast) return
@@ -804,10 +818,6 @@ export function PaipiangeRoot() {
   useEffect(() => {
     mainRef.current?.focus({ preventScroll: true })
   }, [activePage, studio])
-
-  useEffect(() => {
-    persistWorkspace({ version: 1, creations })
-  }, [creations])
 
   const navigate = (page: PageId) => {
     setActivePage(page)
@@ -830,29 +840,38 @@ export function PaipiangeRoot() {
     setMobileOpen(false)
   }
 
-  const saveCreation = (draft: CreationDraft) => {
-    const next = upsertCreation(creations, draft)
-    const saved = next[0]
-    setCreations(next)
-    setSelectedCreation(saved)
-    showToast(draft.status === 'queued' ? '草稿已保存到待发布列表' : '草稿已保存在当前浏览器', 'success')
-    return saved
+  const saveCreation = async (draft: CreationDraft): Promise<CreationRecord | null> => {
+    try {
+      const { record, source } = await persistCreation(draft)
+      setCreations((current) => [record, ...current.filter((item) => item.id !== record.id)])
+      setSelectedCreation(record)
+      setStorageSource(source)
+      showToast(draft.status === 'queued' ? '草稿已保存到待发布列表' : '草稿已保存', 'success')
+      return record
+    } catch (cause) {
+      showToast(cause instanceof Error ? cause.message : '保存失败', 'warning')
+      return null
+    }
   }
 
-  const setCreationStatus = (id: string, status: CreationStatus) => {
-    setCreations((current) => updateCreationStatus(current, id, status))
+  const setCreationStatus = async (id: string, status: CreationStatus) => {
+    const { record } = await setStatus(id, status)
+    if (record) {
+      setCreations((current) => current.map((item) => (item.id === id ? record : item)))
+    }
     showToast(status === 'archived' ? '内容已归档' : status === 'queued' ? '已加入待发布列表' : '内容已恢复为草稿', 'success')
   }
 
-  const deleteCreation = (id: string) => {
+  const deleteCreation = async (id: string) => {
     const target = creations.find((item) => item.id === id)
     if (!target || !window.confirm(`确定永久删除“${target.title}”吗？此操作无法撤销。`)) return
-    setCreations((current) => removeCreation(current, id))
+    await removeCreation(id)
+    setCreations((current) => current.filter((item) => item.id !== id))
     if (selectedCreation?.id === id) {
       setSelectedCreation(null)
       setStudio(null)
     }
-    showToast('创作记录已永久删除', 'success')
+    showToast('创作记录已删除', 'success')
   }
 
   const shuffleInspiration = () => {
@@ -900,7 +919,7 @@ export function PaipiangeRoot() {
           {activePage === 'home' && !studio && <HomePage inspirationIndex={inspirationIndex} activeCategory={activeCategory} creations={creations} onCategory={setActiveCategory} onShuffle={shuffleInspiration} onOpenStudio={openStudio} onOpenCreation={openCreation} onNavigate={navigate} onToast={showToast} />}
           {activePage === 'create' && !studio && <CreateHub onOpenStudio={openStudio} />}
           {studio && <StudioPage studio={studio} initialCreation={selectedCreation} onBack={() => { setStudio(null); setSelectedCreation(null) }} onSave={saveCreation} onToast={showToast} />}
-          {activePage !== 'home' && activePage !== 'create' && !studio && <WorkspacePage page={activePage} creations={creations} onNavigate={navigate} onOpenStudio={openStudio} onOpenCreation={openCreation} onStatus={setCreationStatus} onDelete={deleteCreation} onToast={showToast} />}
+          {activePage !== 'home' && activePage !== 'create' && !studio && <WorkspacePage page={activePage} creations={creations} storageSource={storageSource} onNavigate={navigate} onOpenStudio={openStudio} onOpenCreation={openCreation} onStatus={setCreationStatus} onDelete={deleteCreation} onToast={showToast} />}
         </main>
       </div>
       {toast && <div className="pa-toast" data-tone={toast.tone} role="status" aria-live="polite"><CheckCircle aria-hidden="true" size={20} weight="fill" /><span>{toast.message}</span><button type="button" aria-label="关闭提示" onClick={() => setToast(null)}><X aria-hidden="true" size={16} /></button></div>}

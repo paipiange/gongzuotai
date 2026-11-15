@@ -1,5 +1,10 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { PaipiangeDatabase } from './storage/database'
+import { CreationRepository } from './storage/creationRepository'
+import { SettingsRepository } from './storage/SettingsRepository'
+import { AssetRepository } from './storage/assetRepository'
+import { ImageGenService } from './imagegen/ImageGenService'
+import { registerApiRoutes } from './api/routes'
 
 export const name = 'paipiange'
 
@@ -23,14 +28,25 @@ interface ConnectionService {
 }
 
 /**
- * Initializes private Host storage and registers a health route so the client
- * (and the plugin manager) can confirm the host half is loaded. Storage and
- * image-gen routes are exposed only through Harness's connection service;
- * no unauthenticated data is ever served.
+ * Initializes private Host storage and registers the full API surface (health,
+ * creations CRUD, image-gen config/generate, asset retrieval) through
+ * Harness's connection service. No unauthenticated data is ever served.
  */
 export async function apply(ctx: Context, config: Config = {}) {
   const storage = await PaipiangeDatabase.open({ dataRoot: config.dataRoot })
   const connection = (ctx as Context & { connection: ConnectionService }).connection
+
+  const creations = new CreationRepository(storage.db)
+  const settings = new SettingsRepository(storage.db)
+  const assets = new AssetRepository(storage.db, storage.paths)
+
+  // The image-gen service is rebuilt on demand from the latest saved config so
+  // a newly saved backend takes effect without a plugin restart.
+  const buildImageGen = () =>
+    new ImageGenService({
+      llm: settings.getLlmImageConfig() ?? undefined,
+      comfyui: settings.getComfyUiConfig() ?? undefined,
+    })
 
   try {
     connection.fetch.register({
@@ -43,6 +59,11 @@ export async function apply(ctx: Context, config: Config = {}) {
         )
       },
     })
+
+    registerApiRoutes(
+      { creations, settings, assets, buildImageGen },
+      connection.fetch.register.bind(connection.fetch),
+    )
   } catch (error) {
     storage.close()
     throw error

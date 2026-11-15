@@ -1,9 +1,14 @@
 /**
- * Client-side image-gen settings store. Mirrors the Host-side
- * SettingsRepository field names so a later switch to Host persistence is a
- * drop-in. For now it stores in localStorage (same transitional approach as
- * workspace drafts); the API key is kept out of the repo and out of git.
+ * Client-side image-gen settings store. Prefers the Host's secure
+ * SettingsRepository (API key lives only in Host SQLite, never in the browser
+ * bundle); falls back to localStorage when the Host is unavailable.
  */
+
+import {
+  getImageGenSummary,
+  saveImageGenConfig,
+  type ImageGenSummary,
+} from './hostClient'
 
 export interface LlmImageConfig {
   baseUrl: string
@@ -26,7 +31,7 @@ export interface ImageGenSettings {
 
 const STORAGE_KEY = 'paipiange.imagegen.v1'
 
-export function loadImageGenSettings(): ImageGenSettings {
+function loadLocal(): ImageGenSettings {
   if (typeof window === 'undefined') return {}
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY)
@@ -41,12 +46,55 @@ export function loadImageGenSettings(): ImageGenSettings {
   }
 }
 
-export function saveImageGenSettings(settings: ImageGenSettings): boolean {
-  if (typeof window === 'undefined') return false
+function saveLocal(settings: ImageGenSettings): void {
+  if (typeof window === 'undefined') return
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
-    return true
   } catch {
-    return false
+    // ignore
+  }
+}
+
+export type SettingsSource = 'host' | 'local'
+
+export interface SettingsLoadResult {
+  settings: ImageGenSettings
+  summary: ImageGenSummary
+  source: SettingsSource
+}
+
+/**
+ * Load image-gen settings. When the Host is reachable, the returned `settings`
+ * contains only non-secret fields (apiKey is blanked); the summary reflects
+ * which backends are configured. When local, the full (locally stored) config
+ * is returned.
+ */
+export async function loadSettings(): Promise<SettingsLoadResult> {
+  try {
+    const summary = await getImageGenSummary()
+    return {
+      summary,
+      source: 'host',
+      settings: {
+        ...(summary.llm ? { llm: { baseUrl: summary.llm.baseUrl, model: summary.llm.model, apiKey: '' } } : {}),
+        ...(summary.comfyui ? { comfyui: { ...summary.comfyui } } : {}),
+      },
+    }
+  } catch {
+    return { summary: {}, source: 'local', settings: loadLocal() }
+  }
+}
+
+/** Persist settings to Host (preferred) or localStorage (fallback). */
+export async function persistSettings(settings: ImageGenSettings): Promise<{ source: SettingsSource; summary: ImageGenSummary }> {
+  try {
+    const summary = await saveImageGenConfig({
+      ...(settings.llm ? { llm: settings.llm } : {}),
+      ...(settings.comfyui ? { comfyui: settings.comfyui } : {}),
+    })
+    return { source: 'host', summary }
+  } catch {
+    saveLocal(settings)
+    return { source: 'local', summary: {} }
   }
 }

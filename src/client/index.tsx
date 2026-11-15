@@ -23,7 +23,7 @@ export const inject = ['slots']
 export function apply(ctx: Context) {
   const slots = (ctx as Context & {
     slots: {
-      inject: (name: string, setup: () => void) => void
+      inject: (name: string, setup: () => void) => () => void
       register: (options: Record<string, unknown>, component: ComponentType) => () => void
     }
   }).slots

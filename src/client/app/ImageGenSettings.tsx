@@ -1,6 +1,6 @@
 import { ImageSquare, Cpu, FloppyDisk } from '@phosphor-icons/react'
-import { FormEvent, useState } from 'react'
-import { loadImageGenSettings, saveImageGenSettings, type ComfyUiConfig, type LlmImageConfig } from './imagegenStore'
+import { FormEvent, useEffect, useState } from 'react'
+import { loadSettings, persistSettings, type ComfyUiConfig, type LlmImageConfig } from './imagegenStore'
 
 type BackendTab = 'llm' | 'comfyui'
 
@@ -9,32 +9,53 @@ type BackendTab = 'llm' | 'comfyui'
  *  - LLM (OpenAI-compatible): baseUrl + apiKey + model
  *  - Local ComfyUI: server + split models (unet/clip/vae) or legacy checkpoint
  *
- * Persisted to the local browser for now; the same field names map to the
- * Host-side SettingsRepository once the Host <-> Client channel lands.
+ * Persists through the Host's secure SettingsRepository (API key lives only in
+ * Host SQLite); falls back to localStorage when the Host is unavailable.
  */
 export function ImageGenSettings({ onToast }: { onToast: (message: string, tone?: 'info' | 'success' | 'warning') => void }) {
-  const initial = loadImageGenSettings()
   const [tab, setTab] = useState<BackendTab>('llm')
-  const [llm, setLlm] = useState<LlmImageConfig>({ baseUrl: initial.llm?.baseUrl ?? '', apiKey: initial.llm?.apiKey ?? '', model: initial.llm?.model ?? '' })
+  const [source, setSource] = useState<'host' | 'local' | 'loading'>('loading')
+  const [llm, setLlm] = useState<LlmImageConfig>({ baseUrl: '', apiKey: '', model: '' })
   const [comfyui, setComfyui] = useState<ComfyUiConfig>({
-    server: initial.comfyui?.server ?? 'http://127.0.0.1:8188',
-    unet: initial.comfyui?.unet ?? 'qwen_image_edit_2511_int8_convrot.safetensors',
-    clip: initial.comfyui?.clip ?? 'qwen_2.5_vl_7b_fp8_scaled.safetensors',
-    vae: initial.comfyui?.vae ?? 'qwen_image_vae.safetensors',
-    checkpoint: initial.comfyui?.checkpoint ?? '',
+    server: 'http://127.0.0.1:8188',
+    unet: 'qwen_image_edit_2511_int8_convrot.safetensors',
+    clip: 'qwen_2.5_vl_7b_fp8_scaled.safetensors',
+    vae: 'qwen_image_vae.safetensors',
+    checkpoint: '',
   })
 
-  function handleSubmit(event: FormEvent) {
+  useEffect(() => {
+    let cancelled = false
+    loadSettings().then(({ settings, source }) => {
+      if (cancelled) return
+      setSource(source)
+      if (settings.llm) setLlm({ baseUrl: settings.llm.baseUrl, model: settings.llm.model, apiKey: settings.llm.apiKey })
+      if (settings.comfyui) {
+        setComfyui({
+          server: settings.comfyui.server,
+          unet: settings.comfyui.unet,
+          clip: settings.comfyui.clip,
+          vae: settings.comfyui.vae,
+          checkpoint: settings.comfyui.checkpoint,
+        })
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    const current = loadImageGenSettings()
     if (tab === 'llm') {
       const baseUrl = llm.baseUrl.trim().replace(/\/+$/, '')
       if (!baseUrl || !llm.apiKey.trim() || !llm.model.trim()) {
         onToast('请完整填写 Base URL、API Key 与模型名', 'warning')
         return
       }
-      saveImageGenSettings({ ...(current.comfyui ? { comfyui: current.comfyui } : {}), llm: { baseUrl, apiKey: llm.apiKey.trim(), model: llm.model.trim() } })
-      onToast('大模型生图配置已保存（本地暂存，Host 安全存储接入后迁移）', 'success')
+      const { source } = await persistSettings({ llm: { baseUrl, apiKey: llm.apiKey.trim(), model: llm.model.trim() } })
+      setSource(source)
+      onToast(source === 'host' ? '大模型生图配置已保存到本地服务' : '大模型生图配置已保存到浏览器本地', 'success')
     } else {
       const server = comfyui.server.trim().replace(/\/+$/, '')
       if (!server) {
@@ -47,8 +68,7 @@ export function ImageGenSettings({ onToast }: { onToast: (message: string, tone?
         onToast('请填写 UNet/CLIP/VAE（分离式模型）或 checkpoint（单文件模型）', 'warning')
         return
       }
-      saveImageGenSettings({
-        ...(current.llm ? { llm: current.llm } : {}),
+      const { source } = await persistSettings({
         comfyui: {
           server,
           unet: comfyui.unet?.trim() || undefined,
@@ -57,7 +77,8 @@ export function ImageGenSettings({ onToast }: { onToast: (message: string, tone?
           checkpoint: comfyui.checkpoint?.trim() || undefined,
         },
       })
-      onToast('ComfyUI 配置已保存（本地暂存）', 'success')
+      setSource(source)
+      onToast(source === 'host' ? 'ComfyUI 配置已保存到本地服务' : 'ComfyUI 配置已保存到浏览器本地', 'success')
     }
   }
 
@@ -121,7 +142,7 @@ export function ImageGenSettings({ onToast }: { onToast: (message: string, tone?
 
         <div className="pa-imagegen-settings__actions">
           <button type="submit" className="pa-primary-button"><FloppyDisk aria-hidden="true" size={17} /> 保存配置</button>
-          <span className="pa-imagegen-settings__hint">当前保存到本地浏览器，Host 安全存储接入后自动迁移。</span>
+          <span className="pa-imagegen-settings__hint">{source === 'host' ? '密钥保存在本地 Host 数据库，浏览器不落盘。' : source === 'loading' ? '正在读取配置…' : 'Host 未连接，配置暂存浏览器本地。'}</span>
         </div>
       </form>
     </section>
