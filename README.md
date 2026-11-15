@@ -35,6 +35,8 @@ pnpm dev
 
 本地预览页只用于 UI 开发，不替代 Harness 原生插件入口。
 
+安装、升级与卸载见 [docs/install.md](./docs/install.md)。
+
 ## 验证
 
 ```bash
