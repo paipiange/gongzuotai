@@ -83,7 +83,13 @@ export async function apply(ctx: Context, config: Config = {}) {
   // Trust gate: when the `connection` service exposes `requestRejection`, use it
   // to reject any request the host does not trust. When absent, fall back to the
   // host's own carrier-level checks (do not open a bare public route).
-  const trust = host.connection?.requestRejection
+  //
+  // NOTE: `requestRejection` is an instance method on the `HostConnectionService`
+  // and reads `this.trustedHosts` / `this.browserAuth`. It MUST stay bound to the
+  // service instance — detaching it (`const trust = host.connection.requestRejection`)
+  // makes `this` undefined in strict ESM and throws a TypeError on every request,
+  // which the webserver surfaces as an empty 400. Bind it here once.
+  const trust = host.connection?.requestRejection?.bind(host.connection)
 
   const disposers: Array<() => void> = []
 
