@@ -342,8 +342,11 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
   })
 
   // ---- Asset delete (soft) ----
+  // NOTE: must be a distinct path — dsh's webserver treats the exact route
+  // string as a unique key and does not distinguish by HTTP method, so a
+  // second "/api/paipiange.asset" collides with the binary GET route above.
 
-  register('/api/paipiange.asset', ['DELETE'], async (request) => {
+  register('/api/paipiange.asset.delete', ['POST'], async (request) => {
       const id = new URL(request.url).searchParams.get('id') ?? ''
       if (!id) return error('缺少 id')
       const ok = assets.softDelete(id)

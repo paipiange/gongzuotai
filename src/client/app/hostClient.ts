@@ -550,7 +550,7 @@ export function assetUrl(id: string): string {
 
 /** Soft-delete an asset by id. */
 export async function deleteAsset(id: string): Promise<void> {
-  await apiFetch(`.asset?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+  await apiFetch(`.asset.delete?id=${encodeURIComponent(id)}`, { method: 'POST' })
 }
 
 // ---- Backups ----
