@@ -50,6 +50,8 @@ import {
 } from './workspaceStore'
 import { ImageGenSettings } from './ImageGenSettings'
 import { ImageGenPanel } from './ImageGenPanel'
+import { AssetsPage, InspirationPage, PublishQueuePage } from './LibraryPages'
+import { exportCreation } from './hostClient'
 
 type ArtVariant = 'river' | 'court' | 'blossom' | 'night' | 'portrait' | 'hero'
 
@@ -520,6 +522,28 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
     setRequirement(initialCreation?.requirement ?? '')
   }, [initialCreation, studio])
 
+  // Debounced auto-save: once a draft has an id, persist edits silently so the
+  // user never loses work. Skips video (never persisted) and avoids the toast
+  // used by the explicit "save" buttons.
+  useEffect(() => {
+    if (isVideo || !creationId) return
+    if (!title.trim() && !topic.trim()) return
+    const timer = window.setTimeout(() => {
+      void onSave({
+        id: creationId,
+        studio,
+        title,
+        topic,
+        content,
+        style,
+        requirement,
+      }).then((record) => {
+        if (record) setCreationId(record.id)
+      })
+    }, 800)
+    return () => window.clearTimeout(timer)
+  }, [creationId, title, topic, content, style, requirement, studio, isVideo])
+
   const save = async (status: CreationStatus = initialCreation?.status ?? 'draft') => {
     if (isVideo) {
       onToast('视频功能仅为未开放占位，不会创建记录或任务', 'warning')
@@ -570,19 +594,35 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
     }
   }
 
-  const exportDraft = () => {
+  const exportDraft = async () => {
     if (!content.trim() && !topic.trim()) {
       onToast('请先填写并保存内容', 'warning')
       return
     }
+    // Prefer the Host-side export (Markdown/HTML/ZIP written to the exports
+    // directory); fall back to a client-side Markdown blob when not saved.
+    if (creationId) {
+      try {
+        const blob = await exportCreation(creationId, 'zip')
+        triggerDownload(blob, `${(title.trim() || topic.trim() || '草稿').slice(0, 40)}.zip`)
+        onToast('已导出为 ZIP（含 Markdown 与 HTML）', 'success')
+        return
+      } catch (cause) {
+        onToast(cause instanceof Error ? cause.message : '导出失败，已降级为本地导出', 'warning')
+      }
+    }
     const body = `# ${title.trim() || topic.trim() || '未命名草稿'}\n\n主题：${topic.trim() || '未填写'}\n\n${content.trim()}`
-    const url = URL.createObjectURL(new Blob([body], { type: 'text/markdown;charset=utf-8' }))
+    triggerDownload(new Blob([body], { type: 'text/markdown;charset=utf-8' }), 'paipiange-draft.md')
+    onToast('草稿已导出为 Markdown', 'success')
+  }
+
+  const triggerDownload = (blob: Blob, fileName: string) => {
+    const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
     anchor.href = url
-    anchor.download = 'paipiange-draft.md'
+    anchor.download = fileName
     anchor.click()
     URL.revokeObjectURL(url)
-    onToast('草稿已导出为 Markdown', 'success')
   }
 
   return (
@@ -696,27 +736,6 @@ function HistoryPage({ creations, onOpen, onStatus, onDelete, onCreate }: {
   )
 }
 
-function PublishPage({ creations, onOpen, onStatus, onCreate }: {
-  creations: CreationRecord[]
-  onOpen: (creation: CreationRecord) => void
-  onStatus: (id: string, status: CreationStatus) => void
-  onCreate: () => void
-}) {
-  const queued = creations.filter((creation) => creation.status === 'queued')
-  return (
-    <div className="pa-page">
-      <PageIntro title="发布管理" description="仅管理本地待发布清单，不登录或自动发布到任何第三方平台。" />
-      {queued.length ? <div className="pa-publish-grid">{queued.map((creation) => (
-        <article key={creation.id} className="pa-panel pa-publish-card">
-          <div className="pa-publish-card__top"><span className="pa-status-badge" data-status="queued">待发布</span><small>{formatLocalTime(creation.updatedAt)}</small></div>
-          <h2>{creation.title}</h2><p>{creation.content.trim() || creation.topic}</p>
-          <div><button type="button" className="pa-secondary-button" onClick={() => onOpen(creation)}>查看与编辑</button><button type="button" className="pa-link-button" onClick={() => onStatus(creation.id, 'draft')}>移回草稿</button></div>
-        </article>
-      ))}</div> : <section className="pa-panel pa-large-empty"><div className="pa-large-empty__icon"><PaperPlaneTilt aria-hidden="true" size={27} weight="duotone" /></div><h2>暂无待发布内容</h2><p>在创作工作台保存草稿时选择“加入待发布”，内容会出现在这里。</p><button type="button" className="pa-secondary-button" onClick={onCreate}>开始创作</button></section>}
-    </div>
-  )
-}
-
 function WorkspacePage({ page, creations, storageSource, onNavigate, onOpenStudio, onOpenCreation, onStatus, onDelete, onToast }: {
   page: Exclude<PageId, 'home' | 'create'>
   creations: CreationRecord[]
@@ -731,7 +750,7 @@ function WorkspacePage({ page, creations, storageSource, onNavigate, onOpenStudi
   const meta = pageMeta[page]
 
   if (page === 'history') return <HistoryPage creations={creations} onOpen={onOpenCreation} onStatus={onStatus} onDelete={onDelete} onCreate={() => onOpenStudio('article')} />
-  if (page === 'publish') return <PublishPage creations={creations} onOpen={onOpenCreation} onStatus={onStatus} onCreate={() => onOpenStudio('article')} />
+  if (page === 'publish') return <PublishQueuePage creations={creations} onOpen={onOpenCreation} onToast={onToast} />
 
   if (page === 'analytics') {
     return (
@@ -744,14 +763,11 @@ function WorkspacePage({ page, creations, storageSource, onNavigate, onOpenStudi
   }
 
   if (page === 'inspiration') {
-    return (
-      <div className="pa-page">
-        <PageIntro title={meta.title} description={meta.description} action="随机灵感" onAction={() => onToast('已为你切换一组灵感', 'success')} />
-        <div className="pa-inspiration-grid">
-          {inspirations.map((item, index) => <button key={item.title} type="button" className="pa-inspiration-tile" onClick={() => onOpenStudio('article')}><ScenicArt variant={item.art} label={`${item.title}原创插画`} /><span><small>{item.eyebrow}</small><strong>{item.title}</strong><p>{item.description}</p></span><b>{String(index + 1).padStart(2, '0')}</b></button>)}
-        </div>
-      </div>
-    )
+    return <InspirationPage onOpenStudio={() => onOpenStudio('article')} onToast={onToast} />
+  }
+
+  if (page === 'assets') {
+    return <AssetsPage onToast={onToast} />
   }
 
   if (page === 'settings') {
@@ -766,17 +782,11 @@ function WorkspacePage({ page, creations, storageSource, onNavigate, onOpenStudi
     )
   }
 
-  const content = {
-    assets: { icon: <CloudArrowUp aria-hidden="true" size={27} weight="duotone" />, title: '素材库还是空的', description: '后续可导入图片、文稿、提示词与文件；当前阶段先完成界面结构。', action: '导入素材' },
-  }[page]
-
+  // All known pages are handled above; fall back to a neutral empty state.
   return (
     <div className="pa-page">
-      <PageIntro title={meta.title} description={meta.description} action={page === 'assets' ? '导入素材' : undefined} onAction={() => onToast('本地数据功能将在后续阶段启用')} />
-      <section className="pa-panel pa-large-empty">
-        <div className="pa-large-empty__icon">{content.icon}</div><h2>{content.title}</h2><p>{content.description}</p>
-        <button type="button" className="pa-secondary-button" onClick={() => onToast('素材导入将在 Host 文件存储阶段启用')}>{content.action}</button>
-      </section>
+      <PageIntro title={meta.title} description={meta.description} />
+      <section className="pa-panel pa-large-empty"><div className="pa-large-empty__icon"><CloudArrowUp aria-hidden="true" size={27} weight="duotone" /></div><h2>{meta.title}</h2><p>{meta.description}</p></section>
     </div>
   )
 }

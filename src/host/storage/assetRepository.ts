@@ -97,6 +97,16 @@ export class AssetRepository {
     return row ? mapAsset(row) : null
   }
 
+  list(kind?: AssetKind, limit = 100, offset = 0) {
+    const rows = this.db.prepare(`
+      SELECT * FROM assets
+      WHERE (@kind IS NULL OR kind = @kind) AND deleted_at IS NULL
+      ORDER BY created_at DESC
+      LIMIT @limit OFFSET @offset
+    `).all({ kind: kind ?? null, limit, offset }) as AssetRow[]
+    return rows.map(mapAsset)
+  }
+
   listByCreation(creationId: string) {
     const rows = this.db.prepare(`
       SELECT * FROM assets

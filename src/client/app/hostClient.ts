@@ -49,6 +49,60 @@ export interface GeneratedImageResult {
   sizeBytes: number
 }
 
+export interface TemplateRecord {
+  id: string
+  category: string
+  name: string
+  description: string
+  promptTemplate: string
+  fields: unknown[]
+  isBuiltin: boolean
+  version: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface InspirationRecord {
+  id: string
+  title: string
+  description: string
+  promptTemplate: string
+  category: string
+  tags: string[]
+  coverAssetId: string | null
+  isBuiltin: boolean
+  createdAt: string
+}
+
+export type PublishPlatform = 'wechat' | 'xiaohongshu' | 'zhihu' | 'toutiao' | 'other'
+export type PublishStatus = 'draft' | 'ready' | 'exported' | 'published'
+
+export interface PublishItem {
+  id: string
+  creationId: string
+  platform: PublishPlatform
+  status: PublishStatus
+  exportPath: string | null
+  externalUrl: string | null
+  exportedAt: string | null
+  publishedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AssetRecord {
+  id: string
+  kind: 'image' | 'file' | 'prompt' | 'document'
+  name: string
+  mimeType: string
+  sizeBytes: number
+  width: number | null
+  height: number | null
+  tags: string[]
+  sourceCreationId: string | null
+  createdAt: string
+}
+
 export class HostError extends Error {
   constructor(
     message: string,
@@ -161,4 +215,109 @@ export async function generateImages(input: {
     body: JSON.stringify(input),
   })
   return data.images
+}
+
+// ---- Templates ----
+
+export async function listTemplates(category?: string): Promise<TemplateRecord[]> {
+  const path = category ? `.templates?category=${encodeURIComponent(category)}` : '.templates'
+  const data = await apiFetch<{ templates: TemplateRecord[] }>(path)
+  return data.templates
+}
+
+export async function createTemplate(input: { category: string; name: string; description?: string; promptTemplate: string; fields?: unknown[] }): Promise<TemplateRecord> {
+  const data = await apiFetch<{ template: TemplateRecord }>('.templates', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return data.template
+}
+
+// ---- Inspirations ----
+
+export async function listInspirations(category?: string): Promise<InspirationRecord[]> {
+  const path = category ? `.inspirations?category=${encodeURIComponent(category)}` : '.inspirations'
+  const data = await apiFetch<{ inspirations: InspirationRecord[] }>(path)
+  return data.inspirations
+}
+
+export async function createInspiration(input: { title: string; description?: string; promptTemplate?: string; category?: string; tags?: string[] }): Promise<InspirationRecord> {
+  const data = await apiFetch<{ inspiration: InspirationRecord }>('.inspirations', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return data.inspiration
+}
+
+// ---- Publish queue ----
+
+export async function listPublishItems(status?: PublishStatus): Promise<PublishItem[]> {
+  const path = status ? `.publish?status=${encodeURIComponent(status)}` : '.publish'
+  const data = await apiFetch<{ items: PublishItem[] }>(path)
+  return data.items
+}
+
+export async function createPublishItem(input: { creationId: string; platform: PublishPlatform }): Promise<PublishItem> {
+  const data = await apiFetch<{ item: PublishItem }>('.publish', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return data.item
+}
+
+export async function setPublishStatus(id: string, status: PublishStatus, externalUrl?: string): Promise<PublishItem> {
+  const data = await apiFetch<{ item: PublishItem }>(`.publish.status?id=${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status, ...(externalUrl !== undefined ? { externalUrl } : {}) }),
+  })
+  return data.item
+}
+
+// ---- Export ----
+
+export async function exportCreation(creationId: string, format: 'markdown' | 'html' | 'zip'): Promise<Blob> {
+  const response = await fetch(`${BASE}.export`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ creationId, format }),
+  })
+  if (!response.ok) {
+    const body = await response.json().catch(() => null) as { error?: string } | null
+    throw new HostError(body?.error ?? `导出失败 (HTTP ${response.status})`, response.status)
+  }
+  return response.blob()
+}
+
+// ---- Assets ----
+
+export async function listAssets(input?: { kind?: 'image' | 'file' | 'prompt' | 'document'; creationId?: string }): Promise<AssetRecord[]> {
+  const params = new URLSearchParams()
+  if (input?.kind) params.set('kind', input.kind)
+  if (input?.creationId) params.set('creationId', input.creationId)
+  const query = params.toString()
+  const data = await apiFetch<{ assets: AssetRecord[] }>(`.assets${query ? `?${query}` : ''}`)
+  return data.assets
+}
+
+export async function uploadAsset(file: File, creationId?: string): Promise<AssetRecord> {
+  const query = creationId ? `?creationId=${encodeURIComponent(creationId)}` : ''
+  const response = await fetch(`${BASE}.asset.upload${query}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': file.type || 'application/octet-stream',
+      'X-File-Name': file.name,
+    },
+    body: file,
+  })
+  if (!response.ok) {
+    const body = await response.json().catch(() => null) as { error?: string } | null
+    throw new HostError(body?.error ?? `上传失败 (HTTP ${response.status})`, response.status)
+  }
+  const data = await response.json() as { asset: AssetRecord }
+  return data.asset
+}
+
+/** Build an <img> source URL for an asset id (same-origin binary route). */
+export function assetUrl(id: string): string {
+  return `${BASE}.asset?id=${encodeURIComponent(id)}`
 }

@@ -23,7 +23,7 @@
 - [x] 统一 Host `type`（article/title）与 Client `studio`（article/headline）命名差异（`STUDIO_TO_TYPE`/`TYPE_TO_STUDIO` 映射）
 - [x] 生图配置持久化到 Host `app_settings`（`imagegenStore` 迁移 Host 优先 + localStorage 降级）
 - [x] 生图结果落盘 media 目录 + 回写 assets 表（`AssetRepository` + `/api/paipiange.imagegen.generate` 落盘）
-- [ ] 草稿自动保存、上传素材落盘（media 目录）、模板/灵感池读写仓库
+- [x] 草稿自动保存（debounce 800ms 静默保存）、上传素材落盘（`/api/paipiange.asset.upload` + 素材库接 Host）、模板/灵感池读写仓库（TemplateRepository/InspirationRepository + 路由）
 - [x] 回收站与「永久删除」接真实 DB（`CreationRepository.remove()` 硬删除 + `/api/paipiange.creation.purge` 路由；softDelete/restore 已接线）
 
 ### C. 生图 Provider（Phase 5）—— 本次重点
@@ -42,8 +42,8 @@
 
 ### D. 导出 / 品质 / 发布（Phase 6）
 
-- [ ] 公众号 HTML / Markdown / ZIP 导出
-- [ ] 本地待发布清单接入 publish_items 表
+- [x] 公众号 HTML / Markdown / ZIP 导出（`ExportService` + `/api/paipiange.export` 路由 + client 导出按钮走 Host）
+- [x] 本地待发布清单接入 publish_items 表（`PublishRepository` + `/api/paipiange.publish` 路由 + 发布管理页接 Host，creation 标记 queued 时自动 upsert）
 - [ ] 全面测试 + CI + 依赖打包
 - [ ] 实机 Harness 安装 / 卸载 / 截图回归测试（docs/compatibility.md 遗留项）
 - [ ] 最终 tgz 安装包 + 安装文档 + Release

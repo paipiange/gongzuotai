@@ -1,6 +1,10 @@
 import type { CreationRepository, CreateCreationInput, CreationType } from '../storage/creationRepository'
 import type { SettingsRepository } from '../storage/SettingsRepository'
 import type { AssetRepository } from '../storage/assetRepository'
+import type { TemplateRepository } from '../storage/templateRepository'
+import type { InspirationRepository } from '../storage/inspirationRepository'
+import type { PublishRepository, PublishPlatform, PublishStatus } from '../storage/publishRepository'
+import type { ExportService, ExportFormat } from '../storage/exportService'
 import type { ImageGenService, ProviderId } from '../imagegen/ImageGenService'
 import type { ImageGenRequest } from '../imagegen/types'
 
@@ -22,6 +26,10 @@ export type ApiDeps = {
   creations: CreationRepository
   settings: SettingsRepository
   assets: AssetRepository
+  templates: TemplateRepository
+  inspirations: InspirationRepository
+  publish: PublishRepository
+  exports: ExportService
   /** Builds a fresh image-gen service so a newly saved backend takes effect without a restart. */
   buildImageGen: () => ImageGenService
 }
@@ -92,7 +100,7 @@ type ClientDraft = {
 }
 
 export function registerApiRoutes(deps: ApiDeps, register: (route: FetchRoute) => void) {
-  const { creations, settings, assets, buildImageGen } = deps
+  const { creations, settings, assets, templates, inspirations, publish, exports, buildImageGen } = deps
 
   // ---- Creations list + create ----
 
@@ -119,6 +127,7 @@ export function registerApiRoutes(deps: ApiDeps, register: (route: FetchRoute) =
           status: body.status === 'queued' || body.status === 'archived' ? body.status : 'draft',
         }
         const record = creations.create(input)
+        if (record.status === 'queued') publish.ensureForCreation(record.id)
         return json({ creation: toClientCreation(record) }, 201)
       }
 
@@ -163,6 +172,7 @@ export function registerApiRoutes(deps: ApiDeps, register: (route: FetchRoute) =
           ? { style: body.style, requirement: body.requirement }
           : undefined,
       })
+      if (updated && updated.status === 'queued') publish.ensureForCreation(updated.id)
       return updated ? json({ creation: toClientCreation(updated) }) : error('更新失败', 404)
     },
   })
@@ -180,6 +190,7 @@ export function registerApiRoutes(deps: ApiDeps, register: (route: FetchRoute) =
       const body = await request.json().catch(() => null) as { status?: 'draft' | 'queued' | 'archived' } | null
       if (!body || !body.status) return error('缺少 status 字段')
       const updated = creations.update(id, { status: body.status })
+      if (updated && updated.status === 'queued') publish.ensureForCreation(updated.id)
       return updated ? json({ creation: toClientCreation(updated) }) : error('记录不存在', 404)
     },
   })
@@ -274,6 +285,181 @@ export function registerApiRoutes(deps: ApiDeps, register: (route: FetchRoute) =
       const buffer = readFileSync(assets.resolveAbsolutePath(asset))
       return new Response(new Uint8Array(buffer), {
         headers: { 'Content-Type': asset.mimeType, 'Cache-Control': 'no-store' },
+      })
+    },
+  })
+
+  // ---- Asset list (metadata only) ----
+
+  register({
+    path: '/api/paipiange.assets',
+    methods: ['GET'],
+    async fetch(request) {
+      const url = new URL(request.url)
+      const kind = url.searchParams.get('kind')
+      const creationId = url.searchParams.get('creationId')
+      const rows = creationId
+        ? assets.listByCreation(creationId)
+        : assets.list(kind === 'image' || kind === 'file' || kind === 'prompt' || kind === 'document' ? kind : undefined)
+      return json({
+        assets: rows.map((a) => ({
+          id: a.id,
+          kind: a.kind,
+          name: a.name,
+          mimeType: a.mimeType,
+          sizeBytes: a.sizeBytes,
+          width: a.width,
+          height: a.height,
+          tags: a.tags,
+          sourceCreationId: a.sourceCreationId,
+          createdAt: a.createdAt,
+        })),
+      })
+    },
+  })
+
+  // ---- Asset upload (binary) ----
+
+  register({
+    path: '/api/paipiange.asset.upload',
+    methods: ['POST'],
+    requestBody: 'buffered',
+    async fetch(request) {
+      const sourceCreationId = new URL(request.url).searchParams.get('creationId') ?? undefined
+      const mimeType = request.headers.get('Content-Type') ?? 'application/octet-stream'
+      const kind: 'image' | 'file' = mimeType.startsWith('image/') ? 'image' : 'file'
+      const name = request.headers.get('X-File-Name') ?? `upload-${Date.now()}`
+      const buffer = Buffer.from(await request.arrayBuffer())
+      if (buffer.byteLength === 0) return error('上传内容为空')
+      const record = assets.save({ kind, name, mimeType, data: buffer, sourceCreationId: sourceCreationId ?? null })
+      return json({ asset: { id: record.id, kind: record.kind, name: record.name, mimeType: record.mimeType, sizeBytes: record.sizeBytes } }, 201)
+    },
+  })
+
+  // ---- Templates ----
+
+  register({
+    path: '/api/paipiange.templates',
+    methods: ['GET', 'POST'],
+    requestBody: 'buffered',
+    async fetch(request) {
+      if (request.method === 'POST') {
+        const body = await request.json().catch(() => null) as {
+          category?: string
+          name?: string
+          description?: string
+          promptTemplate?: string
+          fields?: unknown[]
+        } | null
+        if (!body || !body.name || !body.promptTemplate) return error('缺少 name 或 promptTemplate')
+        try {
+          const record = templates.create({ category: body.category ?? '通用', name: body.name, description: body.description, promptTemplate: body.promptTemplate, fields: body.fields })
+          return json({ template: record }, 201)
+        } catch (cause) {
+          return error(cause instanceof Error ? cause.message : '创建模板失败')
+        }
+      }
+      const category = new URL(request.url).searchParams.get('category') ?? undefined
+      return json({ templates: templates.list({ category }) })
+    },
+  })
+
+  // ---- Inspirations ----
+
+  register({
+    path: '/api/paipiange.inspirations',
+    methods: ['GET', 'POST'],
+    requestBody: 'buffered',
+    async fetch(request) {
+      if (request.method === 'POST') {
+        const body = await request.json().catch(() => null) as {
+          title?: string
+          description?: string
+          promptTemplate?: string
+          category?: string
+          tags?: string[]
+        } | null
+        if (!body || !body.title) return error('缺少 title')
+        try {
+          const record = inspirations.create({ title: body.title, description: body.description ?? '', promptTemplate: body.promptTemplate ?? '', category: body.category ?? '通用', tags: body.tags })
+          return json({ inspiration: record }, 201)
+        } catch (cause) {
+          return error(cause instanceof Error ? cause.message : '创建灵感失败')
+        }
+      }
+      const category = new URL(request.url).searchParams.get('category') ?? undefined
+      return json({ inspirations: inspirations.list({ category }) })
+    },
+  })
+
+  // ---- Publish queue ----
+
+  register({
+    path: '/api/paipiange.publish',
+    methods: ['GET', 'POST'],
+    requestBody: 'buffered',
+    async fetch(request) {
+      if (request.method === 'POST') {
+        const body = await request.json().catch(() => null) as { creationId?: string; platform?: string; status?: string } | null
+        if (!body || !body.creationId || !body.platform) return error('缺少 creationId 或 platform')
+        if (!['wechat', 'xiaohongshu', 'zhihu', 'toutiao', 'other'].includes(body.platform)) return error('不支持的发布平台')
+        try {
+          const record = publish.create({ creationId: body.creationId, platform: body.platform as PublishPlatform, status: body.status === 'ready' || body.status === 'exported' || body.status === 'published' ? body.status as PublishStatus : 'draft' })
+          return json({ item: record }, 201)
+        } catch (cause) {
+          return error(cause instanceof Error ? cause.message : '创建发布项失败')
+        }
+      }
+      const status = new URL(request.url).searchParams.get('status')
+      return json({ items: publish.list({ status: status === 'draft' || status === 'ready' || status === 'exported' || status === 'published' ? status as PublishStatus : undefined }) })
+    },
+  })
+
+  // ---- Publish item status ----
+
+  register({
+    path: '/api/paipiange.publish.status',
+    methods: ['PATCH'],
+    requestBody: 'buffered',
+    async fetch(request) {
+      const id = new URL(request.url).searchParams.get('id') ?? ''
+      if (!id) return error('缺少 id')
+      const body = await request.json().catch(() => null) as { status?: string; externalUrl?: string } | null
+      if (!body || !body.status) return error('缺少 status')
+      if (!['draft', 'ready', 'exported', 'published'].includes(body.status)) return error('无效状态')
+      const updated = publish.update(id, {
+        status: body.status as PublishStatus,
+        ...(body.externalUrl !== undefined ? { externalUrl: body.externalUrl } : {}),
+      })
+      return updated ? json({ item: updated }) : error('发布项不存在', 404)
+    },
+  })
+
+  // ---- Export ----
+
+  register({
+    path: '/api/paipiange.export',
+    methods: ['POST'],
+    requestBody: 'buffered',
+    async fetch(request) {
+      const body = await request.json().catch(() => null) as { creationId?: string; format?: string } | null
+      if (!body || !body.creationId) return error('缺少 creationId')
+      if (!['markdown', 'html', 'zip'].includes(body.format ?? '')) return error('不支持的导出格式')
+      const creation = creations.getById(body.creationId)
+      if (!creation) return error('创作记录不存在', 404)
+      const { readFileSync, statSync } = await import('node:fs')
+      const result = exports.export(
+        { title: creation.title, bodyMd: creation.bodyMd, bodyHtml: creation.bodyHtml },
+        body.format as ExportFormat,
+      )
+      const absolute = exports.resolveAbsolute(result.relativePath)
+      const buffer = readFileSync(absolute)
+      return new Response(new Uint8Array(buffer), {
+        headers: {
+          'Content-Type': body.format === 'markdown' ? 'text/markdown' : body.format === 'html' ? 'text/html' : 'application/zip',
+          'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(result.fileName)}`,
+          'Cache-Control': 'no-store',
+        },
       })
     },
   })

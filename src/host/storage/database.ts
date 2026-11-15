@@ -49,6 +49,13 @@ export class PaipiangeDatabase {
   }
 
   close() {
-    if (this.db.open) this.db.close()
+    if (this.db.open) {
+      try {
+        this.db.pragma('wal_checkpoint(TRUNCATE)')
+      } catch {
+        // checkpoint may fail if the database is read-only or already closing
+      }
+      this.db.close()
+    }
   }
 }
