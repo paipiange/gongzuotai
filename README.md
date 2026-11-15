@@ -21,10 +21,10 @@
 
 ## 尚未实现
 
-- Harness Host 认证路由以及 Client 到 SQLite 的安全迁移；当前界面草稿存储仍是过渡性的浏览器本地适配器。
+- Harness 实机安装、卸载与截图回归测试（见 [docs/harness-acceptance.md](./docs/harness-acceptance.md)）。
 - Harness 文本模型调用和流式任务。
-- 图片 Provider、富文本编辑器、完整备份与 Host 侧导出。
-- Harness 实机安装、卸载与截图回归测试。
+- 图片 Provider 的第三方云供应商（当前仅本机 ComfyUI 与可配置 OpenAI 兼容接口）。
+- 富文本编辑器、完整备份与多平台自动发布。
 
 ## 本地开发
 

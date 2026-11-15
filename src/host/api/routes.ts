@@ -9,10 +9,12 @@ import type { ImageGenService, ProviderId } from '../imagegen/ImageGenService'
 import type { ImageGenRequest } from '../imagegen/types'
 
 /**
- * Host-side HTTP API. Every route is registered through Harness's connection
- * service as an *exact* fetch route (path parameters are NOT supported — ids
- * travel as query parameters). This module also owns the type<->studio naming
- * bridge:
+ * Host-side HTTP API. Every route is registered as an *exact* route on the
+ * official Harness `webServer` service (path parameters are NOT supported —
+ * ids travel as query parameters). Handlers are written against the Web
+ * Fetch API (`Request`/`Response`); the caller supplies a bridge that adapts
+ * them to the host's Node request/response pair. This module also owns the
+ * type<->studio naming bridge:
  *
  *   Host `type`      Client `studio`
  *   article          article
@@ -34,12 +36,10 @@ export type ApiDeps = {
   buildImageGen: () => ImageGenService
 }
 
-type FetchRoute = {
-  path: string
-  methods: string[]
-  requestBody?: 'buffered'
-  fetch: (request: Request) => Promise<Response> | Response
-}
+type FetchHandler = (request: Request) => Promise<Response> | Response
+
+/** The bridge shape the host supplies to adapt Fetch handlers onto its web server. */
+export type RegisterRoute = (path: string, methods: string[], handler: FetchHandler) => void
 
 /** Client-side studio id -> Host-side creation type. */
 const STUDIO_TO_TYPE: Record<string, CreationType> = {
@@ -99,16 +99,12 @@ type ClientDraft = {
   status?: 'draft' | 'queued' | 'archived'
 }
 
-export function registerApiRoutes(deps: ApiDeps, register: (route: FetchRoute) => void) {
+export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
   const { creations, settings, assets, templates, inspirations, publish, exports, buildImageGen } = deps
 
   // ---- Creations list + create ----
 
-  register({
-    path: '/api/paipiange.creations',
-    methods: ['GET', 'POST'],
-    requestBody: 'buffered',
-    async fetch(request) {
+  register('/api/paipiange.creations', ['GET', 'POST'], async (request) => {
       if (request.method === 'POST') {
         const body = await request.json().catch(() => null) as ClientDraft | null
         if (!body || !body.studio) return error('缺少 studio 字段')
@@ -139,16 +135,11 @@ export function registerApiRoutes(deps: ApiDeps, register: (route: FetchRoute) =
         query,
       })
       return json({ creations: records.map(toClientCreation) })
-    },
   })
 
   // ---- Single creation: get / update / soft-delete (id via query) ----
 
-  register({
-    path: '/api/paipiange.creation',
-    methods: ['GET', 'PATCH', 'DELETE'],
-    requestBody: 'buffered',
-    async fetch(request) {
+  register('/api/paipiange.creation', ['GET', 'PATCH', 'DELETE'], async (request) => {
       const url = new URL(request.url)
       const id = url.searchParams.get('id') ?? ''
       if (!id) return error('缺少 id')
@@ -174,16 +165,11 @@ export function registerApiRoutes(deps: ApiDeps, register: (route: FetchRoute) =
       })
       if (updated && updated.status === 'queued') publish.ensureForCreation(updated.id)
       return updated ? json({ creation: toClientCreation(updated) }) : error('更新失败', 404)
-    },
   })
 
   // ---- Creation status change ----
 
-  register({
-    path: '/api/paipiange.creation.status',
-    methods: ['PATCH'],
-    requestBody: 'buffered',
-    async fetch(request) {
+  register('/api/paipiange.creation.status', ['PATCH'], async (request) => {
       const url = new URL(request.url)
       const id = url.searchParams.get('id') ?? ''
       if (!id) return error('缺少 id')
@@ -192,29 +178,20 @@ export function registerApiRoutes(deps: ApiDeps, register: (route: FetchRoute) =
       const updated = creations.update(id, { status: body.status })
       if (updated && updated.status === 'queued') publish.ensureForCreation(updated.id)
       return updated ? json({ creation: toClientCreation(updated) }) : error('记录不存在', 404)
-    },
   })
 
   // ---- Creation hard delete (permanent, bypasses soft delete) ----
 
-  register({
-    path: '/api/paipiange.creation.purge',
-    methods: ['DELETE'],
-    async fetch(request) {
+  register('/api/paipiange.creation.purge', ['DELETE'], async (request) => {
       const id = new URL(request.url).searchParams.get('id') ?? ''
       if (!id) return error('缺少 id')
       const ok = creations.remove(id)
       return ok ? json({ ok: true }) : error('记录不存在', 404)
-    },
   })
 
   // ---- Image-gen config (no secrets in responses) ----
 
-  register({
-    path: '/api/paipiange.imagegen',
-    methods: ['GET', 'PUT'],
-    requestBody: 'buffered',
-    async fetch(request) {
+  register('/api/paipiange.imagegen', ['GET', 'PUT'], async (request) => {
       if (request.method === 'PUT') {
         const body = await request.json().catch(() => null) as {
           llm?: { baseUrl: string; apiKey: string; model: string }
@@ -232,16 +209,11 @@ export function registerApiRoutes(deps: ApiDeps, register: (route: FetchRoute) =
         return json({ summary: settings.getImageGenSummary() })
       }
       return json({ summary: settings.getImageGenSummary() })
-    },
   })
 
   // ---- Image generation ----
 
-  register({
-    path: '/api/paipiange.imagegen.generate',
-    methods: ['POST'],
-    requestBody: 'buffered',
-    async fetch(request) {
+  register('/api/paipiange.imagegen.generate', ['POST'], async (request) => {
       const body = await request.json().catch(() => null) as {
         provider?: ProviderId
         request?: ImageGenRequest
@@ -268,15 +240,11 @@ export function registerApiRoutes(deps: ApiDeps, register: (route: FetchRoute) =
         const message = cause instanceof Error ? cause.message : String(cause)
         return error(`生成失败: ${message}`, 502)
       }
-    },
   })
 
   // ---- Asset retrieval (binary) ----
 
-  register({
-    path: '/api/paipiange.asset',
-    methods: ['GET'],
-    async fetch(request) {
+  register('/api/paipiange.asset', ['GET'], async (request) => {
       const id = new URL(request.url).searchParams.get('id') ?? ''
       if (!id) return error('缺少 id')
       const asset = assets.getById(id)
@@ -286,15 +254,11 @@ export function registerApiRoutes(deps: ApiDeps, register: (route: FetchRoute) =
       return new Response(new Uint8Array(buffer), {
         headers: { 'Content-Type': asset.mimeType, 'Cache-Control': 'no-store' },
       })
-    },
   })
 
   // ---- Asset list (metadata only) ----
 
-  register({
-    path: '/api/paipiange.assets',
-    methods: ['GET'],
-    async fetch(request) {
+  register('/api/paipiange.assets', ['GET'], async (request) => {
       const url = new URL(request.url)
       const kind = url.searchParams.get('kind')
       const creationId = url.searchParams.get('creationId')
@@ -315,16 +279,11 @@ export function registerApiRoutes(deps: ApiDeps, register: (route: FetchRoute) =
           createdAt: a.createdAt,
         })),
       })
-    },
   })
 
   // ---- Asset upload (binary) ----
 
-  register({
-    path: '/api/paipiange.asset.upload',
-    methods: ['POST'],
-    requestBody: 'buffered',
-    async fetch(request) {
+  register('/api/paipiange.asset.upload', ['POST'], async (request) => {
       const sourceCreationId = new URL(request.url).searchParams.get('creationId') ?? undefined
       const mimeType = request.headers.get('Content-Type') ?? 'application/octet-stream'
       const kind: 'image' | 'file' = mimeType.startsWith('image/') ? 'image' : 'file'
@@ -333,16 +292,11 @@ export function registerApiRoutes(deps: ApiDeps, register: (route: FetchRoute) =
       if (buffer.byteLength === 0) return error('上传内容为空')
       const record = assets.save({ kind, name, mimeType, data: buffer, sourceCreationId: sourceCreationId ?? null })
       return json({ asset: { id: record.id, kind: record.kind, name: record.name, mimeType: record.mimeType, sizeBytes: record.sizeBytes } }, 201)
-    },
   })
 
   // ---- Templates ----
 
-  register({
-    path: '/api/paipiange.templates',
-    methods: ['GET', 'POST'],
-    requestBody: 'buffered',
-    async fetch(request) {
+  register('/api/paipiange.templates', ['GET', 'POST'], async (request) => {
       if (request.method === 'POST') {
         const body = await request.json().catch(() => null) as {
           category?: string
@@ -361,16 +315,11 @@ export function registerApiRoutes(deps: ApiDeps, register: (route: FetchRoute) =
       }
       const category = new URL(request.url).searchParams.get('category') ?? undefined
       return json({ templates: templates.list({ category }) })
-    },
   })
 
   // ---- Inspirations ----
 
-  register({
-    path: '/api/paipiange.inspirations',
-    methods: ['GET', 'POST'],
-    requestBody: 'buffered',
-    async fetch(request) {
+  register('/api/paipiange.inspirations', ['GET', 'POST'], async (request) => {
       if (request.method === 'POST') {
         const body = await request.json().catch(() => null) as {
           title?: string
@@ -389,16 +338,11 @@ export function registerApiRoutes(deps: ApiDeps, register: (route: FetchRoute) =
       }
       const category = new URL(request.url).searchParams.get('category') ?? undefined
       return json({ inspirations: inspirations.list({ category }) })
-    },
   })
 
   // ---- Publish queue ----
 
-  register({
-    path: '/api/paipiange.publish',
-    methods: ['GET', 'POST'],
-    requestBody: 'buffered',
-    async fetch(request) {
+  register('/api/paipiange.publish', ['GET', 'POST'], async (request) => {
       if (request.method === 'POST') {
         const body = await request.json().catch(() => null) as { creationId?: string; platform?: string; status?: string } | null
         if (!body || !body.creationId || !body.platform) return error('缺少 creationId 或 platform')
@@ -412,16 +356,11 @@ export function registerApiRoutes(deps: ApiDeps, register: (route: FetchRoute) =
       }
       const status = new URL(request.url).searchParams.get('status')
       return json({ items: publish.list({ status: status === 'draft' || status === 'ready' || status === 'exported' || status === 'published' ? status as PublishStatus : undefined }) })
-    },
   })
 
   // ---- Publish item status ----
 
-  register({
-    path: '/api/paipiange.publish.status',
-    methods: ['PATCH'],
-    requestBody: 'buffered',
-    async fetch(request) {
+  register('/api/paipiange.publish.status', ['PATCH'], async (request) => {
       const id = new URL(request.url).searchParams.get('id') ?? ''
       if (!id) return error('缺少 id')
       const body = await request.json().catch(() => null) as { status?: string; externalUrl?: string } | null
@@ -432,16 +371,11 @@ export function registerApiRoutes(deps: ApiDeps, register: (route: FetchRoute) =
         ...(body.externalUrl !== undefined ? { externalUrl: body.externalUrl } : {}),
       })
       return updated ? json({ item: updated }) : error('发布项不存在', 404)
-    },
   })
 
   // ---- Export ----
 
-  register({
-    path: '/api/paipiange.export',
-    methods: ['POST'],
-    requestBody: 'buffered',
-    async fetch(request) {
+  register('/api/paipiange.export', ['POST'], async (request) => {
       const body = await request.json().catch(() => null) as { creationId?: string; format?: string } | null
       if (!body || !body.creationId) return error('缺少 creationId')
       if (!['markdown', 'html', 'zip'].includes(body.format ?? '')) return error('不支持的导出格式')
@@ -461,6 +395,5 @@ export function registerApiRoutes(deps: ApiDeps, register: (route: FetchRoute) =
           'Cache-Control': 'no-store',
         },
       })
-    },
   })
 }
