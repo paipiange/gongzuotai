@@ -1737,6 +1737,13 @@
   border-color: var(--pa-gold-light);
 }
 
+.pa-root .pa-imagegen-settings__divider {
+  color: var(--pa-gold-light);
+  font-size: 11px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(229, 183, 126, 0.14);
+}
+
 .pa-root .pa-imagegen-settings__actions {
   display: flex;
   align-items: center;

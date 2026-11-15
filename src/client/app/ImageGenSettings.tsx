@@ -7,7 +7,7 @@ type BackendTab = 'llm' | 'comfyui'
 /**
  * Image generation settings form. Configures two backends:
  *  - LLM (OpenAI-compatible): baseUrl + apiKey + model
- *  - Local ComfyUI: server + checkpoint
+ *  - Local ComfyUI: server + split models (unet/clip/vae) or legacy checkpoint
  *
  * Persisted to the local browser for now; the same field names map to the
  * Host-side SettingsRepository once the Host <-> Client channel lands.
@@ -16,17 +16,24 @@ export function ImageGenSettings({ onToast }: { onToast: (message: string, tone?
   const initial = loadImageGenSettings()
   const [tab, setTab] = useState<BackendTab>('llm')
   const [llm, setLlm] = useState<LlmImageConfig>({ baseUrl: initial.llm?.baseUrl ?? '', apiKey: initial.llm?.apiKey ?? '', model: initial.llm?.model ?? '' })
-  const [comfyui, setComfyui] = useState<ComfyUiConfig>({ server: initial.comfyui?.server ?? 'http://127.0.0.1:8188', checkpoint: initial.comfyui?.checkpoint ?? '' })
+  const [comfyui, setComfyui] = useState<ComfyUiConfig>({
+    server: initial.comfyui?.server ?? 'http://127.0.0.1:8188',
+    unet: initial.comfyui?.unet ?? 'qwen_image_edit_2511_int8_convrot.safetensors',
+    clip: initial.comfyui?.clip ?? 'qwen_2.5_vl_7b_fp8_scaled.safetensors',
+    vae: initial.comfyui?.vae ?? 'qwen_image_vae.safetensors',
+    checkpoint: initial.comfyui?.checkpoint ?? '',
+  })
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
+    const current = loadImageGenSettings()
     if (tab === 'llm') {
       const baseUrl = llm.baseUrl.trim().replace(/\/+$/, '')
       if (!baseUrl || !llm.apiKey.trim() || !llm.model.trim()) {
         onToast('请完整填写 Base URL、API Key 与模型名', 'warning')
         return
       }
-      saveImageGenSettings({ llm: { baseUrl, apiKey: llm.apiKey.trim(), model: llm.model.trim() }, ...(loadImageGenSettings().comfyui ? { comfyui: loadImageGenSettings().comfyui } : {}) })
+      saveImageGenSettings({ ...(current.comfyui ? { comfyui: current.comfyui } : {}), llm: { baseUrl, apiKey: llm.apiKey.trim(), model: llm.model.trim() } })
       onToast('大模型生图配置已保存（本地暂存，Host 安全存储接入后迁移）', 'success')
     } else {
       const server = comfyui.server.trim().replace(/\/+$/, '')
@@ -34,7 +41,22 @@ export function ImageGenSettings({ onToast }: { onToast: (message: string, tone?
         onToast('请填写 ComfyUI 服务地址', 'warning')
         return
       }
-      saveImageGenSettings({ ...(loadImageGenSettings().llm ? { llm: loadImageGenSettings().llm } : {}), comfyui: { server, checkpoint: comfyui.checkpoint?.trim() || undefined } })
+      const hasSplit = comfyui.unet?.trim() && comfyui.clip?.trim() && comfyui.vae?.trim()
+      const hasCheckpoint = comfyui.checkpoint?.trim()
+      if (!hasSplit && !hasCheckpoint) {
+        onToast('请填写 UNet/CLIP/VAE（分离式模型）或 checkpoint（单文件模型）', 'warning')
+        return
+      }
+      saveImageGenSettings({
+        ...(current.llm ? { llm: current.llm } : {}),
+        comfyui: {
+          server,
+          unet: comfyui.unet?.trim() || undefined,
+          clip: comfyui.clip?.trim() || undefined,
+          vae: comfyui.vae?.trim() || undefined,
+          checkpoint: comfyui.checkpoint?.trim() || undefined,
+        },
+      })
       onToast('ComfyUI 配置已保存（本地暂存）', 'success')
     }
   }
@@ -76,8 +98,22 @@ export function ImageGenSettings({ onToast }: { onToast: (message: string, tone?
               <span>服务地址</span>
               <input type="url" placeholder="http://127.0.0.1:8188" value={comfyui.server} onChange={(event) => setComfyui({ ...comfyui, server: event.target.value })} />
             </label>
+            <div className="pa-imagegen-settings__divider">分离式模型（推荐，如 Qwen-Image-Edit）</div>
             <label>
-              <span>Checkpoint（可选，留空需先安装模型）</span>
+              <span>UNet（扩散模型）</span>
+              <input type="text" placeholder="qwen_image_edit_2511_int8_convrot.safetensors" value={comfyui.unet ?? ''} onChange={(event) => setComfyui({ ...comfyui, unet: event.target.value })} />
+            </label>
+            <label>
+              <span>CLIP（文本编码器）</span>
+              <input type="text" placeholder="qwen_2.5_vl_7b_fp8_scaled.safetensors" value={comfyui.clip ?? ''} onChange={(event) => setComfyui({ ...comfyui, clip: event.target.value })} />
+            </label>
+            <label>
+              <span>VAE</span>
+              <input type="text" placeholder="qwen_image_vae.safetensors" value={comfyui.vae ?? ''} onChange={(event) => setComfyui({ ...comfyui, vae: event.target.value })} />
+            </label>
+            <div className="pa-imagegen-settings__divider">或单文件模型</div>
+            <label>
+              <span>Checkpoint（单文件，可选）</span>
               <input type="text" placeholder="sd.safetensors" value={comfyui.checkpoint ?? ''} onChange={(event) => setComfyui({ ...comfyui, checkpoint: event.target.value })} />
             </label>
           </>

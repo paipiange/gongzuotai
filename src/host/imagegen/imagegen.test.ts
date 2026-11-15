@@ -43,21 +43,23 @@ describe('OpenAICompatImageProvider', () => {
 })
 
 describe('ComfyUIProvider', () => {
-  it('rejects when no checkpoint is configured', async () => {
+  it('rejects when no model is configured', async () => {
     const provider = new ComfyUIProvider({ server: 'http://127.0.0.1:8188' })
-    await expect(provider.generate({ prompt: 'p' })).rejects.toThrow(/checkpoint/)
+    await expect(provider.generate({ prompt: 'p' })).rejects.toThrow(/未配置模型/)
   })
 
-  it('submits a workflow, polls history, and fetches the image', async () => {
+  it('builds a split-model Qwen workflow and fetches the image', async () => {
     const png = Buffer.from('png-bytes')
-    globalThis.fetch = vi.fn(async (input: unknown) => {
+    let submittedBody: Record<string, unknown> | undefined
+    globalThis.fetch = vi.fn(async (input: unknown, init?: RequestInit) => {
       const url = String(input)
       if (url.endsWith('/prompt')) {
+        submittedBody = JSON.parse(String(init?.body))
         return new Response(JSON.stringify({ prompt_id: 'p1' }), { status: 200 })
       }
       if (url.includes('/history/p1')) {
         return new Response(
-          JSON.stringify({ p1: { outputs: { '7': { images: [{ filename: 'out.png', subfolder: '', type: 'output' }] } } } }),
+          JSON.stringify({ p1: { status: { completed: true }, outputs: { '8': { images: [{ filename: 'out.png', subfolder: '', type: 'output' }] } } } }),
           { status: 200 },
         )
       }
@@ -67,12 +69,44 @@ describe('ComfyUIProvider', () => {
       return new Response('{}', { status: 404 })
     }) as unknown as typeof fetch
 
-    const provider = new ComfyUIProvider({ server: 'http://127.0.0.1:8188', checkpoint: 'sd.safetensors' })
+    const provider = new ComfyUIProvider({
+      server: 'http://127.0.0.1:8188',
+      unet: 'qwen_image_edit_2511.safetensors',
+      clip: 'qwen_2.5_vl_7b.safetensors',
+      vae: 'qwen_image_vae.safetensors',
+    })
     const images = await provider.generate({ prompt: 'a cat', seed: 42 })
 
     expect(images).toHaveLength(1)
     expect(images[0].data.toString()).toBe('png-bytes')
     expect(images[0].meta?.seed).toBe(42)
+
+    const prompt = (submittedBody?.prompt ?? {}) as Record<string, { class_type: string; inputs: Record<string, unknown> }>
+    expect(prompt['1'].class_type).toBe('UNETLoader')
+    expect(prompt['2'].class_type).toBe('CLIPLoader')
+    expect(prompt['3'].class_type).toBe('VAELoader')
+    expect(prompt['4'].class_type).toBe('TextEncodeQwenImageEdit')
+    expect(prompt['5'].class_type).toBe('EmptyQwenImageLayeredLatentImage')
+    expect(prompt['1'].inputs.unet_name).toBe('qwen_image_edit_2511.safetensors')
+  })
+
+  it('propagates ComfyUI execution errors', async () => {
+    globalThis.fetch = vi.fn(async (input: unknown) => {
+      const url = String(input)
+      if (url.endsWith('/prompt')) {
+        return new Response(JSON.stringify({ prompt_id: 'p1' }), { status: 200 })
+      }
+      if (url.includes('/history/p1')) {
+        return new Response(
+          JSON.stringify({ p1: { status: { status_str: 'error', messages: [['execution_error', { exception_message: 'dim mismatch' }]] } } }),
+          { status: 200 },
+        )
+      }
+      return new Response('{}', { status: 404 })
+    }) as unknown as typeof fetch
+
+    const provider = new ComfyUIProvider({ server: 'http://x', checkpoint: 'sd.safetensors' })
+    await expect(provider.generate({ prompt: 'p' })).rejects.toThrow(/dim mismatch/)
   })
 })
 

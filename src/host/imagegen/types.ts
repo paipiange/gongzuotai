@@ -43,6 +43,16 @@ export interface LlmImageConfig {
 /** Local ComfyUI backend config. */
 export interface ComfyUiConfig {
   server: string
-  /** Default checkpoint / model to use in the generated workflow. */
+  /**
+   * Legacy single-file checkpoint (SD1.5/SDXL). When set, uses the classic
+   * CheckpointLoaderSimple workflow. Mutually exclusive with the split-model
+   * fields below.
+   */
   checkpoint?: string
+  /** Split-model: diffusion UNet (e.g. Qwen-Image-Edit). */
+  unet?: string
+  /** Split-model: text encoder / CLIP (must match the UNet's hidden dim). */
+  clip?: string
+  /** Split-model: VAE. */
+  vae?: string
 }

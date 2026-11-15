@@ -53,7 +53,13 @@ export class SettingsRepository {
   getComfyUiConfig(): ComfyUiConfig | null {
     const value = readJson(this.db, IMAGE_COMFYUI_KEY) as Partial<ComfyUiConfig> | undefined
     if (!value || !value.server) return null
-    return { server: value.server, checkpoint: value.checkpoint }
+    return {
+      server: value.server,
+      checkpoint: value.checkpoint,
+      unet: value.unet,
+      clip: value.clip,
+      vae: value.vae,
+    }
   }
 
   setComfyUiConfig(config: ComfyUiConfig): void {
@@ -65,12 +71,12 @@ export class SettingsRepository {
   }
 
   /** Non-secret summary for the client to know what backends are configured. */
-  getImageGenSummary(): { llm?: { baseUrl: string; model: string }; comfyui?: { server: string; checkpoint?: string } } {
+  getImageGenSummary(): { llm?: { baseUrl: string; model: string }; comfyui?: { server: string; checkpoint?: string; unet?: string; clip?: string; vae?: string } } {
     const llm = this.getLlmImageConfig()
     const comfyui = this.getComfyUiConfig()
     return {
       ...(llm ? { llm: { baseUrl: llm.baseUrl, model: llm.model } } : {}),
-      ...(comfyui ? { comfyui: { server: comfyui.server, checkpoint: comfyui.checkpoint } } : {}),
+      ...(comfyui ? { comfyui: { server: comfyui.server, checkpoint: comfyui.checkpoint, unet: comfyui.unet, clip: comfyui.clip, vae: comfyui.vae } } : {}),
     }
   }
 }

@@ -14,6 +14,9 @@ export interface LlmImageConfig {
 export interface ComfyUiConfig {
   server: string
   checkpoint?: string
+  unet?: string
+  clip?: string
+  vae?: string
 }
 
 export interface ImageGenSettings {
