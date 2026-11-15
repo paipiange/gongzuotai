@@ -220,6 +220,18 @@ export class CreationRepository {
     return result.changes === 1
   }
 
+  /**
+   * Permanently delete a creation and its revision history. Unlike softDelete,
+   * this physically removes the rows (used by the "empty trash" flow).
+   */
+  remove(id: string) {
+    return this.db.transaction(() => {
+      this.db.prepare('DELETE FROM creation_revisions WHERE creation_id = ?').run(id)
+      const result = this.db.prepare('DELETE FROM creations WHERE id = ?').run(id)
+      return result.changes === 1
+    })()
+  }
+
   saveRevision(creationId: string, bodyMd: string) {
     return this.db.transaction(() => {
       if (!this.getById(creationId, true)) throw new Error('Creation not found')

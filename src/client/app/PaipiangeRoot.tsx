@@ -49,6 +49,7 @@ import {
   type CreationStatus,
 } from './workspaceStore'
 import { ImageGenSettings } from './ImageGenSettings'
+import { ImageGenPanel } from './ImageGenPanel'
 
 type ArtVariant = 'river' | 'court' | 'blossom' | 'night' | 'portrait' | 'hero'
 
@@ -588,8 +589,11 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
     <div className="pa-page pa-studio-page">
       <div className="pa-studio-heading">
         <button type="button" className="pa-icon-button" aria-label="返回 AI 创作" onClick={onBack}><ArrowLeft aria-hidden="true" size={19} /></button>
-        <div><span className="pa-overline">CREATION STUDIO</span><h1>{studioLabels[studio]}</h1><p>{isVideo ? '完整界面占位，不调用模型、不扣费、不创建任务。' : '填写创作要求，模型接入将在后续阶段启用。'}</p></div>
+        <div><span className="pa-overline">CREATION STUDIO</span><h1>{studioLabels[studio]}</h1><p>{isVideo ? '完整界面占位，不调用模型、不扣费、不创建任务。' : isImage ? '输入主题并选择风格，一键生成配图（handraw-style 风格库）。' : '填写创作要求，模型接入将在后续阶段启用。'}</p></div>
       </div>
+      {isImage ? (
+        <ImageGenPanel onToast={onToast} />
+      ) : (
       <div className="pa-studio-layout">
         <form className="pa-panel pa-studio-form" onSubmit={submit}>
           <SectionHeading title="创作参数" />
@@ -624,6 +628,7 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
           )}
         </section>
       </div>
+      )}
     </div>
   )
 }

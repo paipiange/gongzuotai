@@ -118,6 +118,11 @@ export async function deleteCreation(id: string): Promise<void> {
   await apiFetch<{ ok: boolean }>(`.creation?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
 }
 
+/** Permanently delete a creation (hard delete, bypasses soft-delete). */
+export async function purgeCreation(id: string): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`.creation.purge?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
 // ---- Image-gen config ----
 
 export async function getImageGenSummary(): Promise<ImageGenSummary> {

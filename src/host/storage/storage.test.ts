@@ -70,6 +70,12 @@ describe('Host SQLite storage', () => {
     expect(repository.getById(created.id, true)?.deletedAt).toBeTruthy()
     expect(repository.restore(created.id)).toBe(true)
     expect(repository.getById(created.id)?.deletedAt).toBeNull()
+
+    // Hard delete physically removes the row and its revision history.
+    expect(repository.remove(created.id)).toBe(true)
+    expect(repository.getById(created.id, true)).toBeNull()
+    expect(repository.listRevisions(created.id)).toHaveLength(0)
+    expect(repository.remove(created.id)).toBe(false)
     storage.close()
   })
 

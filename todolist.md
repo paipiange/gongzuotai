@@ -24,7 +24,7 @@
 - [x] 生图配置持久化到 Host `app_settings`（`imagegenStore` 迁移 Host 优先 + localStorage 降级）
 - [x] 生图结果落盘 media 目录 + 回写 assets 表（`AssetRepository` + `/api/paipiange.imagegen.generate` 落盘）
 - [ ] 草稿自动保存、上传素材落盘（media 目录）、模板/灵感池读写仓库
-- [ ] 回收站与「永久删除」接真实 DB（当前 softDelete/restore 已接线，hard delete 路由返回 501 待补 `remove` 方法）
+- [x] 回收站与「永久删除」接真实 DB（`CreationRepository.remove()` 硬删除 + `/api/paipiange.creation.purge` 路由；softDelete/restore 已接线）
 
 ### C. 生图 Provider（Phase 5）—— 本次重点
 
@@ -38,6 +38,7 @@
 - [x] 结果图下载并落盘到 assets 表 + media 目录，回写 source_creation_id
 - [x] Client 端 Host 生图 API 封装（`hostClient.generateImages`，端到端契约已接通，待 Harness 实机验证）
 - [x] 无凭证/未连接时的「需配置」状态与错误提示（HostError + localStorage 降级，不虚构完成）
+- [x] 生图风格选择：接入 handraw-style 风格库（370 视觉风格 + 170 排版图型 + 36 主题色），小红书社媒卡 / 公众号信息图排版置顶；图片工作台加完整生图表单（prompt + 风格/排版/主题色 + 尺寸/数量 + 后端选择 + 结果展示下载）
 
 ### D. 导出 / 品质 / 发布（Phase 6）
 

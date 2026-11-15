@@ -152,7 +152,6 @@ export function registerApiRoutes(deps: ApiDeps, register: (route: FetchRoute) =
         const ok = creations.softDelete(id)
         return ok ? json({ ok: true }) : error('删除失败', 404)
       }
-
       const body = await request.json().catch(() => null) as ClientDraft | null
       if (!body) return error('请求体无效')
       const updated = creations.update(id, {
@@ -182,6 +181,19 @@ export function registerApiRoutes(deps: ApiDeps, register: (route: FetchRoute) =
       if (!body || !body.status) return error('缺少 status 字段')
       const updated = creations.update(id, { status: body.status })
       return updated ? json({ creation: toClientCreation(updated) }) : error('记录不存在', 404)
+    },
+  })
+
+  // ---- Creation hard delete (permanent, bypasses soft delete) ----
+
+  register({
+    path: '/api/paipiange.creation.purge',
+    methods: ['DELETE'],
+    async fetch(request) {
+      const id = new URL(request.url).searchParams.get('id') ?? ''
+      if (!id) return error('缺少 id')
+      const ok = creations.remove(id)
+      return ok ? json({ ok: true }) : error('记录不存在', 404)
     },
   })
 
