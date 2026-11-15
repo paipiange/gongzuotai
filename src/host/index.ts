@@ -1,11 +1,23 @@
 import type { Context } from '@deepseek-ai/cordis'
+import { PaipiangeDatabase } from './storage/database'
 
 export const name = 'paipiange'
 
+export interface Config {
+  /** Base data directory. The plugin creates a private `paipiange` folder inside it. */
+  dataRoot?: string
+}
+
 /**
- * Phase 1 host entry. UI mounting is implemented by the client bundle.
- * Authenticated storage and model routes will be added in later phases.
+ * Initializes private Host storage without exposing any unauthenticated routes.
+ * HTTP and model adapters remain disabled until the Harness connection contract is verified.
  */
-export function apply(_ctx: Context) {
-  // Intentionally empty: do not expose unauthenticated placeholder routes.
+export async function apply(ctx: Context, config: Config = {}) {
+  const storage = await PaipiangeDatabase.open({ dataRoot: config.dataRoot })
+  try {
+    ctx.effect(() => () => storage.close(), 'paipiange.sqlite')
+  } catch (error) {
+    storage.close()
+    throw error
+  }
 }

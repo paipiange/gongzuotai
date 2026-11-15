@@ -19,6 +19,10 @@ const clientExternals = [
   '@deepseek-ai/cordis',
 ]
 
+const hostExternals = [
+  'better-sqlite3',
+]
+
 export default defineConfig([
   {
     entry: { index: 'src/host/index.ts' },
@@ -27,6 +31,7 @@ export default defineConfig([
     platform: 'node',
     clean: true,
     dts: true,
+    external: hostExternals,
     outExtensions: () => ({ js: '.js', dts: '.d.ts' }),
   },
   {

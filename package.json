@@ -26,22 +26,26 @@
     "typecheck": "tsc --noEmit",
     "build:preview": "vite build",
     "build:plugin": "tsdown",
-    "build": "pnpm typecheck && pnpm build:preview && pnpm build:plugin"
+    "build": "pnpm typecheck && pnpm build:preview && pnpm build:plugin",
+    "test": "vitest run"
   },
   "dependencies": {
     "@deepseek-ai/cordis": "^4.1.0",
     "@phosphor-icons/react": "^2.1.10",
+    "better-sqlite3": "12.11.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "9.6.0",
     "@types/node": "^24.10.1",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^5.1.1",
     "tsdown": "^0.17.2",
     "typescript": "^5.9.3",
-    "vite": "^7.2.2"
+    "vite": "^7.2.2",
+    "vitest": "3.2.4"
   },
   "engines": {
     "node": ">=20"
