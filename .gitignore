@@ -1,0 +1,16 @@
+node_modules/
+dist/
+lib/
+*.tgz
+*.log
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite3
+data/
+uploads/
+backups/
+.artifacts/
+.DS_Store
+Thumbs.db
