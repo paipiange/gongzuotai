@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: Typecheck + Test + Build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Run tests
+        run: pnpm test
+
+      - name: Build plugin
+        run: pnpm build
+
+      - name: Verify client bundle is a single chunk
+        run: |
+          test -f lib/client.js
+          test -f lib/index.js
+          test -f lib/index.d.ts
+          # 单一 chunk 契约：client.js 不得包含动态 import 拆分
+          if grep -q "import(" lib/client.js; then
+            echo "::error::client.js contains dynamic import (code splitting)"
+            exit 1
+          fi
+          # footer 必须返回干净的 { name, inject, apply }
+          grep -q "return { name, inject, apply }" lib/client.js
+
+      - name: Dry-run pack
+        run: npm pack --dry-run
