@@ -53,6 +53,7 @@ import { TextGenSettings } from './TextGenSettings'
 import { ImageGenPanel } from './ImageGenPanel'
 import { AssetsPage, InspirationPage, PublishQueuePage } from './LibraryPages'
 import { AnalyticsPage } from './AnalyticsPage'
+import { MarkdownEditor } from './MarkdownEditor'
 import { exportCreation, generateTextStream } from './hostClient'
 
 type ArtVariant = 'river' | 'court' | 'blossom' | 'night' | 'portrait' | 'hero'
@@ -719,9 +720,9 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
             <div className="pa-studio-canvas__empty"><Sparkle aria-hidden="true" size={40} weight="duotone" /><strong>视频生成暂未开放</strong><p>后续版本将根据明确授权接入视频能力；当前不会保存任务或伪造结果。</p></div>
           ) : (
             <div className="pa-manual-editor">
-              <div className="pa-manual-editor__notice"><PencilSimple aria-hidden="true" size={18} /><span>点击「开始生成」由 Harness 文本模型流式产出；也可直接在下方手动写作，内容会随草稿保存。</span></div>
+              <div className="pa-manual-editor__notice"><PencilSimple aria-hidden="true" size={18} /><span>点击「开始生成」由 Harness 文本模型流式产出；也可用下方 Markdown 编辑器手动写作，内容会随草稿保存。</span></div>
               <label htmlFor="pa-manual-content">{isImage ? '图片构思、提示词补充或版权说明' : '正文草稿'}</label>
-              <textarea id="pa-manual-content" value={content} onChange={(event) => setContent(event.target.value)} placeholder={isImage ? '记录画面主体、构图、光线和需要规避的元素…' : generating ? '正在生成…' : '从这里开始手动写作，或点击「开始生成」由模型产出…'} />
+              <MarkdownEditor value={content} onChange={setContent} placeholder={isImage ? '记录画面主体、构图、光线和需要规避的元素…' : generating ? '正在生成…' : '从这里开始手动写作，支持 Markdown 语法，或点击「开始生成」由模型产出…'} />
               <div className="pa-manual-editor__footer"><span>{content.length} 字</span><span>{creationId ? '已建立本地草稿' : '尚未保存'}</span></div>
             </div>
           )}

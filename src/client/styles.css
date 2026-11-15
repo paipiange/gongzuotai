@@ -1321,7 +1321,8 @@
   font-size: 12px;
 }
 
-.pa-root .pa-manual-editor > textarea {
+.pa-root .pa-manual-editor > textarea,
+.pa-root .pa-markdown-editor textarea {
   min-height: 320px;
   flex: 1;
   padding: 16px;
@@ -1332,6 +1333,98 @@
   border-radius: 12px;
   font-family: inherit;
   line-height: 1.75;
+}
+
+/* ---- Markdown editor ---- */
+
+.pa-root .pa-markdown-editor {
+  display: flex;
+  flex: 1;
+  min-height: 320px;
+  flex-direction: column;
+}
+
+.pa-root .pa-markdown-editor__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.pa-root .pa-markdown-editor__preview {
+  margin-left: auto;
+}
+
+.pa-root .pa-markdown-editor__preview[data-active="true"] {
+  color: var(--pa-gold-light);
+  background: rgba(229, 183, 126, 0.12);
+}
+
+.pa-root .pa-markdown-editor__preview-body {
+  min-height: 320px;
+  flex: 1;
+  padding: 16px;
+  overflow: auto;
+  color: var(--pa-text);
+  background: rgba(15, 9, 7, 0.3);
+  border: 1px solid rgba(196, 146, 95, 0.18);
+  border-radius: 12px;
+  line-height: 1.75;
+}
+
+.pa-root .pa-markdown-editor__preview-body h1,
+.pa-root .pa-markdown-editor__preview-body h2,
+.pa-root .pa-markdown-editor__preview-body h3,
+.pa-root .pa-markdown-editor__preview-body h4,
+.pa-root .pa-markdown-editor__preview-body h5,
+.pa-root .pa-markdown-editor__preview-body h6 {
+  margin: 18px 0 10px;
+  font-family: "Songti SC", "STSong", serif;
+  line-height: 1.3;
+}
+
+.pa-root .pa-markdown-editor__preview-body h1 { font-size: 22px; }
+.pa-root .pa-markdown-editor__preview-body h2 { font-size: 19px; }
+.pa-root .pa-markdown-editor__preview-body h3 { font-size: 16px; }
+
+.pa-root .pa-markdown-editor__preview-body p {
+  margin: 0 0 12px;
+}
+
+.pa-root .pa-markdown-editor__preview-body blockquote {
+  margin: 0 0 12px;
+  padding: 6px 14px;
+  color: var(--pa-muted);
+  border-left: 3px solid var(--pa-gold-light);
+  background: rgba(229, 183, 126, 0.06);
+}
+
+.pa-root .pa-markdown-editor__preview-body ul,
+.pa-root .pa-markdown-editor__preview-body ol {
+  margin: 0 0 12px;
+  padding-left: 22px;
+}
+
+.pa-root .pa-markdown-editor__preview-body code {
+  padding: 2px 6px;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.9em;
+  background: rgba(229, 183, 126, 0.12);
+  border-radius: 5px;
+}
+
+.pa-root .pa-markdown-editor__preview-body a {
+  color: var(--pa-gold-light);
+}
+
+.pa-root .pa-markdown-editor__preview-body hr {
+  margin: 16px 0;
+  border: 0;
+  border-top: 1px solid var(--pa-border-soft);
+}
+
+.pa-root .pa-markdown-editor__empty {
+  color: var(--pa-muted);
 }
 
 .pa-root .pa-manual-editor__footer {
