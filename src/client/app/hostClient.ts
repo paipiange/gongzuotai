@@ -508,6 +508,12 @@ export async function exportForPlatform(creationId: string, platform: PublishPla
   return response.blob()
 }
 
+/** Same as exportForPlatform but returns the adapted text as a string (for clipboard). */
+export async function exportPlatformText(creationId: string, platform: PublishPlatform): Promise<string> {
+  const blob = await exportForPlatform(creationId, platform)
+  return blob.text()
+}
+
 // ---- Assets ----
 
 export async function listAssets(input?: { kind?: 'image' | 'file' | 'prompt' | 'document'; creationId?: string }): Promise<AssetRecord[]> {
@@ -540,6 +546,11 @@ export async function uploadAsset(file: File, creationId?: string): Promise<Asse
 /** Build an <img> source URL for an asset id (same-origin binary route). */
 export function assetUrl(id: string): string {
   return `${BASE}.asset?id=${encodeURIComponent(id)}`
+}
+
+/** Soft-delete an asset by id. */
+export async function deleteAsset(id: string): Promise<void> {
+  await apiFetch(`.asset?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
 }
 
 // ---- Backups ----

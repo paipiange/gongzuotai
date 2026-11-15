@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { PaipiangeDatabase } from './database'
+import { AssetRepository } from './assetRepository'
 import { CreationRepository } from './creationRepository'
 import { TemplateRepository } from './templateRepository'
 import { InspirationRepository } from './inspirationRepository'
@@ -115,6 +116,26 @@ describe('templates, inspirations, publish and export', () => {
     const ttText = readFileSync(service.resolveAbsolute(tt.relativePath), 'utf-8')
     expect(ttText).toContain('——————')
     expect(ttText).not.toContain('#')
+
+    storage.close()
+  })
+
+  it('soft-deletes assets so they leave the list but the row persists', async () => {
+    const storage = await openTemporaryStorage()
+    const repo = new AssetRepository(storage.db, storage.paths)
+    // Insert a row directly to avoid the file-system write of `save`, which on
+    // Windows can leave the SQLite WAL file briefly locked during teardown.
+    const id = crypto.randomUUID()
+    storage.db.prepare(`
+      INSERT INTO assets (id, kind, name, mime_type, relative_path, size_bytes, width, height, tags_json, source_creation_id, created_at)
+      VALUES (?, 'image', 'test.png', 'image/png', 'images/test.png', 4, null, null, '[]', null, ?)
+    `).run(id, new Date().toISOString())
+    expect(repo.list()).toHaveLength(1)
+
+    expect(repo.softDelete(id)).toBe(true)
+    expect(repo.list()).toHaveLength(0)
+    // Soft-deleting an already-deleted asset is a no-op (returns false).
+    expect(repo.softDelete(id)).toBe(false)
 
     storage.close()
   })

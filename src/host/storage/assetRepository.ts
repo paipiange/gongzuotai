@@ -116,6 +116,14 @@ export class AssetRepository {
     return rows.map(mapAsset)
   }
 
+  /** Soft-delete an asset (marks deleted_at, keeps the row and file on disk). */
+  softDelete(id: string): boolean {
+    const result = this.db.prepare(
+      'UPDATE assets SET deleted_at = @now WHERE id = @id AND deleted_at IS NULL',
+    ).run({ id, now: new Date().toISOString() })
+    return result.changes === 1
+  }
+
   resolveAbsolutePath(asset: AssetRecord): string {
     return resolvePrivatePath(this.paths.root, asset.relativePath)
   }

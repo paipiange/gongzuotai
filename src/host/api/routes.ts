@@ -341,6 +341,15 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
       })
   })
 
+  // ---- Asset delete (soft) ----
+
+  register('/api/paipiange.asset', ['DELETE'], async (request) => {
+      const id = new URL(request.url).searchParams.get('id') ?? ''
+      if (!id) return error('缺少 id')
+      const ok = assets.softDelete(id)
+      return ok ? json({ ok: true }) : error('素材不存在', 404)
+  })
+
   // ---- Asset list (metadata only) ----
 
   register('/api/paipiange.assets', ['GET'], async (request) => {

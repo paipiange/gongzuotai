@@ -6,17 +6,21 @@
 
 import {
   CloudArrowUp,
+  CopySimple,
   DownloadSimple,
   FolderOpen,
   Lightbulb,
   PaperPlaneTilt,
+  TrashSimple,
   UploadSimple,
 } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
 import type { CreationRecord } from './workspaceStore'
 import {
   assetUrl,
+  deleteAsset,
   exportForPlatform,
+  exportPlatformText,
   listAssets,
   listInspirations,
   listPublishItems,
@@ -38,6 +42,14 @@ const PLATFORM_LABELS: Record<PublishPlatform, string> = {
   zhihu: '知乎',
   toutiao: '头条号',
   other: '其他',
+}
+
+/** 各平台的新建内容 / 发布页入口（跳转过去让用户粘贴发布，不代发）。 */
+const PLATFORM_PUBLISH_URL: Partial<Record<PublishPlatform, string>> = {
+  wechat: 'https://mp.weixin.qq.com/',
+  xiaohongshu: 'https://creator.xiaohongshu.com/publish/publish',
+  zhihu: 'https://zhuanlan.zhihu.com/write',
+  toutiao: 'https://mp.toutiao.com/profile_v4/graphic/publish',
 }
 
 function formatLocalTime(value: string): string {
@@ -94,6 +106,24 @@ export function AssetsPage({ onToast }: { onToast: (message: string, tone?: Toas
     event.target.value = ''
   }
 
+  const handleDownload = (asset: AssetRecord) => {
+    const anchor = document.createElement('a')
+    anchor.href = assetUrl(asset.id)
+    anchor.download = asset.name
+    anchor.click()
+  }
+
+  const handleDelete = async (asset: AssetRecord) => {
+    if (!window.confirm(`确定删除素材「${asset.name}」吗？此操作不可撤销。`)) return
+    try {
+      await deleteAsset(asset.id)
+      onToast(`已删除「${asset.name}」`, 'success')
+      void refresh()
+    } catch (cause) {
+      onToast(cause instanceof Error ? cause.message : '删除失败', 'warning')
+    }
+  }
+
   return (
     <div className="pa-page">
       <PageIntro title="素材库" description="统一管理图片、文字、提示词与文件。" />
@@ -128,6 +158,14 @@ export function AssetsPage({ onToast }: { onToast: (message: string, tone?: Toas
               )}
               <h2>{asset.name}</h2>
               <p>{asset.mimeType} · {Math.max(1, Math.round(asset.sizeBytes / 1024))} KB</p>
+              <div>
+                <button type="button" className="pa-secondary-button" onClick={() => handleDownload(asset)}>
+                  <DownloadSimple aria-hidden="true" size={15} />下载
+                </button>
+                <button type="button" className="pa-icon-button" aria-label={`删除 ${asset.name}`} title="删除素材" onClick={() => handleDelete(asset)}>
+                  <TrashSimple aria-hidden="true" size={16} />
+                </button>
+              </div>
             </article>
           ))}
         </div>
@@ -197,6 +235,25 @@ export function PublishQueuePage({ creations, onOpen, onToast }: {
     }
   }
 
+  const copyPlatform = async (item: PublishItem) => {
+    try {
+      const text = await exportPlatformText(item.creationId, item.platform)
+      await navigator.clipboard.writeText(text)
+      onToast(`已复制「${PLATFORM_LABELS[item.platform]}」适配文案到剪贴板`, 'success')
+    } catch (cause) {
+      onToast(cause instanceof Error ? cause.message : '复制失败', 'warning')
+    }
+  }
+
+  const openPlatform = (item: PublishItem) => {
+    const url = PLATFORM_PUBLISH_URL[item.platform]
+    if (!url) {
+      onToast('该平台暂无发布页入口，可先复制文案手动发布', 'info')
+      return
+    }
+    window.open(url, '_blank', 'noopener')
+  }
+
   if (source === 'loading') {
     return <div className="pa-page"><section className="pa-panel pa-large-empty"><p>正在读取待发布清单…</p></section></div>
   }
@@ -224,6 +281,14 @@ export function PublishQueuePage({ creations, onOpen, onToast }: {
                       <DownloadSimple aria-hidden="true" size={15} />按平台导出
                     </button>
                   )}
+                  {creation && (
+                    <button type="button" className="pa-secondary-button" onClick={() => copyPlatform(item)}>
+                      <CopySimple aria-hidden="true" size={15} />复制文案
+                    </button>
+                  )}
+                  <button type="button" className="pa-secondary-button" onClick={() => openPlatform(item)}>
+                    <PaperPlaneTilt aria-hidden="true" size={15} />去平台发布
+                  </button>
                   <button type="button" className="pa-link-button" onClick={() => markStatus(item.id, 'published')} disabled={item.status === 'published'}>
                     {item.status === 'published' ? '已发布' : '标记已发布'}
                   </button>
