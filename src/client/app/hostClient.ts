@@ -483,3 +483,31 @@ export async function uploadAsset(file: File, creationId?: string): Promise<Asse
 export function assetUrl(id: string): string {
   return `${BASE}.asset?id=${encodeURIComponent(id)}`
 }
+
+// ---- Backups ----
+
+export interface BackupRecord {
+  filename: string
+  sizeBytes: number
+  createdAt: string
+}
+
+export async function createBackup(): Promise<BackupRecord> {
+  const data = await apiFetch<{ backup: BackupRecord }>('.backup', { method: 'POST' })
+  return data.backup
+}
+
+export async function listBackups(): Promise<BackupRecord[]> {
+  const data = await apiFetch<{ backups: BackupRecord[] }>('.backups')
+  return data.backups
+}
+
+/** Download a backup snapshot by filename. Returns the raw bytes. */
+export async function downloadBackup(filename: string): Promise<Blob> {
+  const response = await fetch(`${BASE}.backup.download?filename=${encodeURIComponent(filename)}`)
+  if (!response.ok) {
+    const body = await response.json().catch(() => null) as { error?: string } | null
+    throw new HostError(body?.error ?? `下载失败 (HTTP ${response.status})`, response.status)
+  }
+  return response.blob()
+}

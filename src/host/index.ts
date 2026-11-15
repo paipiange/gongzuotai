@@ -1,5 +1,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { join } from 'node:path'
 import { PaipiangeDatabase } from './storage/database'
 import { CreationRepository } from './storage/creationRepository'
 import { SettingsRepository } from './storage/SettingsRepository'
@@ -105,6 +107,106 @@ export async function apply(ctx: Context, config: Config = {}) {
               { headers: { 'Cache-Control': 'no-store' } },
             ),
           )
+        },
+      }),
+    )
+
+    // ---- Backups: create / list / download (private data safety net) ----
+
+    // Create a consistent SQLite backup snapshot.
+    disposers.push(
+      webServer.register({
+        kind: 'exact',
+        path: '/api/paipiange.backup',
+        async handler(req, res) {
+          if (trust) {
+            const rejection = trust(req)
+            if (rejection !== undefined) {
+              await sendWebResponse(res, Response.json({ error: '未授权' }, { status: 401 }))
+              return
+            }
+          }
+          if (req.method !== 'POST') {
+            await sendWebResponse(res, Response.json({ error: '方法不允许' }, { status: 405 }))
+            return
+          }
+          try {
+            const backup = await storage.createBackup()
+            const sizeBytes = statSync(backup.path).size
+            await sendWebResponse(res, Response.json({ backup: { filename: backup.filename, sizeBytes } }))
+          } catch (error) {
+            await sendWebResponse(res, Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 }))
+          }
+        },
+      }),
+    )
+
+    // List existing backup snapshots (newest first).
+    disposers.push(
+      webServer.register({
+        kind: 'exact',
+        path: '/api/paipiange.backups',
+        async handler(req, res) {
+          if (trust) {
+            const rejection = trust(req)
+            if (rejection !== undefined) {
+              await sendWebResponse(res, Response.json({ error: '未授权' }, { status: 401 }))
+              return
+            }
+          }
+          try {
+            const files = readdirSync(storage.paths.backups)
+              .filter((name) => name.endsWith('.sqlite'))
+              .map((name) => {
+                const full = join(storage.paths.backups, name)
+                const stat = statSync(full)
+                return { filename: name, sizeBytes: stat.size, createdAt: stat.mtime.toISOString() }
+              })
+              .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+            await sendWebResponse(res, Response.json({ backups: files }))
+          } catch (error) {
+            await sendWebResponse(res, Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 }))
+          }
+        },
+      }),
+    )
+
+    // Download a backup snapshot by filename (sandboxed to the backups dir).
+    disposers.push(
+      webServer.register({
+        kind: 'exact',
+        path: '/api/paipiange.backup.download',
+        async handler(req, res) {
+          if (trust) {
+            const rejection = trust(req)
+            if (rejection !== undefined) {
+              await sendWebResponse(res, Response.json({ error: '未授权' }, { status: 401 }))
+              return
+            }
+          }
+          const request = await toWebRequest(req)
+          const filename = new URL(request.url).searchParams.get('filename') ?? ''
+          // Guard against path traversal; only a bare basename is allowed.
+          if (!filename || filename.includes('/') || filename.includes('\\') || !filename.endsWith('.sqlite')) {
+            await sendWebResponse(res, Response.json({ error: '无效的文件名' }, { status: 400 }))
+            return
+          }
+          try {
+            const full = join(storage.paths.backups, filename)
+            const buffer = readFileSync(full)
+            await sendWebResponse(
+              res,
+              new Response(new Uint8Array(buffer), {
+                headers: {
+                  'Content-Type': 'application/octet-stream',
+                  'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
+                  'Cache-Control': 'no-store',
+                },
+              }),
+            )
+          } catch {
+            await sendWebResponse(res, Response.json({ error: '备份不存在' }, { status: 404 }))
+          }
         },
       }),
     )

@@ -1957,6 +1957,65 @@
   font-size: 11px;
 }
 
+.pa-root .pa-backup-settings {
+  min-width: 0;
+}
+
+.pa-root .pa-backup-settings__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.pa-root .pa-backup-settings__head h2 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+
+.pa-root .pa-backup-settings__head p {
+  margin: 0;
+  color: var(--pa-muted);
+  font-size: 11px;
+}
+
+.pa-root .pa-backup-list {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pa-root .pa-backup-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-top: 1px solid var(--pa-border-soft);
+}
+
+.pa-root .pa-backup-list__name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--pa-text);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pa-root .pa-backup-list__meta {
+  margin-left: auto;
+  color: var(--pa-quiet);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.pa-root .pa-backup-settings__empty {
+  margin: 12px 0 0;
+  color: var(--pa-muted);
+  font-size: 11px;
+}
+
 .pa-root .pa-imagegen-settings {
   grid-column: 1 / -1;
   padding: 18px;

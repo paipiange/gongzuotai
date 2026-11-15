@@ -50,6 +50,7 @@ import {
 } from './workspaceStore'
 import { ImageGenSettings } from './ImageGenSettings'
 import { TextGenSettings } from './TextGenSettings'
+import { BackupSettings } from './BackupSettings'
 import { ImageGenPanel } from './ImageGenPanel'
 import { AssetsPage, InspirationPage, PublishQueuePage } from './LibraryPages'
 import { AnalyticsPage } from './AnalyticsPage'
@@ -831,6 +832,7 @@ function WorkspacePage({ page, creations, storageSource, onNavigate, onOpenStudi
         <div className="pa-settings-grid">
           <TextGenSettings onToast={onToast} />
           <ImageGenSettings onToast={onToast} />
+          <BackupSettings onToast={onToast} />
           {[['本地草稿', storageSource === 'host' ? `已连接本地服务，当前共 ${creations.length} 条记录保存在 Host SQLite。` : `当前共 ${creations.length} 条记录，保存在浏览器本地（离线模式，恢复连接后自动合并到本地服务）。`], ['主题与界面', '当前使用暖棕金国风深色主题。']].map(([title, description], index) => <section key={title} className="pa-panel pa-setting-card"><div className="pa-setting-card__icon">{index === 0 ? <FolderOpen aria-hidden="true" size={23} /> : <GearSix aria-hidden="true" size={23} />}</div><div><h2>{title}</h2><p>{description}</p></div><button type="button" className="pa-secondary-button" onClick={() => onToast(index === 0 ? (storageSource === 'host' ? '草稿保存在本地 Host SQLite 数据库' : '草稿暂存于浏览器本地，连接恢复后自动合并到本地服务，不会丢失') : `主题切换将在后续功能阶段接入`)}>查看</button></section>)}
         </div>
       </div>
