@@ -1,6 +1,6 @@
-import { ImageSquare, Sparkle, ArrowClockwise, DownloadSimple } from '@phosphor-icons/react'
+import { ImageSquare, Sparkle, ArrowClockwise, DownloadSimple, CheckCircle } from '@phosphor-icons/react'
 import { FormEvent, useEffect, useMemo, useState } from 'react'
-import { generateImages, type GeneratedImageResult } from './hostClient'
+import { generateImages, setCreationCover, type GeneratedImageResult } from './hostClient'
 import { loadSettings } from './imagegenStore'
 import { buildImagePrompt, buildPromptSummary } from './promptBuilder'
 import {
@@ -23,8 +23,11 @@ const styleGroups = Array.from(new Set(stylePresets.map((s) => s.group)))
 /**
  * 生图工作台：输入主题 → 选风格/排版/主题色 → 调 Host 生图 API → 展示结果。
  * 风格预设来自 handraw-style（小红书社媒卡与公众号信息图排版置顶）。
+ *
+ * 当传入 `creationId` 时，生成的图片会关联到该创作（sourceCreationId），
+ * 且每张结果可「设为封面」，形成「生图 → 落盘 → 关联 → 复用」的闭环。
  */
-export function ImageGenPanel({ onToast }: { onToast: Toast }) {
+export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creationId?: string }) {
   const [topic, setTopic] = useState('')
   const [styleId, setStyleId] = useState('')
   const [layoutId, setLayoutId] = useState('')
@@ -36,6 +39,8 @@ export function ImageGenPanel({ onToast }: { onToast: Toast }) {
   const [busy, setBusy] = useState(false)
   const [results, setResults] = useState<GeneratedImageResult[]>([])
   const [lastPrompt, setLastPrompt] = useState('')
+  const [coverId, setCoverId] = useState<string | null>(null)
+  const [coverBusy, setCoverBusy] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -73,10 +78,12 @@ export function ImageGenPanel({ onToast }: { onToast: Toast }) {
     const prompt = buildImagePrompt({ topic, style, layout, color })
     setLastPrompt(prompt)
     setBusy(true)
+    setCoverId(null)
     try {
       const images = await generateImages({
         provider,
         request: { prompt, count, size },
+        sourceCreationId: creationId,
       })
       setResults(images)
       onToast(`已生成 ${images.length} 张图片`, 'success')
@@ -87,6 +94,23 @@ export function ImageGenPanel({ onToast }: { onToast: Toast }) {
     }
   }
 
+  const applyAsCover = async (imageId: string) => {
+    if (!creationId) {
+      onToast('请先保存草稿，才能设为封面', 'warning')
+      return
+    }
+    setCoverBusy(true)
+    try {
+      await setCreationCover(creationId, imageId)
+      setCoverId(imageId)
+      onToast('已设为封面', 'success')
+    } catch (cause) {
+      onToast(cause instanceof Error ? cause.message : '设为封面失败', 'warning')
+    } finally {
+      setCoverBusy(false)
+    }
+  }
+
   const clearAll = () => {
     setTopic('')
     setStyleId('')
@@ -94,6 +118,7 @@ export function ImageGenPanel({ onToast }: { onToast: Toast }) {
     setColorId('')
     setResults([])
     setLastPrompt('')
+    setCoverId(null)
   }
 
   return (
@@ -208,7 +233,21 @@ export function ImageGenPanel({ onToast }: { onToast: Toast }) {
               <img src={`/api/paipiange.asset?id=${encodeURIComponent(image.id)}`} alt={`生成图 ${image.id}`} loading="lazy" />
               <figcaption>
                 <span>{formatBytes(image.sizeBytes)}</span>
-                <a className="pa-link-button" href={`/api/paipiange.asset?id=${encodeURIComponent(image.id)}`} download target="_blank" rel="noreferrer"><DownloadSimple aria-hidden="true" size={14} />下载</a>
+                <div className="pa-imagegen-panel__result-actions">
+                  {creationId && (
+                    <button
+                      type="button"
+                      className="pa-link-button"
+                      disabled={coverBusy}
+                      data-active={coverId === image.id}
+                      onClick={() => applyAsCover(image.id)}
+                    >
+                      <CheckCircle aria-hidden="true" size={14} weight={coverId === image.id ? 'fill' : 'regular'} />
+                      {coverId === image.id ? '已设为封面' : '设为封面'}
+                    </button>
+                  )}
+                  <a className="pa-link-button" href={`/api/paipiange.asset?id=${encodeURIComponent(image.id)}`} download target="_blank" rel="noreferrer"><DownloadSimple aria-hidden="true" size={14} />下载</a>
+                </div>
               </figcaption>
             </figure>
           ))}

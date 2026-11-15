@@ -84,6 +84,7 @@ function toClientCreation(record: ReturnType<CreationRepository['create']>) {
     style: String(record.params.style ?? 'cinematic'),
     requirement: String(record.params.requirement ?? ''),
     status: record.status,
+    coverAssetId: record.coverAssetId,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   }
@@ -177,6 +178,20 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
       if (!body || !body.status) return error('缺少 status 字段')
       const updated = creations.update(id, { status: body.status })
       if (updated && updated.status === 'queued') publish.ensureForCreation(updated.id)
+      return updated ? json({ creation: toClientCreation(updated) }) : error('记录不存在', 404)
+  })
+
+  // ---- Creation cover asset ----
+
+  register('/api/paipiange.creation.cover', ['PATCH'], async (request) => {
+      const url = new URL(request.url)
+      const id = url.searchParams.get('id') ?? ''
+      if (!id) return error('缺少 id')
+      const body = await request.json().catch(() => null) as { assetId?: string | null } | null
+      if (!body || body.assetId === undefined) return error('缺少 assetId 字段')
+      // Setting a cover references an existing asset; clearing (null) is always allowed.
+      if (body.assetId !== null && !assets.getById(body.assetId)) return error('素材不存在', 404)
+      const updated = creations.update(id, { coverAssetId: body.assetId })
       return updated ? json({ creation: toClientCreation(updated) }) : error('记录不存在', 404)
   })
 

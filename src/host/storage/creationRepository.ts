@@ -19,6 +19,7 @@ export interface CreationRecord {
   params: Record<string, unknown>
   source: CreationSource
   isFavorite: boolean
+  coverAssetId: string | null
   deletedAt: string | null
   createdAt: string
   updatedAt: string
@@ -37,6 +38,7 @@ export interface CreateCreationInput {
   params?: Record<string, unknown>
   source?: CreationSource
   isFavorite?: boolean
+  coverAssetId?: string | null
 }
 
 export interface UpdateCreationInput {
@@ -50,6 +52,7 @@ export interface UpdateCreationInput {
   prompt?: string
   params?: Record<string, unknown>
   isFavorite?: boolean
+  coverAssetId?: string | null
 }
 
 export interface ListCreationsInput {
@@ -83,6 +86,7 @@ interface CreationRow {
   params_json: string
   source: CreationSource
   is_favorite: 0 | 1
+  cover_asset_id: string | null
   deleted_at: string | null
   created_at: string
   updated_at: string
@@ -116,6 +120,7 @@ export class CreationRepository {
       params: input.params ?? {},
       source: input.source ?? 'user',
       isFavorite: input.isFavorite ?? false,
+      coverAssetId: input.coverAssetId ?? null,
       deletedAt: null,
       createdAt: now,
       updatedAt: now,
@@ -123,10 +128,10 @@ export class CreationRepository {
     this.db.prepare(`
       INSERT INTO creations (
         id, type, title, summary, body_md, body_html, status, template_id, model_id,
-        prompt, params_json, source, is_favorite, deleted_at, created_at, updated_at
+        prompt, params_json, source, is_favorite, cover_asset_id, deleted_at, created_at, updated_at
       ) VALUES (
         @id, @type, @title, @summary, @bodyMd, @bodyHtml, @status, @templateId, @modelId,
-        @prompt, @paramsJson, @source, @isFavorite, NULL, @createdAt, @updatedAt
+        @prompt, @paramsJson, @source, @isFavorite, @coverAssetId, NULL, @createdAt, @updatedAt
       )
     `).run({ ...record, paramsJson: JSON.stringify(record.params), isFavorite: record.isFavorite ? 1 : 0 })
     return record
@@ -182,6 +187,7 @@ export class CreationRepository {
       prompt: input.prompt ?? current.prompt,
       params: input.params ?? current.params,
       isFavorite: input.isFavorite ?? current.isFavorite,
+      coverAssetId: input.coverAssetId === undefined ? current.coverAssetId : input.coverAssetId,
       updatedAt: new Date().toISOString(),
     }
     this.db.prepare(`
@@ -196,6 +202,7 @@ export class CreationRepository {
         prompt = @prompt,
         params_json = @paramsJson,
         is_favorite = @isFavorite,
+        cover_asset_id = @coverAssetId,
         updated_at = @updatedAt
       WHERE id = @id
     `).run({ ...next, paramsJson: JSON.stringify(next.params), isFavorite: next.isFavorite ? 1 : 0 })
@@ -284,6 +291,7 @@ function mapCreation(row: CreationRow): CreationRecord {
     params: parseObject(row.params_json),
     source: row.source,
     isFavorite: row.is_favorite === 1,
+    coverAssetId: row.cover_asset_id,
     deletedAt: row.deleted_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

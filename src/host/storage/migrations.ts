@@ -132,6 +132,14 @@ const migrations: Migration[] = [
       );
     `,
   },
+  {
+    version: 2,
+    name: 'creation-cover-asset',
+    sql: `
+      ALTER TABLE creations ADD COLUMN cover_asset_id TEXT;
+      CREATE INDEX IF NOT EXISTS idx_creations_cover_asset ON creations(cover_asset_id);
+    `,
+  },
 ]
 
 export const latestSchemaVersion = migrations.at(-1)?.version ?? 0

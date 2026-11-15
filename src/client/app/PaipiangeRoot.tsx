@@ -680,7 +680,17 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
         <div><span className="pa-overline">CREATION STUDIO</span><h1>{studioLabels[studio]}</h1><p>{isVideo ? '完整界面占位，不调用模型、不扣费、不创建任务。' : isImage ? '输入主题并选择风格，一键生成配图（handraw-style 风格库）。' : '填写创作要求，一键调用 Harness 文本模型生成，逐字流式填入画布。'}</p></div>
       </div>
       {isImage ? (
-        <ImageGenPanel onToast={onToast} />
+        <div className="pa-studio-image">
+          <form className="pa-panel pa-studio-form pa-studio-form--compact" onSubmit={(event) => { event.preventDefault(); void save('draft') }}>
+            <SectionHeading title="图片创作" />
+            <label className="pa-field"><span>草稿标题</span><input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={80} placeholder="例如：春日猫片封面" /></label>
+            <div className="pa-studio-save-row">
+              <button type="submit" className="pa-secondary-button" disabled={isVideo}><FloppyDisk aria-hidden="true" size={17} />保存草稿</button>
+              {creationId && <span className="pa-form-notice">已关联草稿，生成图可一键设为封面。</span>}
+            </div>
+          </form>
+          <ImageGenPanel onToast={onToast} creationId={creationId} />
+        </div>
       ) : (
       <div className="pa-studio-layout">
         <form className="pa-panel pa-studio-form" onSubmit={submit}>
@@ -733,7 +743,11 @@ function CreationCard({ creation, onOpen, onStatus, onDelete }: {
 }) {
   return (
     <article className="pa-panel pa-creation-card">
-      <div className="pa-creation-card__icon"><FileText aria-hidden="true" size={23} weight="duotone" /></div>
+      {creation.coverAssetId ? (
+        <div className="pa-creation-card__cover"><img src={`/api/paipiange.asset?id=${encodeURIComponent(creation.coverAssetId)}`} alt={`${creation.title} 封面`} loading="lazy" /></div>
+      ) : (
+        <div className="pa-creation-card__icon"><FileText aria-hidden="true" size={23} weight="duotone" /></div>
+      )}
       <div className="pa-creation-card__body">
         <div className="pa-creation-card__meta"><span className="pa-status-badge" data-status={creation.status}>{statusLabels[creation.status]}</span><span>{studioLabels[creation.studio]}</span><span>{formatLocalTime(creation.updatedAt)}</span></div>
         <h2>{creation.title}</h2>

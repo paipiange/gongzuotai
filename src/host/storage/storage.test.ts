@@ -79,6 +79,26 @@ describe('Host SQLite storage', () => {
     storage.close()
   })
 
+  it('persists and clears a creation cover asset id', async () => {
+    const storage = await openTemporaryStorage()
+    const repository = new CreationRepository(storage.db)
+    const created = repository.create({
+      type: 'article',
+      title: '封面测试草稿',
+      bodyMd: '用于封面字段验收的虚构内容。',
+    })
+    expect(created.coverAssetId).toBeNull()
+
+    const withCover = repository.update(created.id, { coverAssetId: 'asset-123' })
+    expect(withCover?.coverAssetId).toBe('asset-123')
+    expect(repository.getById(created.id)?.coverAssetId).toBe('asset-123')
+
+    const cleared = repository.update(created.id, { coverAssetId: null })
+    expect(cleared?.coverAssetId).toBeNull()
+    expect(repository.getById(created.id)?.coverAssetId).toBeNull()
+    storage.close()
+  })
+
   it('never creates a video generation record', async () => {
     const storage = await openTemporaryStorage()
     const repository = new CreationRepository(storage.db)

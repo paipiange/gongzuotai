@@ -163,6 +163,7 @@ function upsertLocal(draft: CreationDraft): CreationRecord {
     style: draft.style,
     requirement: draft.requirement,
     status: draft.status ?? existing?.status ?? 'draft',
+    coverAssetId: existing?.coverAssetId ?? null,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   }

@@ -22,6 +22,7 @@ export interface CreationRecord {
   style: string
   requirement: string
   status: CreationStatus
+  coverAssetId: string | null
   createdAt: string
   updatedAt: string
 }
@@ -175,6 +176,15 @@ export async function deleteCreation(id: string): Promise<void> {
 /** Permanently delete a creation (hard delete, bypasses soft-delete). */
 export async function purgeCreation(id: string): Promise<void> {
   await apiFetch<{ ok: boolean }>(`.creation.purge?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
+/** Set or clear a creation's cover asset. Pass `null` to clear. */
+export async function setCreationCover(id: string, assetId: string | null): Promise<CreationRecord> {
+  const data = await apiFetch<{ creation: CreationRecord }>(`.creation.cover?id=${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ assetId }),
+  })
+  return data.creation
 }
 
 // ---- Image-gen config ----
