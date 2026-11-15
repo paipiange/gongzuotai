@@ -1581,6 +1581,160 @@
   border-radius: 8px 8px 2px 2px;
 }
 
+/* ---- Analytics page ---- */
+
+.pa-root .pa-analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.pa-root .pa-panel__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  color: var(--pa-gold-light);
+}
+
+.pa-root .pa-panel__title-text {
+  margin: 0;
+  color: var(--pa-text);
+  font-family: "Songti SC", "STSong", serif;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.pa-root .pa-chart-caption {
+  margin: 12px 0 0;
+  color: var(--pa-muted);
+  font-size: 11px;
+}
+
+.pa-root .pa-analytics-bars {
+  display: flex;
+  height: 170px;
+  align-items: flex-end;
+  justify-content: space-around;
+  gap: 12px;
+  padding: 0 6px;
+}
+
+.pa-root .pa-analytics-bar {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.pa-root .pa-analytics-bar__track {
+  display: flex;
+  width: 100%;
+  height: 120px;
+  align-items: flex-end;
+  justify-content: center;
+  border-bottom: 1px solid var(--pa-border-soft);
+}
+
+.pa-root .pa-analytics-bar__track i {
+  display: block;
+  width: 46%;
+  min-height: 8px;
+  background: linear-gradient(180deg, rgba(229, 183, 126, 0.68), rgba(133, 84, 48, 0.42));
+  border: 1px solid rgba(229, 183, 126, 0.18);
+  border-radius: 8px 8px 2px 2px;
+}
+
+.pa-root .pa-analytics-bar__label {
+  color: var(--pa-muted);
+  font-size: 10px;
+}
+
+.pa-root .pa-analytics-bar__value {
+  color: var(--pa-gold-light);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pa-root .pa-analytics-studio {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pa-root .pa-analytics-studio__row {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 10px;
+}
+
+.pa-root .pa-analytics-studio__label {
+  color: var(--pa-muted);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pa-root .pa-analytics-studio__track {
+  height: 14px;
+  overflow: hidden;
+  background: rgba(229, 183, 126, 0.08);
+  border-radius: 7px;
+}
+
+.pa-root .pa-analytics-studio__track i {
+  display: block;
+  height: 100%;
+  min-width: 4px;
+  background: linear-gradient(90deg, rgba(229, 183, 126, 0.7), rgba(133, 84, 48, 0.45));
+  border-radius: 7px;
+}
+
+.pa-root .pa-analytics-studio__value {
+  color: var(--pa-gold-light);
+  font-size: 12px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.pa-root .pa-analytics-inline {
+  display: flex;
+  gap: 24px;
+  padding: 12px 4px;
+}
+
+.pa-root .pa-analytics-inline > div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.pa-root .pa-analytics-inline strong {
+  color: var(--pa-gold-light);
+  font-family: Georgia, serif;
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pa-root .pa-analytics-inline span {
+  color: var(--pa-muted);
+  font-size: 11px;
+}
+
+.pa-root .pa-analytics-notice {
+  margin-top: 12px;
+  padding: 14px 17px;
+}
+
+.pa-root .pa-analytics-notice p {
+  margin: 0;
+  color: var(--pa-muted);
+  font-size: 12px;
+}
+
 .pa-root .pa-inspiration-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -52,6 +52,7 @@ import { ImageGenSettings } from './ImageGenSettings'
 import { TextGenSettings } from './TextGenSettings'
 import { ImageGenPanel } from './ImageGenPanel'
 import { AssetsPage, InspirationPage, PublishQueuePage } from './LibraryPages'
+import { AnalyticsPage } from './AnalyticsPage'
 import { exportCreation, generateTextStream } from './hostClient'
 
 type ArtVariant = 'river' | 'court' | 'blossom' | 'night' | 'portrait' | 'hero'
@@ -731,10 +732,6 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
   )
 }
 
-function MetricCard({ label, value, note }: { label: string; value: string; note: string }) {
-  return <div className="pa-metric-card"><span>{label}</span><strong>{value}</strong><small>{note}</small></div>
-}
-
 function CreationCard({ creation, onOpen, onStatus, onDelete }: {
   creation: CreationRecord
   onOpen: (creation: CreationRecord) => void
@@ -815,13 +812,7 @@ function WorkspacePage({ page, creations, storageSource, onNavigate, onOpenStudi
   if (page === 'publish') return <PublishQueuePage creations={creations} onOpen={onOpenCreation} onToast={onToast} />
 
   if (page === 'analytics') {
-    return (
-      <div className="pa-page">
-        <PageIntro title={meta.title} description={meta.description} />
-        <div className="pa-metrics-grid"><MetricCard label="创作总数" value={String(creations.length)} note="仅统计真实本地记录" /><MetricCard label="进行中" value={String(creations.filter((item) => item.status === 'draft').length)} note="当前草稿" /><MetricCard label="待发布" value={String(creations.filter((item) => item.status === 'queued').length)} note="本地发布清单" /><MetricCard label="模型用量" value="—" note="模型连接后显示" /></div>
-        <section className="pa-panel pa-chart-panel"><SectionHeading title="创作状态分布" /><div className="pa-chart-empty"><ChartBars values={[creations.filter((item) => item.status === 'draft').length, creations.filter((item) => item.status === 'queued').length, creations.filter((item) => item.status === 'archived').length]} /><p>{creations.length ? '图表来自当前浏览器保存的真实记录。' : '完成创作后，这里会显示真实趋势，不使用虚构数据。'}</p></div></section>
-      </div>
-    )
+    return <AnalyticsPage creations={creations} storageSource={storageSource} studioLabels={studioLabels} />
   }
 
   if (page === 'inspiration') {
@@ -852,11 +843,6 @@ function WorkspacePage({ page, creations, storageSource, onNavigate, onOpenStudi
       <section className="pa-panel pa-large-empty"><div className="pa-large-empty__icon"><CloudArrowUp aria-hidden="true" size={27} weight="duotone" /></div><h2>{meta.title}</h2><p>{meta.description}</p></section>
     </div>
   )
-}
-
-function ChartBars({ values = [0, 0, 0] }: { values?: number[] }) {
-  const max = Math.max(...values, 1)
-  return <div className="pa-chart-bars" aria-label="本地创作状态分布图">{values.map((value, index) => <i key={index} style={{ height: `${Math.max(10, (value / max) * 90)}%` }} title={String(value)} />)}</div>
 }
 
 export function PaipiangeRoot() {
