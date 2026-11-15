@@ -25,7 +25,7 @@ fail() { printf '\n\033[1;31m[deploy][FAIL]\033[0m %s\n' "$*" >&2; exit 1; }
 ok()   { printf '\033[1;32m[deploy][OK]\033[0m %s\n' "$*"; }
 
 # ---- 0. 探测实机 Electron 版本（关键：读正确的主程序，不是残留目录）----
-log "0/6 探测实机 Electron 版本..."
+log "0/7 探测实机 Electron 版本..."
 # 真正的 dsh 主程序在安装目录 D:/software/dsh（Electron 44），
 # 而 ~/.dsh/electron/ 是残留旧目录（Electron 43），两者 ABI 不同。
 # 优先用主程序实际探测 process.versions，最准确。
@@ -61,7 +61,7 @@ else
 fi
 
 # ---- 1. 构建 + 打包 ----
-log "1/6 构建插件并打包 tarball..."
+log "1/7 构建插件并打包 tarball..."
 cd "$PROJECT_ROOT"
 pnpm build >/dev/null 2>&1 || fail "pnpm build 失败"
 pnpm pack --pack-destination "$ARTIFACTS_DIR" >/dev/null 2>&1 \
@@ -69,7 +69,7 @@ pnpm pack --pack-destination "$ARTIFACTS_DIR" >/dev/null 2>&1 \
 ok "tarball 已生成: $TARBALL"
 
 # ---- 2. 本地针对实机 Electron 重编译 better-sqlite3 ----
-log "2/6 在本地针对 Electron $ELECTRON_VER 重编译 better-sqlite3（关键步骤）..."
+log "2/7 在本地针对 Electron $ELECTRON_VER 重编译 better-sqlite3（关键步骤）..."
 ELECTRON_REBUILD_BIN="$PROJECT_ROOT/node_modules/.bin/electron-rebuild"
 if [ ! -f "$ELECTRON_REBUILD_BIN" ]; then
   log "   本地无 @electron/rebuild，正在安装..."
@@ -94,7 +94,7 @@ fi
 ok "本地编译产物: $LOCAL_BSQLITE_NODE"
 
 # ---- 3. 同步 native 二进制到实机（hoisted 顶层 + .pnpm store 双保险）----
-log "3/6 同步 native 二进制到实机..."
+log "3/7 同步 native 二进制到实机..."
 # 3a. 顶层 hoisted 目录（electron 实际 require 解析到的路径）
 HOISTED_DST="$PROFILE_NM/better-sqlite3/build/Release/better_sqlite3.node"
 if [ -d "$PROFILE_NM/better-sqlite3" ]; then
@@ -117,7 +117,7 @@ if [ -d "$PNPM_BSQLITE" ]; then
 fi
 
 # ---- 4. 补齐 bindings / file-uri-to-path 纯 JS 依赖 ----
-log "4/6 校验并补齐纯 JS 依赖（bindings / file-uri-to-path）..."
+log "4/7 校验并补齐纯 JS 依赖（bindings / file-uri-to-path）..."
 for entry in "bindings 1.5.0" "file-uri-to-path 1.0.0"; do
   set -- $entry
   name="$1" ver="$2"
@@ -131,10 +131,10 @@ for entry in "bindings 1.5.0" "file-uri-to-path 1.0.0"; do
 done
 
 # ---- 5. 同步插件产物到实机（lib + package.json + patch）----
-log "5/6 同步插件产物到实机..."
+log "5/7 同步插件产物到实机..."
 TARGET_PKG="$PROFILE_NM/dsh-paipiange"
 if [ -d "$TARGET_PKG" ]; then
-  tar -xzf "$TARBALL" -C "$PROFILE_NM" --strip-components=1 \
+  tar -xzf "$TARBALL" -C "$TARGET_PKG" --strip-components=1 \
     package/lib package/package.json package/cordis.patch.yml 2>/dev/null \
     || fail "解压 tarball 到实机失败"
   ok "产物已覆盖到 $TARGET_PKG"
@@ -143,7 +143,7 @@ else
 fi
 
 # ---- 6. 自校验：用实机 Electron 实测加载 ----
-log "6/6 用实机 Electron 实测加载 better-sqlite3 与插件..."
+log "6/7 用实机 Electron 实测加载 better-sqlite3 与插件..."
 cat > /tmp/dsh-paipiange-verify.cjs <<'EOF'
 const path = require('path');
 const root = process.env.DSH_NM;
@@ -167,6 +167,13 @@ if [ ! -f "$ELECTRON_BIN" ]; then
 fi
 DSH_NM="$PROFILE_NM" "$ELECTRON_BIN" /tmp/dsh-paipiange-verify.cjs \
   | grep -E "\[verify\]" || fail "实机 Electron 加载校验失败"
+
+# ---- 7. 恢复本地 better-sqlite3 到标准 Node ABI（供本地测试/开发用）----
+log "7/7 恢复本地 better-sqlite3 到标准 Node ABI（供本地测试）..."
+cd "$PROJECT_ROOT"
+npm rebuild better-sqlite3 >/dev/null 2>&1 \
+  || log "   警告: 恢复本地 ABI 失败（不影响实机部署，但本地 pnpm test 会报错）"
+ok "本地 better-sqlite3 已恢复标准 Node ABI，pnpm test 可用"
 
 log ""
 ok "==================== 部署完成 ===================="

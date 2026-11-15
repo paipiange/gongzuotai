@@ -244,19 +244,20 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
   register('/api/paipiange.imagegen.generate', ['POST'], async (request) => {
       const body = await request.json().catch(() => null) as {
         provider?: ProviderId
+        backendId?: string
         request?: ImageGenRequest
         sourceCreationId?: string
       } | null
-      if (!body || !body.provider || !body.request?.prompt) return error('缺少 provider 或 prompt')
+      if (!body || !body.request?.prompt) return error('缺少 prompt')
       const imageGen = buildImageGen()
-      const available = imageGen.available()
-      if (!available.includes(body.provider)) return error(`生图后端未配置: ${body.provider}`, 409)
       try {
-        const images = await imageGen.generate(body.provider, body.request)
+        const images = body.backendId
+          ? await imageGen.generateByBackend(body.backendId, body.request)
+          : await imageGen.generate(body.provider ?? 'llm', body.request)
         const saved = images.map((image) => {
           const asset = assets.save({
             kind: 'image',
-            name: `generated-${body.provider}.png`,
+            name: `generated-${body.backendId ?? body.provider ?? 'image'}.png`,
             mimeType: image.mimeType,
             data: image.data,
             sourceCreationId: body.sourceCreationId ?? null,
@@ -268,6 +269,62 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
         const message = cause instanceof Error ? cause.message : String(cause)
         return error(`生成失败: ${message}`, 502)
       }
+  })
+
+  // ---- Multi-backend management (CRUD) ----
+
+  register('/api/paipiange.backends', ['GET'], async () => {
+      return json({ backends: settings.listBackends() })
+  })
+
+  register('/api/paipiange.backend', ['POST', 'PATCH', 'DELETE'], async (request) => {
+      const url = new URL(request.url)
+      const id = url.searchParams.get('id') ?? ''
+      if (request.method === 'POST') {
+        const body = await request.json().catch(() => null) as {
+          name?: string
+          kind?: 'llm-text' | 'llm-image' | 'comfyui'
+          llm?: { baseUrl: string; apiKey: string; model: string }
+          text?: { provider: string; model: string }
+          comfyui?: { server: string; checkpoint?: string; unet?: string; clip?: string; vae?: string }
+        } | null
+        if (!body || !body.name?.trim() || !body.kind) return error('缺少 name 或 kind')
+        if (body.kind === 'comfyui') {
+          if (!body.comfyui?.server) return error('ComfyUI 配置缺少 server')
+        } else if (body.kind === 'llm-text') {
+          if (!body.text?.provider || !body.text?.model) return error('文本后端缺少 provider/model')
+        } else {
+          if (!body.llm?.baseUrl || !body.llm?.apiKey || !body.llm?.model) return error('LLM 配置缺少 baseUrl/apiKey/model')
+        }
+        const created = settings.createBackend({
+          name: body.name.trim(),
+          kind: body.kind,
+          llm: body.llm,
+          text: body.text,
+          comfyui: body.comfyui,
+        })
+        return json({ backend: created }, 201)
+      }
+      if (!id) return error('缺少 id')
+      if (request.method === 'DELETE') {
+        const ok = settings.removeBackend(id)
+        return ok ? json({ ok: true }) : error('后端不存在', 404)
+      }
+      // PATCH
+      const body = await request.json().catch(() => null) as {
+        name?: string
+        llm?: { baseUrl: string; apiKey: string; model: string }
+        text?: { provider: string; model: string }
+        comfyui?: { server: string; checkpoint?: string; unet?: string; clip?: string; vae?: string }
+      } | null
+      if (!body) return error('请求体无效')
+      const updated = settings.updateBackend(id, {
+        ...(body.name?.trim() ? { name: body.name.trim() } : {}),
+        ...(body.llm ? { llm: body.llm } : {}),
+        ...(body.text ? { text: body.text } : {}),
+        ...(body.comfyui ? { comfyui: body.comfyui } : {}),
+      })
+      return updated ? json({ backend: updated }) : error('后端不存在', 404)
   })
 
   // ---- Asset retrieval (binary) ----

@@ -48,14 +48,13 @@ import {
   type CreationRecord,
   type CreationStatus,
 } from './workspaceStore'
-import { ImageGenSettings } from './ImageGenSettings'
-import { TextGenSettings } from './TextGenSettings'
+import { BackendManager } from './BackendManager'
 import { BackupSettings } from './BackupSettings'
 import { ImageGenPanel } from './ImageGenPanel'
 import { AssetsPage, InspirationPage, PublishQueuePage } from './LibraryPages'
 import { AnalyticsPage } from './AnalyticsPage'
 import { MarkdownEditor } from './MarkdownEditor'
-import { exportCreation, generateTextStream } from './hostClient'
+import { exportCreation, generateTextStream, listBackends, type Backend } from './hostClient'
 
 type ArtVariant = 'river' | 'court' | 'blossom' | 'night' | 'portrait' | 'hero'
 
@@ -515,6 +514,8 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
   const [style, setStyle] = useState(initialCreation?.style ?? 'cinematic')
   const [requirement, setRequirement] = useState(initialCreation?.requirement ?? '')
   const [generating, setGenerating] = useState(false)
+  const [textBackends, setTextBackends] = useState<Backend[]>([])
+  const [textBackendId, setTextBackendId] = useState('')
   const abortRef = useRef<AbortController | null>(null)
   const isVideo = studio === 'video'
   const isImage = studio === 'image'
@@ -528,6 +529,24 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
     setStyle(initialCreation?.style ?? 'cinematic')
     setRequirement(initialCreation?.requirement ?? '')
   }, [initialCreation, studio])
+
+  // Load text backends (llm-text) for the model picker.
+  useEffect(() => {
+    let cancelled = false
+    listBackends().then((list) => {
+      if (cancelled) return
+      const text = list.filter((b) => b.kind === 'llm-text')
+      setTextBackends(text)
+      if (text.length) setTextBackendId((prev) => (text.some((b) => b.id === prev) ? prev : text[0].id))
+    }).catch(() => {
+      if (!cancelled) setTextBackends([])
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const currentTextBackend = textBackends.find((b) => b.id === textBackendId)
 
   // Debounced auto-save: once a draft has an id, persist edits silently so the
   // user never loses work. Skips video (never persisted) and avoids the toast
@@ -601,8 +620,8 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
     try {
       await generateTextStream(
         {
-          provider: '',
-          model: '',
+          provider: currentTextBackend?.text?.provider ?? '',
+          model: currentTextBackend?.text?.model ?? '',
           studio: studio as 'article' | 'headline' | 'marketing' | 'xiaohongshu',
           topic: topic.trim(),
           style,
@@ -699,6 +718,16 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
         <form className="pa-panel pa-studio-form" onSubmit={submit}>
           <SectionHeading title="创作参数" />
           <label className="pa-field"><span>创作类型</span><select defaultValue={studio}><option value={studio}>{studioLabels[studio]}</option></select></label>
+          <label className="pa-field">
+            <span>文字后端</span>
+            <select value={textBackendId} onChange={(event) => setTextBackendId(event.target.value)}>
+              {textBackends.length === 0 && <option value="">（默认 / 未配置，去设置中心添加）</option>}
+              {textBackends.map((b) => (
+                <option key={b.id} value={b.id}>{b.name}{b.text ? ` · ${b.text.model}` : ''}</option>
+              ))}
+            </select>
+            {textBackends.length === 0 && <small>未配置文字后端，将使用 Harness 默认模型。可在「设置中心 → 后端管理」添加。</small>}
+          </label>
           <label className="pa-field"><span>草稿标题</span><input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={80} placeholder="例如：春日品牌故事初稿" /></label>
           <label className="pa-field"><span>主题 / 关键词 <b aria-hidden="true">*</b></span><textarea value={topic} onChange={(event) => setTopic(event.target.value)} maxLength={300} placeholder="例如：以江南春日为主题，写一篇有画面感的品牌故事" /><small>{topic.length}/300</small></label>
           <label className="pa-field"><span>内容风格</span><select value={style} onChange={(event) => setStyle(event.target.value)}><option value="cinematic">电影感叙事</option><option value="poetic">东方诗意</option><option value="clear">清晰专业</option><option value="lively">轻松活泼</option></select></label>
@@ -830,8 +859,7 @@ function WorkspacePage({ page, creations, storageSource, onNavigate, onOpenStudi
       <div className="pa-page">
         <PageIntro title={meta.title} description={meta.description} />
         <div className="pa-settings-grid">
-          <TextGenSettings onToast={onToast} />
-          <ImageGenSettings onToast={onToast} />
+          <BackendManager onToast={onToast} />
           <BackupSettings onToast={onToast} />
           {[['本地草稿', storageSource === 'host' ? `已连接本地服务，当前共 ${creations.length} 条记录保存在 Host SQLite。` : `当前共 ${creations.length} 条记录，保存在浏览器本地（离线模式，恢复连接后自动合并到本地服务）。`], ['主题与界面', '当前使用暖棕金国风深色主题。']].map(([title, description], index) => <section key={title} className="pa-panel pa-setting-card"><div className="pa-setting-card__icon">{index === 0 ? <FolderOpen aria-hidden="true" size={23} /> : <GearSix aria-hidden="true" size={23} />}</div><div><h2>{title}</h2><p>{description}</p></div><button type="button" className="pa-secondary-button" onClick={() => onToast(index === 0 ? (storageSource === 'host' ? '草稿保存在本地 Host SQLite 数据库' : '草稿暂存于浏览器本地，连接恢复后自动合并到本地服务，不会丢失') : `主题切换将在后续功能阶段接入`)}>查看</button></section>)}
         </div>

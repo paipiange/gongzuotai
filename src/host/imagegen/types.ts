@@ -67,3 +67,38 @@ export interface ComfyUiConfig {
   /** Split-model: VAE. */
   vae?: string
 }
+
+/**
+ * A user-managed generation backend. Text and image backends are both stored
+ * in the same list so the user can add/edit/remove/switch them freely.
+ */
+export type BackendKind = 'llm-text' | 'llm-image' | 'comfyui'
+
+/** LLM image backend config (OpenAI-compatible images endpoint). */
+export interface LlmBackendConfig {
+  baseUrl: string
+  apiKey: string
+  model: string
+}
+
+/** LLM text backend config (reuses the Harness `llm` service route/model). */
+export interface LlmTextBackendConfig {
+  provider: string
+  model: string
+}
+
+export interface Backend {
+  /** Stable unique id. */
+  id: string
+  /** Human-readable name shown in pickers. */
+  name: string
+  kind: BackendKind
+  /** `llm-image` backends carry baseUrl/apiKey/model. */
+  llm?: LlmBackendConfig
+  /** `llm-text` backends carry provider/model (reuses Harness llm service). */
+  text?: LlmTextBackendConfig
+  /** `comfyui` backend carries its server + model references. */
+  comfyui?: ComfyUiConfig
+  createdAt: string
+  updatedAt: string
+}

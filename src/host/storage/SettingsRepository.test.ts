@@ -72,4 +72,61 @@ describe('SettingsRepository', () => {
     expect(repo.getTextGenConfig()).toEqual({ provider: 'deepseek-official', model: 'deepseek-chat' })
     storage.close()
   })
+
+  it('manages multiple backends (create/list/update/remove)', async () => {
+    const storage = await openTemporaryStorage()
+    const repo = new SettingsRepository(storage.db)
+
+    expect(repo.listBackends()).toEqual([])
+
+    const image = repo.createBackend({
+      name: 'GPT 图片',
+      kind: 'llm-image',
+      llm: { baseUrl: 'https://api.example.com/v1', apiKey: 'secret-1', model: 'gpt-image-2.5' },
+    })
+    const text = repo.createBackend({
+      name: '文字模型',
+      kind: 'llm-text',
+      text: { provider: 'huatu717333', model: 'deepseek-flash' },
+    })
+    const comfy = repo.createBackend({
+      name: '本机 ComfyUI',
+      kind: 'comfyui',
+      comfyui: { server: 'http://127.0.0.1:8188', unet: 'u.safetensors', clip: 'c.safetensors', vae: 'v.safetensors' },
+    })
+
+    expect(repo.listBackends()).toHaveLength(3)
+    expect(image.id).toMatch(/^backend-/)
+    expect(text.text).toMatchObject({ provider: 'huatu717333' })
+
+    // list 不应泄露 apiKey
+    const listed = repo.listBackends()
+    const listedImage = listed.find((b) => b.id === image.id)
+    expect(listedImage?.llm?.apiKey).toBe('')
+    expect(JSON.stringify(listed)).not.toContain('secret-1')
+
+    // update
+    const updated = repo.updateBackend(image.id, { name: 'GPT 图片 2' })
+    expect(updated?.name).toBe('GPT 图片 2')
+    expect(repo.updateBackend('nonexistent', { name: 'x' })).toBeNull()
+
+    // remove
+    expect(repo.removeBackend(text.id)).toBe(true)
+    expect(repo.removeBackend('nonexistent')).toBe(false)
+    expect(repo.listBackends()).toHaveLength(2)
+    storage.close()
+  })
+
+  it('listBackendsWithSecrets returns real apiKey for host use', async () => {
+    const storage = await openTemporaryStorage()
+    const repo = new SettingsRepository(storage.db)
+    const created = repo.createBackend({
+      name: 'S',
+      kind: 'llm-image',
+      llm: { baseUrl: 'https://x', apiKey: 'real-secret', model: 'm' },
+    })
+    const secrets = repo.listBackendsWithSecrets()
+    expect(secrets.find((b) => b.id === created.id)?.llm?.apiKey).toBe('real-secret')
+    storage.close()
+  })
 })

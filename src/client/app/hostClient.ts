@@ -43,6 +43,20 @@ export interface ImageGenSummary {
   comfyui?: { server: string; checkpoint?: string; unet?: string; clip?: string; vae?: string }
 }
 
+/** A user-managed generation backend (text or image). */
+export type BackendKind = 'llm-text' | 'llm-image' | 'comfyui'
+
+export interface Backend {
+  id: string
+  name: string
+  kind: BackendKind
+  llm?: { baseUrl: string; model: string; apiKey?: string }
+  text?: { provider: string; model: string }
+  comfyui?: { server: string; checkpoint?: string; unet?: string; clip?: string; vae?: string }
+  createdAt: string
+  updatedAt: string
+}
+
 export interface GeneratedImageResult {
   id: string
   mimeType: string
@@ -208,7 +222,8 @@ export async function saveImageGenConfig(config: {
 // ---- Image generation ----
 
 export async function generateImages(input: {
-  provider: 'llm' | 'comfyui'
+  provider?: 'llm' | 'comfyui'
+  backendId?: string
   request: {
     prompt: string
     negativePrompt?: string
@@ -229,6 +244,49 @@ export async function generateImages(input: {
     body: JSON.stringify(input),
   })
   return data.images
+}
+
+// ---- Multi-backend management (CRUD) ----
+
+export async function listBackends(): Promise<Backend[]> {
+  const data = await apiFetch<{ backends: Backend[] }>('.backends')
+  return data.backends
+}
+
+export async function createBackend(input: {
+  name: string
+  kind: BackendKind
+  llm?: { baseUrl: string; apiKey: string; model: string }
+  text?: { provider: string; model: string }
+  comfyui?: { server: string; checkpoint?: string; unet?: string; clip?: string; vae?: string }
+}): Promise<Backend> {
+  const data = await apiFetch<{ backend: Backend }>('.backend', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return data.backend
+}
+
+export async function updateBackend(
+  id: string,
+  patch: {
+    name?: string
+    llm?: { baseUrl: string; apiKey: string; model: string }
+    text?: { provider: string; model: string }
+    comfyui?: { server: string; checkpoint?: string; unet?: string; clip?: string; vae?: string }
+  },
+): Promise<Backend> {
+  const data = await apiFetch<{ backend: Backend }>(`.backend?id=${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  })
+  return data.backend
+}
+
+export async function deleteBackend(id: string): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`.backend?id=${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  })
 }
 
 // ---- Text generation (streaming) ----

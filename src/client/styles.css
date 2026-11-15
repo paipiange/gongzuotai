@@ -2113,6 +2113,178 @@
   font-size: 11px;
 }
 
+/* ---- Backend manager (multi-backend list) ---- */
+
+.pa-root .pa-backend-manager {
+  grid-column: 1 / -1;
+  padding: 18px;
+}
+
+.pa-root .pa-backend-manager__warn {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  color: var(--pa-danger);
+  background: rgba(226, 130, 118, 0.08);
+  border: 1px solid rgba(226, 130, 118, 0.28);
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.pa-root .pa-backend-manager__group {
+  margin-bottom: 18px;
+}
+
+.pa-root .pa-backend-manager__group:last-of-type {
+  margin-bottom: 0;
+}
+
+.pa-root .pa-backend-manager__group-title {
+  margin: 0 0 8px;
+  color: var(--pa-gold-light);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pa-root .pa-backend-manager__empty {
+  margin: 0;
+  padding: 14px;
+  color: var(--pa-quiet);
+  background: rgba(0, 0, 0, 0.14);
+  border: 1px dashed rgba(196, 146, 95, 0.22);
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.pa-root .pa-backend-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pa-root .pa-backend-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(196, 146, 95, 0.16);
+  border-radius: 12px;
+}
+
+.pa-root .pa-backend-row__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  color: var(--pa-gold-light);
+  background: rgba(229, 183, 126, 0.1);
+  border-radius: 10px;
+}
+
+.pa-root .pa-backend-row__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.pa-root .pa-backend-row__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+
+.pa-root .pa-backend-row__name {
+  color: var(--pa-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pa-root .pa-backend-row__tag {
+  padding: 2px 8px;
+  color: var(--pa-gold);
+  background: rgba(229, 183, 126, 0.1);
+  border: 1px solid rgba(229, 183, 126, 0.22);
+  border-radius: 999px;
+  font-size: 10px;
+}
+
+.pa-root .pa-backend-row__summary {
+  overflow: hidden;
+  color: var(--pa-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pa-root .pa-backend-row__actions {
+  display: flex;
+  gap: 4px;
+  flex: none;
+}
+
+.pa-root .pa-icon-button--danger {
+  color: var(--pa-danger);
+}
+
+.pa-root .pa-backend-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.16);
+  border: 1px solid rgba(229, 183, 126, 0.26);
+  border-radius: 12px;
+}
+
+.pa-root .pa-backend-form__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pa-root .pa-backend-form__head h3 {
+  margin: 0;
+  color: var(--pa-gold-light);
+  font-size: 14px;
+}
+
+.pa-root .pa-backend-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.pa-root .pa-backend-form label span {
+  color: var(--pa-muted);
+  font-size: 11px;
+}
+
+.pa-root .pa-backend-form input,
+.pa-root .pa-backend-form select {
+  width: 100%;
+  padding: 10px 12px;
+  color: var(--pa-text);
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(229, 183, 126, 0.18);
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.pa-root .pa-backend-form input:focus,
+.pa-root .pa-backend-form select:focus {
+  outline: none;
+  border-color: var(--pa-gold-light);
+}
+
+.pa-root .pa-backend-form select option {
+  color: var(--pa-text);
+  background: #291a13;
+}
+
+
 .pa-root .pa-large-empty {
   display: flex;
   min-height: 430px;

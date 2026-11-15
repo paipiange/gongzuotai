@@ -77,6 +77,7 @@ export async function apply(ctx: Context, config: Config = {}) {
     new ImageGenService({
       llm: settings.getLlmImageConfig() ?? undefined,
       comfyui: settings.getComfyUiConfig() ?? undefined,
+      backends: settings.listBackendsWithSecrets(),
     })
 
   // Trust gate: when the `connection` service exposes `requestRejection`, use it
