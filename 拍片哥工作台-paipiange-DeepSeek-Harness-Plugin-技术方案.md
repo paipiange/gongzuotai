@@ -1,7 +1,7 @@
-# PublishAgent for DeepSeek Harness — 原生插件高保真复刻技术方案
+# 拍片哥工作台（paipiange）for DeepSeek Harness — 原生插件高保真复刻技术方案
 
 > 文档版本：v1.0 · 2026-11-15  
-> 目标：把提供的 PublishAgent 截图复刻为 DeepSeek Harness **可安装的原生插件**。不开发注册登录，不另起独立站点，不依赖 MySQL / Redis / GoFrame。先完成全套 UI 和核心文字创作；图片生成实现可扩展适配器，有可用提供商时启用；**视频生成仅做 UI 占位，不接模型、不扣费、不创建真实生成任务**。  
+> 目标：把提供的“拍片哥工作台（paipiange）”截图复刻为 DeepSeek Harness **可安装的原生插件**。不开发注册登录，不另起独立站点，不依赖 MySQL / Redis / GoFrame。先完成全套 UI 和核心文字创作；图片生成实现可扩展适配器，有可用提供商时启用；**视频生成仅做 UI 占位，不接模型、不扣费、不创建真实生成任务**。
 > 输入视觉参考：`assets/ui-reference.png`（1280 × 774，原始截图）。  
 > 实现语言：TypeScript + React（Browser Client）/ Node.js（Harness Host）；存储 SQLite + 文件系统。
 
@@ -13,7 +13,7 @@
 
 1. 请先阅读此 Markdown、原始参考图和宿主当前版本的官方插件文档，再检查本机安装的 Harness 版本及真实 API，**不要自行发明 `ctx` 方法或沿用过时的 slot**。
 2. 先做最小可安装插件：能出现在 Harness 左侧导航（`sidebar.panellist`），点击显示独立工作台（`main` keyed slot），退出插件恢复原有页面。
-3. 在这个真实入口内实现完整的 PublishAgent 界面。所有页面、模态框、抽屉、弹出菜单及状态必须可交互。禁止把截图整体当作背景图片蒙在页面上冒充复刻。
+3. 在这个真实入口内实现完整的 拍片哥工作台 界面。所有页面、模态框、抽屉、弹出菜单及状态必须可交互。禁止把截图整体当作背景图片蒙在页面上冒充复刻。
 4. **优先 UI 高保真**：截图中真实存在的布局、留白、圆角、花瓣背景、暖金色按钮、棕黑面板和中文排版均按文档实现。截图涉及的人像/风景作为**素材参考**，使用合法授权或原创素材重建；不得直接把整张截图切成伪 UI。
 5. 核心业务：文章生成、标题生成、模板选用、草稿、素材、创作记录、搜索、设置、导出。文字生成优先复用 Harness 已配置 LLM；图片生成走可选 Provider；视频页只占位。
 6. 未配置模型时，UI 仍完整可用；真实生成按钮应明确报「请配置模型」，**不能用随机文案冒充 AI 输出**。可以提供显式的 Demo 演示开关供 UI 验收。
@@ -30,7 +30,7 @@
 
 ### 1.1 产品定位
 
-PublishAgent 是一个**本地优先的 AI 内容创作工作台**，嵌入 DeepSeek Harness：
+拍片哥工作台 是一个**本地优先的 AI 内容创作工作台**，嵌入 DeepSeek Harness：
 
 - 首页：创作入口、灵感卡、热门功能、精选模板、最近创作。
 - AI 创作：文章、营销文案、小红书笔记、爆款标题、图片、视频占位。
@@ -83,16 +83,16 @@ PublishAgent 是一个**本地优先的 AI 内容创作工作台**，嵌入 Deep
 ```text
 DeepSeek Harness (现成运行时)
 │
-├─ Cordis Host Plugin: PublishAgent Host
+├─ Cordis Host Plugin: 拍片哥工作台 Host
 │  ├─ Local DB/Repository: SQLite / 文件系统
 │  ├─ Prompt Templates / AI Job Runner
 │  ├─ Text LLM Adapter → Harness 现有模型服务
 │  ├─ Optional Image Provider Adapter → 用户自己的图像模型 API
 │  └─ Host HTTP Routes / SSE → 浏览器 UI
 │
-└─ Cordis Client Plugin: PublishAgent Client
+└─ Cordis Client Plugin: 拍片哥工作台 Client
    ├─ sidebar.panellist → 一枚“创作工作台”入口
-   └─ main[key="publishagent"] → 全尺寸 PublishAgent 页面
+   └─ main[key="paipiange"] → 全尺寸 拍片哥工作台 页面
         ├─ 内部侧栏
         ├─ 首页 / AI 创作 / 素材库 / 分析 / 发布 / 灵感 / 设置
         └─ 业务页面（React）
@@ -100,7 +100,7 @@ DeepSeek Harness (现成运行时)
 
 ### 2.2 不替换 Harness 原生外壳
 
-原始参考图左侧约 210px 为 **PublishAgent 自己的菜单**。Harness 自身还存在全局侧栏。采用官方原生插件时，**Harness 侧栏保留，PublishAgent 的左侧菜单绘制在插件的 `main` 主区内部**。
+原始参考图左侧约 210px 为 **拍片哥工作台 自己的菜单**。Harness 自身还存在全局侧栏。采用官方原生插件时，**Harness 侧栏保留，拍片哥工作台 的左侧菜单绘制在插件的 `main` 主区内部**。
 
 这样最安全，但也意味着“整台机器 1280px 宽时”插件可用空间小于截图的 1280px。应做两种视口模式：
 
@@ -115,28 +115,28 @@ DeepSeek Harness (现成运行时)
 ```tsx
 // src/client/entry.tsx — 示意（必须以当前版本类型检查为准）
 import type { Context } from '@deepseek-ai/cordis'
-import { PublishAgentRoot } from './app/PublishAgentRoot'
-import { PublishAgentIcon } from './components/PublishAgentIcon'
+import { PaipiangeRoot } from './app/PaipiangeRoot'
+import { PaipiangeIcon } from './components/PaipiangeIcon'
 
-export const name = 'publishagent-client'
+export const name = 'paipiange-client'
 export const inject = ['slots']
 export function apply(ctx: Context) {
   ctx.slots.inject('sidebar.panellist', () =>
     ctx.slots.register(
       {
         name: 'sidebar.panellist',
-        id: 'publishagent',
+        id: 'paipiange',
         order: 70,
-        label: () => 'PublishAgent',
+        label: () => '拍片哥工作台',
       },
-      PublishAgentIcon,
+      PaipiangeIcon,
     ),
   )
 
   ctx.slots.inject('main', () =>
     ctx.slots.register(
-      { name: 'main', key: 'publishagent' },
-      PublishAgentRoot,
+      { name: 'main', key: 'paipiange' },
+      PaipiangeRoot,
     ),
   )
 }
@@ -146,7 +146,7 @@ export function apply(ctx: Context) {
 
 ### 2.4 Host / Client 通信
 
-- Client 通过同源 `/__publishagent/api/*` 发起请求，Host handler 负责 SQLite、文件操作、调用模型和写记录。
+- Client 通过同源 `/__paipiange/api/*` 发起请求，Host handler 负责 SQLite、文件操作、调用模型和写记录。
 - 文本流式输出走 `text/event-stream`，事件含 `delta / progress / complete / error`。
 - Host 路由必须复用 `ctx.connection` 的可信来源与会话凭证校验（若此服务缺失，**拒绝开放私有业务路由**，不可退回裸公网接口）。
 - 不能把 API key、私有路径、SQLite 内容直接暴露在前端，也不能从浏览器直接请求无鉴权的供应商 API。
@@ -173,7 +173,7 @@ export function apply(ctx: Context) {
 | 数据请求 | fetch + TanStack Query（可选） | 统一 API client、取消、错误处理 |
 | 编辑器 | Tiptap + Markdown 转换 | 编辑/格式化/导出、自动保存 |
 | 本地数据库 | SQLite（建议 better-sqlite3） | 简化安装，注意原生模块跨平台打包；若有兼容问题使用 Node 内置 SQLite 能力（需验证目标 Node 版本） |
-| 文件 | Node fs/path | `~/.dsh/publishagent/` 或宿主允许的专属数据根目录 |
+| 文件 | Node fs/path | `~/.dsh/paipiange/` 或宿主允许的专属数据根目录 |
 | 文本 AI | Harness LLM Service | 从宿主 provider/model 列表选择；不重复造账号体系 |
 | 图片 AI | ImageProvider 接口 | 可选接入 OpenAI 兼容或其他明确支持的生成 API |
 | 文本任务 | 进程内 Job Manager | 限并发、取消、超时、重试、状态持久化 |
@@ -249,10 +249,10 @@ export function apply(ctx: Context) {
 
 ```text
 Harness 原生外壳
-└─ main[key=publishagent] (100% 高宽)
-   └─ PublishAgentRoot (.pa-root)
+└─ main[key=paipiange] (100% 高宽)
+   └─ PaipiangeRoot (.pa-root)
       ├─ PAInternalSidebar (展开 206px / 折叠 64px)
-      │  ├─ Brand (logo、PublishAgent、slogan)
+      │  ├─ Brand (logo、拍片哥工作台、slogan)
       │  ├─ WorkspaceSearch
       │  ├─ MainMenu (7项)
       │  ├─ RecentItems (滚动列表)
@@ -500,7 +500,7 @@ export class DisabledVideoProvider implements VideoProvider {
 
 ```mermaid
 flowchart LR
-  U[PublishAgent React UI] -->|同源 fetch| H[Host API Controller]
+  U[拍片哥工作台 React UI] -->|同源 fetch| H[Host API Controller]
   H --> D[(SQLite)]
   H --> F[Assets & Markdown Files]
   H --> J[Job Manager]
@@ -548,8 +548,8 @@ queued → running → completed
 > 下面是本插件自有的**建议路径**，不是 Harness 官方保证存在的数据目录。程序需通过宿主配置或 Node home 目录解析，Windows / macOS / Linux 均能写入；不要把 `~` 当做 Node 可自动展开的路径。
 
 ```text
-${DSH_HOME or userHome/.dsh}/publishagent/
-├── publishagent.sqlite
+${DSH_HOME or userHome/.dsh}/paipiange/
+├── paipiange.sqlite
 ├── media/
 │   ├── images/2026/11/<uuid>.webp
 │   └── uploads/2026/11/<uuid>.<ext>
@@ -708,7 +708,7 @@ PRAGMA user_version = 1;
 
 ## 9. Host API 设计（本插件约定，不是官方内置 API）
 
-所有接口都挂载在独占前缀 `/__publishagent/api`；所有 JSON 都使用统一响应规范。
+所有接口都挂载在独占前缀 `/__paipiange/api`；所有 JSON 都使用统一响应规范。
 
 ```ts
 type ApiResponse<T> =
@@ -812,7 +812,7 @@ export function registerRoutes(ctx: any, handle: (req: any, res: any) => Promise
   // 必须先提供可信来源/浏览器会话认证中间件；没有就 fail closed。
   return ctx.webServer.register({
     kind: 'prefix',
-    path: '/__publishagent/api',
+    path: '/__paipiange/api',
     handler: async (req: any, res: any) => {
       // authenticateRequest 必须适配 ctx.connection 的正式 API
       // 并验证 session/Origin/Host/路径访问权限。
@@ -910,7 +910,7 @@ prompts/
 ## 11. 建议项目结构（可直接开仓库）
 
 ```text
-publishagent-dsh/
+paipiange-dsh/
 ├── package.json
 ├── pnpm-lock.yaml
 ├── tsconfig.json
@@ -980,7 +980,7 @@ publishagent-dsh/
 │   └── client/
 │       ├── entry.tsx
 │       ├── app/
-│       │   ├── PublishAgentRoot.tsx
+│       │   ├── PaipiangeRoot.tsx
 │       │   ├── PAAppRouter.tsx
 │       │   └── stores/
 │       ├── components/
@@ -1043,7 +1043,7 @@ publishagent-dsh/
 
 ```jsonc
 {
-  "name": "dsh-publishagent",
+  "name": "dsh-paipiange",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -1070,8 +1070,8 @@ publishagent-dsh/
 
 ```yaml
 - insert:
-    - id: publishagent
-      name: dsh-publishagent
+    - id: paipiange
+      name: dsh-paipiange
 ```
 
 > 插件行必须引用可通过 profile 解析的包名；做 `--patch` 本地调试时，源码路径必须按官方要求提供绝对路径。
@@ -1097,7 +1097,7 @@ pnpm pack
 
 ```bash
 # 假设用户使用 web profile；以安装的实际 CLI 版本为准
-dsh plugin --profile web add ./dsh-publishagent-0.1.0.tgz
+dsh plugin --profile web add ./dsh-paipiange-0.1.0.tgz
 # 检查应用的最终组合
 dsh --profile web --dump-config
 # 再启动
@@ -1109,7 +1109,7 @@ dsh web
 ### 12.5 卸载和数据保留
 
 ```bash
-dsh plugin --profile web remove dsh-publishagent
+dsh plugin --profile web remove dsh-paipiange
 ```
 
 插件卸载后不自动删除用户创作文件/SQLite；README 给出数据目录和可选手工删除步骤。卸载要释放 slot、HTTP route、SSE stream、DB 句柄和任务管理器，不能影响 Harness 主进程或其他插件。
@@ -1122,7 +1122,7 @@ dsh plugin --profile web remove dsh-publishagent
 // src/host/index.ts — 结构性伪代码，不代表可直接 copy 编译
 import type { Context } from '@deepseek-ai/cordis'
 
-export const name = 'publishagent'
+export const name = 'paipiange'
 // 必需服务 vs 可选服务应按目标宿主 API 核对并声明
 export async function apply(ctx: Context) {
   const storage = await openStorageFromConfig()
@@ -1135,7 +1135,7 @@ export async function apply(ctx: Context) {
   const jobs = createJobManager({ db, storage, textModel, images })
 
   // 此函数实际内部必须完成连接认证，且不可调用无鉴权 fallback
-  const unregister = registerAuthenticatedPublishAgentRoutes(ctx, {
+  const unregister = registerAuthenticatedPaipiangeRoutes(ctx, {
     db, storage, jobs, textModel,
   })
 
@@ -1147,7 +1147,7 @@ export async function apply(ctx: Context) {
 }
 ```
 
-真实版本必须核对 `apply` 是否支持 async 与生命周期资源注册时机。不要让 DB migration 失败后仍挂载写操作路由。错误只影响 PublishAgent 插件，不应让整个 Harness UI 出现白屏。
+真实版本必须核对 `apply` 是否支持 async 与生命周期资源注册时机。不要让 DB migration 失败后仍挂载写操作路由。错误只影响 拍片哥工作台 插件，不应让整个 Harness UI 出现白屏。
 
 ---
 
@@ -1156,7 +1156,7 @@ export async function apply(ctx: Context) {
 ### 14.1 截图对比标准
 
 - 使用原图 `assets/ui-reference.png` 作为视觉基准。
-- **仅比较 PublishAgent 的内部页面区域**。因 Harness 自身多出原生侧栏，不能粗暴要求整个客户端像素坐标与 1280×774 完全一致。
+- **仅比较 拍片哥工作台 的内部页面区域**。因 Harness 自身多出原生侧栏，不能粗暴要求整个客户端像素坐标与 1280×774 完全一致。
 - 在测试配置中给插件内容提供与原图近似的宽 1280px × 高 774px 内容视口，进行内部截屏对齐；正常运行再测真实容器缩放。
 - 第一轮对齐：结构位置、边距、大小；第二轮：色彩、字体、图像主体；第三轮：阴影、微交互。
 
@@ -1175,7 +1175,7 @@ export async function apply(ctx: Context) {
 
 ### 14.3 E2E 业务验收清单
 
-- [ ] 安装插件后出现 PublishAgent 入口，点击出现真正 UI，切回聊天不受影响。
+- [ ] 安装插件后出现 拍片哥工作台 入口，点击出现真正 UI，切回聊天不受影响。
 - [ ] 重新启动 Harness，插件正常加载，用户草稿/素材不丢失。
 - [ ] 所有菜单、模板、灵感入口实际跳转。
 - [ ] 保存文章后首页记录更新，编辑/版本恢复生效。
@@ -1199,7 +1199,7 @@ export async function apply(ctx: Context) {
 
 任务：确认 Harness 版本、从官方或维护良好的示例学习 Host/Client 两端打包、注册侧栏和主面板、编译、安装、卸载、最小 Smoke Test。
 
-交付：能点开一张 PublishAgent 空白主页卡片。安装失败不许跳到 Phase 1。
+交付：能点开一张 拍片哥工作台 空白主页卡片。安装失败不许跳到 Phase 1。
 
 ### Phase 1 — 参考图首页高保真（仅 UI，不接模型）
 
@@ -1271,7 +1271,7 @@ export async function apply(ctx: Context) {
 ```text
 你是资深 DeepSeek Harness Cordis 插件工程师、React UI 工程师和 Node.js 应用开发者。
 
-现在请完整实现文档《PublishAgent for DeepSeek Harness — 原生插件高保真复刻技术方案》，
+现在请完整实现文档《拍片哥工作台 for DeepSeek Harness — 原生插件高保真复刻技术方案》，
 视觉参考文件为 assets/ui-reference.png。
 
 绝对约束：
@@ -1335,7 +1335,7 @@ export async function apply(ctx: Context) {
 
 只有同时满足下面 5 条，才算 V1 完成：
 
-1. **真插件**：用户可以从 Harness 插件机制安装，左侧打开一个 PublishAgent 主工作台，不是另开浏览器网页。
+1. **真插件**：用户可以从 Harness 插件机制安装，左侧打开一个 拍片哥工作台 主工作台，不是另开浏览器网页。
 2. **真界面**：截图中主结构与主要细节已用 React/CSS 实现；至少主页、创作、素材、记录、灵感、分析、发布、设置所有页面能进入且有交互。
 3. **真数据**：文章、模板、素材、记录保存在本机，重启不丢失，导出可用。
 4. **真模型**：文字任务调用实际 Harness 文本模型；图片任务在配置可用 Provider 时调用真实 API；无服务绝不伪造成功。
