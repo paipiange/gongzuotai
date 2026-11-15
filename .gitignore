@@ -12,5 +12,6 @@ data/
 uploads/
 backups/
 .artifacts/
+.workbuddy/
 .DS_Store
 Thumbs.db
