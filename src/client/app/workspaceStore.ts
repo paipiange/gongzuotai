@@ -27,6 +27,7 @@ export interface CreationDraft {
   style: string
   requirement: string
   status?: CreationStatus
+  tags?: string[]
 }
 
 const STORAGE_KEY = 'paipiange.workspace.v1'
@@ -55,7 +56,8 @@ function normalizeCreation(value: unknown): CreationRecord | null {
     || typeof record.createdAt !== 'string'
     || typeof record.updatedAt !== 'string'
   ) return null
-  return record as CreationRecord
+  if (record.tags !== undefined && !Array.isArray(record.tags)) return null
+  return { ...record, tags: Array.isArray(record.tags) ? record.tags : [] } as CreationRecord
 }
 
 function loadLocal(): CreationRecord[] {
@@ -130,6 +132,7 @@ async function reconcileIntoHost(hostRecords: CreationRecord[], localRecords: Cr
         style: local.style,
         requirement: local.requirement,
         status: local.status,
+        tags: local.tags,
       })
     } catch {
       // A single failed upload must not abort the remaining reconciliation.
@@ -190,6 +193,7 @@ function upsertLocal(draft: CreationDraft): CreationRecord {
     requirement: draft.requirement,
     status: draft.status ?? existing?.status ?? 'draft',
     coverAssetId: existing?.coverAssetId ?? null,
+    tags: draft.tags ?? existing?.tags ?? [],
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   }

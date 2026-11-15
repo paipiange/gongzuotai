@@ -333,7 +333,7 @@ export async function apply(ctx: Context, config: Config = {}) {
     )
 
     registerApiRoutes(
-      { creations, settings, assets, templates, inspirations, publish, exports, buildImageGen },
+      { creations, settings, assets, templates, inspirations, publish, exports, buildImageGen, llm: host.llm },
       (path, methods, handler) => {
         disposers.push(
           webServer.register({

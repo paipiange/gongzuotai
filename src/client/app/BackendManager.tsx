@@ -1,9 +1,10 @@
-import { ChatText, ImageSquare, Cpu, Plus, PencilSimple, Trash, FloppyDisk, X } from '@phosphor-icons/react'
+import { ChatText, ImageSquare, Cpu, Plus, PencilSimple, Trash, FloppyDisk, X, Eye, EyeSlash, Lightning } from '@phosphor-icons/react'
 import { FormEvent, useEffect, useState } from 'react'
 import {
   createBackend,
   deleteBackend,
   listBackends,
+  testBackend,
   updateBackend,
   type Backend,
   type BackendKind,
@@ -16,6 +17,14 @@ const KIND_META: Record<BackendKind, { label: string; icon: typeof ChatText }> =
   'llm-image': { label: '图片 API', icon: ImageSquare },
   comfyui: { label: '本机 ComfyUI', icon: Cpu },
 }
+
+/** 国内主流云生图供应商预设（OpenAI 兼容 / 官方 SDK 网关）。 */
+const CLOUD_PRESETS: Array<{ name: string; kind: BackendKind; baseUrl: string; modelHint: string }> = [
+  { name: '通义万相（阿里云 DashScope）', kind: 'llm-image', baseUrl: 'https://dashscope.aliyuncs.com/api/v1', modelHint: 'wanx2.1-t2i-turbo' },
+  { name: '智谱 CogView', kind: 'llm-image', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', modelHint: 'cogview-3-flash' },
+  { name: '硅基流动 SiliconFlow', kind: 'llm-image', baseUrl: 'https://api.siliconflow.cn/v1', modelHint: 'black-forest-labs/FLUX.1-schnell' },
+  { name: '即梦/豆包（火山方舟）', kind: 'llm-image', baseUrl: 'https://ark.cn-beijing.volces.com/api/v3', modelHint: 'doubao-seedream-3-0-t2i' },
+]
 
 /** Form state for a single backend being created or edited. */
 interface BackendForm {
@@ -75,6 +84,9 @@ export function BackendManager({ onToast }: { onToast: Toast }) {
   const [editing, setEditing] = useState<BackendForm | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [showApiKey, setShowApiKey] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string; latencyMs?: number } | null>(null)
 
   const reload = async () => {
     try {
@@ -201,12 +213,50 @@ export function BackendManager({ onToast }: { onToast: Toast }) {
     }
   }
 
+  /** Test whether a saved backend is currently reachable. */
+  const handleTest = async (backend: Backend) => {
+    setTesting(true)
+    setTestResult(null)
+    try {
+      let result
+      if (backend.kind === 'comfyui' && backend.comfyui) {
+        result = await testBackend({ kind: 'comfyui', comfyui: { server: backend.comfyui.server } })
+      } else if (backend.kind === 'llm-image' && backend.llm) {
+        result = await testBackend({ kind: 'llm-image', llm: { baseUrl: backend.llm.baseUrl, apiKey: backend.llm.apiKey ?? '', model: backend.llm.model } })
+      } else {
+        onToast('文字后端无需连接测试（复用 Harness 服务）', 'info')
+        return
+      }
+      setTestResult(result)
+      onToast(result.ok ? '连接正常' : result.message, result.ok ? 'success' : 'warning')
+    } catch (cause) {
+      setTestResult({ ok: false, message: cause instanceof Error ? cause.message : '测试失败' })
+      onToast(cause instanceof Error ? cause.message : '测试失败', 'warning')
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  /** Pre-fill the creation form from a cloud preset. */
+  const applyPreset = (preset: (typeof CLOUD_PRESETS)[number]) => {
+    setEditingId(null)
+    setEditing({
+      ...EMPTY_FORM,
+      name: preset.name,
+      kind: preset.kind,
+      baseUrl: preset.baseUrl,
+      model: preset.modelHint,
+      apiKey: '',
+    })
+  }
+
   const textBackends = backends.filter((b) => b.kind === 'llm-text')
   const imageBackends = backends.filter((b) => b.kind !== 'llm-text')
 
   const renderBackendRow = (backend: Backend) => {
     const meta = KIND_META[backend.kind]
     const Icon = meta.icon
+    const testable = backend.kind === 'comfyui' || backend.kind === 'llm-image'
     return (
       <li key={backend.id} className="pa-backend-row">
         <div className="pa-backend-row__icon"><Icon aria-hidden="true" size={20} /></div>
@@ -218,6 +268,11 @@ export function BackendManager({ onToast }: { onToast: Toast }) {
           <div className="pa-backend-row__summary">{summaryOf(backend)}</div>
         </div>
         <div className="pa-backend-row__actions">
+          {testable && (
+            <button type="button" className="pa-icon-button" title="测试连接" disabled={testing} onClick={() => handleTest(backend)}>
+              <Lightning aria-hidden="true" size={17} />
+            </button>
+          )}
           <button type="button" className="pa-icon-button" title="编辑" onClick={() => startEdit(backend)}><PencilSimple aria-hidden="true" size={17} /></button>
           <button type="button" className="pa-icon-button pa-icon-button--danger" title="删除" onClick={() => handleDelete(backend)}><Trash aria-hidden="true" size={17} /></button>
         </div>
@@ -235,6 +290,24 @@ export function BackendManager({ onToast }: { onToast: Toast }) {
         </div>
         <button type="button" className="pa-primary-button" onClick={startCreate}><Plus aria-hidden="true" size={17} /> 新增后端</button>
       </div>
+
+      <div className="pa-cloud-presets">
+        <h3 className="pa-backend-manager__group-title">快捷添加云生图供应商</h3>
+        <div className="pa-cloud-presets__list">
+          {CLOUD_PRESETS.map((preset) => (
+            <button key={preset.name} type="button" className="pa-secondary-button" onClick={() => applyPreset(preset)}>
+              <Lightning aria-hidden="true" size={14} />{preset.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {testResult && (
+        <div className="pa-backend-test-result" data-ok={testResult.ok}>
+          <span>{testResult.ok ? '✓' : '✕'}</span>
+          <span>{testResult.message}{testResult.latencyMs !== undefined ? `（${testResult.latencyMs}ms）` : ''}</span>
+        </div>
+      )}
 
       {!hostReachable && loaded && (
         <div className="pa-backend-manager__warn">本地服务未连接，无法读取/保存后端配置。请确认插件 Host 已启动。</div>
@@ -287,7 +360,12 @@ export function BackendManager({ onToast }: { onToast: Toast }) {
               </label>
               <label className="pa-field pa-field--full">
                 <span>API Key <b aria-hidden="true">*</b></span>
-                <input type="password" autoComplete="off" placeholder="sk-..." value={editing.apiKey} onChange={(e) => setEditing({ ...editing, apiKey: e.target.value })} />
+                <span className="pa-input-with-toggle">
+                  <input type={showApiKey ? 'text' : 'password'} autoComplete="off" placeholder="sk-..." value={editing.apiKey} onChange={(e) => setEditing({ ...editing, apiKey: e.target.value })} />
+                  <button type="button" className="pa-icon-button" title={showApiKey ? '隐藏' : '显示'} onClick={() => setShowApiKey((v) => !v)}>
+                    {showApiKey ? <EyeSlash aria-hidden="true" size={17} /> : <Eye aria-hidden="true" size={17} />}
+                  </button>
+                </span>
               </label>
               <label className="pa-field pa-field--full">
                 <span>模型 <b aria-hidden="true">*</b></span>

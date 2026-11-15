@@ -23,6 +23,7 @@ export interface CreationRecord {
   requirement: string
   status: CreationStatus
   coverAssetId: string | null
+  tags: string[]
   createdAt: string
   updatedAt: string
 }
@@ -36,6 +37,7 @@ export interface CreationDraft {
   style: string
   requirement: string
   status?: CreationStatus
+  tags?: string[]
 }
 
 export interface ImageGenSummary {
@@ -149,8 +151,13 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 // ---- Creations ----
 
-export async function listCreations(): Promise<CreationRecord[]> {
-  const data = await apiFetch<{ creations: CreationRecord[] }>('.creations')
+export async function listCreations(input?: { status?: CreationStatus; query?: string; tags?: string[] }): Promise<CreationRecord[]> {
+  const params = new URLSearchParams()
+  if (input?.status) params.set('status', input.status)
+  if (input?.query) params.set('query', input.query)
+  if (input?.tags?.length) params.set('tags', input.tags.join(','))
+  const query = params.toString()
+  const data = await apiFetch<{ creations: CreationRecord[] }>(`.creations${query ? `?${query}` : ''}`)
   return data.creations
 }
 
@@ -199,6 +206,15 @@ export async function setCreationCover(id: string, assetId: string | null): Prom
     body: JSON.stringify({ assetId }),
   })
   return data.creation
+}
+
+/** Batch archive/restore/delete/status-change creations. Returns processed ids. */
+export async function batchCreations(ids: string[], action: 'archive' | 'restore' | 'delete' | 'status', status?: CreationStatus): Promise<{ done: string[]; total: number }> {
+  const data = await apiFetch<{ done: string[]; total: number }>('.creations.batch', {
+    method: 'POST',
+    body: JSON.stringify({ ids, action, ...(status ? { status } : {}) }),
+  })
+  return data
 }
 
 // ---- Image-gen config ----
@@ -287,6 +303,26 @@ export async function deleteBackend(id: string): Promise<void> {
   await apiFetch<{ ok: boolean }>(`.backend?id=${encodeURIComponent(id)}`, {
     method: 'DELETE',
   })
+}
+
+export interface BackendTestResult {
+  ok: boolean
+  kind: string
+  message: string
+  latencyMs?: number
+}
+
+/** Test whether a backend (comfyui / llm-image) is reachable. */
+export async function testBackend(input: {
+  kind: 'comfyui' | 'llm-image'
+  llm?: { baseUrl: string; apiKey: string; model: string }
+  comfyui?: { server: string }
+}): Promise<BackendTestResult> {
+  const data = await apiFetch<BackendTestResult>('.backend.test', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return data
 }
 
 // ---- Text generation (streaming) ----
@@ -439,6 +475,29 @@ export async function createTemplate(input: { category: string; name: string; de
   return data.template
 }
 
+export interface TemplateExportPayload {
+  kind: string
+  version: number
+  exportedAt: string
+  templates: Array<{ category: string; name: string; description: string; promptTemplate: string; fields: unknown[] }>
+}
+
+/** Export templates (all, or a subset by ids) as a shareable JSON object. */
+export async function exportTemplates(ids?: string[]): Promise<TemplateExportPayload> {
+  const query = ids?.length ? `?ids=${encodeURIComponent(ids.join(','))}` : ''
+  const data = await apiFetch<TemplateExportPayload>(`.templates.export${query}`)
+  return data
+}
+
+/** Import templates from a parsed export payload. Returns the imported count. */
+export async function importTemplates(templates: TemplateExportPayload['templates']): Promise<number> {
+  const data = await apiFetch<{ imported: number }>('.templates.import', {
+    method: 'POST',
+    body: JSON.stringify({ templates }),
+  })
+  return data.imported
+}
+
 // ---- Inspirations ----
 
 export async function listInspirations(category?: string): Promise<InspirationRecord[]> {
@@ -453,6 +512,15 @@ export async function createInspiration(input: { title: string; description?: st
     body: JSON.stringify(input),
   })
   return data.inspiration
+}
+
+/** Ask the Host's text model for content-topic suggestions and save them to the pool. */
+export async function suggestInspirations(input: { topics?: string[]; count?: number }): Promise<InspirationRecord[]> {
+  const data = await apiFetch<{ inspirations: InspirationRecord[] }>('.inspiration.suggest', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return data.inspirations
 }
 
 // ---- Publish queue ----
@@ -516,10 +584,11 @@ export async function exportPlatformText(creationId: string, platform: PublishPl
 
 // ---- Assets ----
 
-export async function listAssets(input?: { kind?: 'image' | 'file' | 'prompt' | 'document'; creationId?: string }): Promise<AssetRecord[]> {
+export async function listAssets(input?: { kind?: 'image' | 'file' | 'prompt' | 'document'; creationId?: string; tags?: string[] }): Promise<AssetRecord[]> {
   const params = new URLSearchParams()
   if (input?.kind) params.set('kind', input.kind)
   if (input?.creationId) params.set('creationId', input.creationId)
+  if (input?.tags?.length) params.set('tags', input.tags.join(','))
   const query = params.toString()
   const data = await apiFetch<{ assets: AssetRecord[] }>(`.assets${query ? `?${query}` : ''}`)
   return data.assets
@@ -551,6 +620,23 @@ export function assetUrl(id: string): string {
 /** Soft-delete an asset by id. */
 export async function deleteAsset(id: string): Promise<void> {
   await apiFetch(`.asset.delete?id=${encodeURIComponent(id)}`, { method: 'POST' })
+}
+
+/** Batch soft-delete assets. Returns processed count. */
+export async function batchDeleteAssets(ids: string[]): Promise<{ done: number; total: number }> {
+  const data = await apiFetch<{ done: number; total: number }>('.assets.batchdelete', {
+    method: 'POST',
+    body: JSON.stringify({ ids }),
+  })
+  return data
+}
+
+/** Replace an asset's tag list. */
+export async function setAssetTags(id: string, tags: string[]): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`.asset.tags?id=${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ tags }),
+  })
 }
 
 // ---- Backups ----

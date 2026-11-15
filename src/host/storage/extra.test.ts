@@ -139,6 +139,44 @@ describe('templates, inspirations, publish and export', () => {
 
     storage.close()
   })
+
+  it('stores and filters creation tags', async () => {
+    const storage = await openTemporaryStorage()
+    const repo = new CreationRepository(storage.db)
+    const a = repo.create({ type: 'article', title: '带标签 A', tags: ['品牌', '春日'] })
+    repo.create({ type: 'article', title: '带标签 B', tags: ['营销'] })
+
+    expect(repo.getById(a.id)?.tags).toEqual(['品牌', '春日'])
+
+    // AND semantics: both tags must match.
+    expect(repo.list({ tags: ['品牌'] })).toHaveLength(1)
+    expect(repo.list({ tags: ['品牌', '春日'] })).toHaveLength(1)
+    expect(repo.list({ tags: ['品牌', '营销'] })).toHaveLength(0)
+
+    // Updating tags replaces the list.
+    repo.update(a.id, { tags: ['新品'] })
+    expect(repo.getById(a.id)?.tags).toEqual(['新品'])
+    expect(repo.list({ tags: ['春日'] })).toHaveLength(0)
+
+    storage.close()
+  })
+
+  it('updates asset tags in place', async () => {
+    const storage = await openTemporaryStorage()
+    const repo = new AssetRepository(storage.db, storage.paths)
+    const id = crypto.randomUUID()
+    storage.db.prepare(`
+      INSERT INTO assets (id, kind, name, mime_type, relative_path, size_bytes, width, height, tags_json, source_creation_id, created_at)
+      VALUES (?, 'image', 'test.png', 'image/png', 'images/test.png', 4, null, null, '["旧标签"]', null, ?)
+    `).run(id, new Date().toISOString())
+
+    expect(repo.updateTags(id, ['新标签', '春日'])).toBe(true)
+    expect(repo.list()[0].tags).toEqual(['新标签', '春日'])
+    expect(repo.list(undefined, 100, 0, ['春日'])).toHaveLength(1)
+    expect(repo.list(undefined, 100, 0, ['不存在'])).toHaveLength(0)
+
+    storage.close()
+  })
 })
 
 async function openTemporaryStorage() {

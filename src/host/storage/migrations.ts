@@ -140,6 +140,13 @@ const migrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_creations_cover_asset ON creations(cover_asset_id);
     `,
   },
+  {
+    version: 3,
+    name: 'tags-on-creations',
+    sql: `
+      ALTER TABLE creations ADD COLUMN tags_json TEXT NOT NULL DEFAULT '[]';
+    `,
+  },
 ]
 
 export const latestSchemaVersion = migrations.at(-1)?.version ?? 0

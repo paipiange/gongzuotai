@@ -7,6 +7,7 @@ import type { PublishRepository, PublishPlatform, PublishStatus } from '../stora
 import type { ExportService, ExportFormat } from '../storage/exportService'
 import type { ImageGenService, ProviderId } from '../imagegen/ImageGenService'
 import type { ImageGenRequest } from '../imagegen/types'
+import type { LlmService } from '../textgen/types'
 
 /**
  * Host-side HTTP API. Every route is registered as an *exact* route on the
@@ -34,6 +35,8 @@ export type ApiDeps = {
   exports: ExportService
   /** Builds a fresh image-gen service so a newly saved backend takes effect without a restart. */
   buildImageGen: () => ImageGenService
+  /** Harness `llm` service (for AI inspiration suggestion). Optional. */
+  llm?: LlmService
 }
 
 type FetchHandler = (request: Request) => Promise<Response> | Response
@@ -73,6 +76,21 @@ function error(message: string, status = 400): Response {
   return json({ error: message }, status)
 }
 
+/** Normalize a client tag array: trim, drop empties, de-duplicate. */
+function normalizeTags(tags: unknown): string[] | undefined {
+  if (!Array.isArray(tags)) return undefined
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const item of tags) {
+    if (typeof item !== 'string') continue
+    const tag = item.trim()
+    if (!tag || seen.has(tag)) continue
+    seen.add(tag)
+    out.push(tag)
+  }
+  return out
+}
+
 /** Maps a Host CreationRecord onto the client's flat CreationRecord shape. */
 function toClientCreation(record: ReturnType<CreationRepository['create']>) {
   return {
@@ -85,6 +103,7 @@ function toClientCreation(record: ReturnType<CreationRepository['create']>) {
     requirement: String(record.params.requirement ?? ''),
     status: record.status,
     coverAssetId: record.coverAssetId,
+    tags: record.tags,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   }
@@ -98,10 +117,11 @@ type ClientDraft = {
   style?: string
   requirement?: string
   status?: 'draft' | 'queued' | 'archived'
+  tags?: string[]
 }
 
 export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
-  const { creations, settings, assets, templates, inspirations, publish, exports, buildImageGen } = deps
+  const { creations, settings, assets, templates, inspirations, publish, exports, buildImageGen, llm } = deps
 
   // ---- Creations list + create ----
 
@@ -122,6 +142,7 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
           bodyMd: body.content,
           params: { style: body.style ?? 'cinematic', requirement: body.requirement ?? '' },
           status: body.status === 'queued' || body.status === 'archived' ? body.status : 'draft',
+          tags: normalizeTags(body.tags),
         }
         const record = creations.create(input)
         if (record.status === 'queued') publish.ensureForCreation(record.id)
@@ -131,9 +152,11 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
       const url = new URL(request.url)
       const status = url.searchParams.get('status') ?? undefined
       const query = url.searchParams.get('query') ?? undefined
+      const tagsParam = url.searchParams.get('tags') ?? undefined
       const records = creations.list({
         status: status === 'draft' || status === 'queued' || status === 'archived' ? status : undefined,
         query,
+        tags: tagsParam ? tagsParam.split(',').map((t) => t.trim()).filter(Boolean) : undefined,
       })
       return json({ creations: records.map(toClientCreation) })
   })
@@ -163,6 +186,7 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
         params: body.style !== undefined || body.requirement !== undefined
           ? { style: body.style, requirement: body.requirement }
           : undefined,
+        tags: normalizeTags(body.tags),
       })
       if (updated && updated.status === 'queued') publish.ensureForCreation(updated.id)
       return updated ? json({ creation: toClientCreation(updated) }) : error('更新失败', 404)
@@ -353,15 +377,86 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
       return ok ? json({ ok: true }) : error('素材不存在', 404)
   })
 
+  // ---- Asset tags update ----
+
+  register('/api/paipiange.asset.tags', ['PATCH'], async (request) => {
+      const id = new URL(request.url).searchParams.get('id') ?? ''
+      if (!id) return error('缺少 id')
+      const body = await request.json().catch(() => null) as { tags?: unknown } | null
+      if (!body || !Array.isArray(body.tags)) return error('缺少 tags 字段')
+      const ok = assets.updateTags(id, normalizeTags(body.tags) ?? [])
+      return ok ? json({ ok: true }) : error('素材不存在', 404)
+  })
+
+  // ---- Batch creations (archive / restore / delete / export) ----
+
+  register('/api/paipiange.creations.batch', ['POST'], async (request) => {
+      const body = await request.json().catch(() => null) as { ids?: string[]; action?: string; status?: string } | null
+      if (!body || !Array.isArray(body.ids) || !body.ids.length) return error('缺少 ids')
+      if (body.ids.length > 100) return error('单次批量最多 100 条')
+      const action = body.action ?? ''
+      const ids = body.ids.filter((id): id is string => typeof id === 'string')
+      const done: string[] = []
+      for (const id of ids) {
+        if (action === 'archive') {
+          if (creations.update(id, { status: 'archived' })) done.push(id)
+        } else if (action === 'restore') {
+          if (creations.getById(id, true)?.deletedAt) {
+            if (creations.restore(id)) done.push(id)
+          } else if (creations.update(id, { status: 'draft' })) {
+            done.push(id)
+          }
+        } else if (action === 'delete') {
+          if (creations.remove(id)) done.push(id)
+        } else if (action === 'status') {
+          if (body.status === 'draft' || body.status === 'queued' || body.status === 'archived') {
+            const updated = creations.update(id, { status: body.status })
+            if (updated && body.status === 'queued') publish.ensureForCreation(updated.id)
+            if (updated) done.push(id)
+          }
+        }
+      }
+      return json({ done, total: ids.length })
+  })
+
+  // ---- Batch assets delete ----
+
+  register('/api/paipiange.assets.batchdelete', ['POST'], async (request) => {
+      const body = await request.json().catch(() => null) as { ids?: string[] } | null
+      if (!body || !Array.isArray(body.ids) || !body.ids.length) return error('缺少 ids')
+      if (body.ids.length > 100) return error('单次批量最多 100 条')
+      let done = 0
+      for (const id of body.ids) {
+        if (typeof id === 'string' && assets.softDelete(id)) done += 1
+      }
+      return json({ done, total: body.ids.length })
+  })
+
+  // ---- Backend connection test ----
+
+  register('/api/paipiange.backend.test', ['POST'], async (request) => {
+      const body = await request.json().catch(() => null) as { kind?: string; llm?: { baseUrl: string; apiKey: string; model: string }; comfyui?: { server: string } } | null
+      if (!body) return error('请求体无效')
+      const { default: testBackendConnection } = await import('../imagegen/connectionTest')
+      try {
+        const result = await testBackendConnection(body as never)
+        return json(result)
+      } catch (cause) {
+        return error(cause instanceof Error ? cause.message : String(cause), 502)
+      }
+  })
+
   // ---- Asset list (metadata only) ----
 
   register('/api/paipiange.assets', ['GET'], async (request) => {
       const url = new URL(request.url)
       const kind = url.searchParams.get('kind')
       const creationId = url.searchParams.get('creationId')
+      const tagsParam = url.searchParams.get('tags')
+      const tags = tagsParam ? tagsParam.split(',').map((t) => t.trim()).filter(Boolean) : undefined
       const rows = creationId
         ? assets.listByCreation(creationId)
-        : assets.list(kind === 'image' || kind === 'file' || kind === 'prompt' || kind === 'document' ? kind : undefined)
+        : assets.list(kind === 'image' || kind === 'file' || kind === 'prompt' || kind === 'document' ? kind : undefined, 100, 0, tags)
       return json({
         assets: rows.map((a) => ({
           id: a.id,
@@ -414,6 +509,50 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
       return json({ templates: templates.list({ category }) })
   })
 
+  // ---- Template import / export (shareable JSON) ----
+
+  register('/api/paipiange.templates.export', ['GET'], async (request) => {
+      const url = new URL(request.url)
+      const idsParam = url.searchParams.get('ids')
+      const ids = idsParam ? idsParam.split(',').map((s) => s.trim()).filter(Boolean) : undefined
+      const all = templates.list({})
+      const selected = ids && ids.length ? all.filter((t) => ids.includes(t.id)) : all
+      const payload = {
+        kind: 'paipiange-templates',
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        templates: selected.map((t) => ({
+          category: t.category,
+          name: t.name,
+          description: t.description,
+          promptTemplate: t.promptTemplate,
+          fields: t.fields,
+        })),
+      }
+      return json(payload)
+  })
+
+  register('/api/paipiange.templates.import', ['POST'], async (request) => {
+      const body = await request.json().catch(() => null) as { templates?: Array<{ category?: string; name?: string; description?: string; promptTemplate?: string; fields?: unknown[] }> } | null
+      if (!body || !Array.isArray(body.templates) || !body.templates.length) return error('缺少 templates 数组')
+      const imported: Array<ReturnType<TemplateRepository['create']>> = []
+      for (const item of body.templates) {
+        if (!item?.name || !item?.promptTemplate) continue
+        try {
+          imported.push(templates.create({
+            category: item.category ?? '通用',
+            name: item.name,
+            description: item.description,
+            promptTemplate: item.promptTemplate,
+            fields: item.fields ?? [],
+          }))
+        } catch {
+          // skip malformed entries
+        }
+      }
+      return json({ imported: imported.length }, 201)
+  })
+
   // ---- Inspirations ----
 
   register('/api/paipiange.inspirations', ['GET', 'POST'], async (request) => {
@@ -435,6 +574,25 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
       }
       const category = new URL(request.url).searchParams.get('category') ?? undefined
       return json({ inspirations: inspirations.list({ category }) })
+  })
+
+  // ---- Inspiration AI suggestion ----
+
+  register('/api/paipiange.inspiration.suggest', ['POST'], async (request) => {
+      if (!llm || typeof llm.prepareCall !== 'function') return error('Harness 文本模型服务未就绪', 503)
+      const body = await request.json().catch(() => null) as { topics?: string[]; count?: number } | null
+      if (!body) return error('请求体无效')
+      const topics = Array.isArray(body.topics) ? body.topics.filter((t): t is string => typeof t === 'string').slice(0, 20) : []
+      const count = Math.min(Math.max(body.count ?? 3, 1), 6)
+      const { suggestInspirations } = await import('../textgen/inspirationSuggest')
+      try {
+        const defaults = settings.getTextGenConfig()
+        const suggestions = await suggestInspirations(llm, { topics, count, provider: defaults.provider, model: defaults.model })
+        const saved = suggestions.map((s) => inspirations.create({ title: s.title, description: s.description, promptTemplate: s.promptTemplate, category: s.category ?? 'AI 推荐', tags: s.tags }))
+        return json({ inspirations: saved }, 201)
+      } catch (cause) {
+        return error(cause instanceof Error ? cause.message : String(cause), 502)
+      }
   })
 
   // ---- Publish queue ----

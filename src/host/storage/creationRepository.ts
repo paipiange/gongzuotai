@@ -20,6 +20,7 @@ export interface CreationRecord {
   source: CreationSource
   isFavorite: boolean
   coverAssetId: string | null
+  tags: string[]
   deletedAt: string | null
   createdAt: string
   updatedAt: string
@@ -39,6 +40,7 @@ export interface CreateCreationInput {
   source?: CreationSource
   isFavorite?: boolean
   coverAssetId?: string | null
+  tags?: string[]
 }
 
 export interface UpdateCreationInput {
@@ -53,12 +55,15 @@ export interface UpdateCreationInput {
   params?: Record<string, unknown>
   isFavorite?: boolean
   coverAssetId?: string | null
+  tags?: string[]
 }
 
 export interface ListCreationsInput {
   type?: CreationType
   status?: CreationStatus
   query?: string
+  /** Filter to records carrying all of the given tags (AND semantics). */
+  tags?: string[]
   includeDeleted?: boolean
   limit?: number
   offset?: number
@@ -87,6 +92,7 @@ interface CreationRow {
   source: CreationSource
   is_favorite: 0 | 1
   cover_asset_id: string | null
+  tags_json: string
   deleted_at: string | null
   created_at: string
   updated_at: string
@@ -121,6 +127,7 @@ export class CreationRepository {
       source: input.source ?? 'user',
       isFavorite: input.isFavorite ?? false,
       coverAssetId: input.coverAssetId ?? null,
+      tags: input.tags ?? [],
       deletedAt: null,
       createdAt: now,
       updatedAt: now,
@@ -128,12 +135,12 @@ export class CreationRepository {
     this.db.prepare(`
       INSERT INTO creations (
         id, type, title, summary, body_md, body_html, status, template_id, model_id,
-        prompt, params_json, source, is_favorite, cover_asset_id, deleted_at, created_at, updated_at
+        prompt, params_json, source, is_favorite, cover_asset_id, tags_json, deleted_at, created_at, updated_at
       ) VALUES (
         @id, @type, @title, @summary, @bodyMd, @bodyHtml, @status, @templateId, @modelId,
-        @prompt, @paramsJson, @source, @isFavorite, @coverAssetId, NULL, @createdAt, @updatedAt
+        @prompt, @paramsJson, @source, @isFavorite, @coverAssetId, @tagsJson, NULL, @createdAt, @updatedAt
       )
-    `).run({ ...record, paramsJson: JSON.stringify(record.params), isFavorite: record.isFavorite ? 1 : 0 })
+    `).run({ ...record, paramsJson: JSON.stringify(record.params), tagsJson: JSON.stringify(record.tags), isFavorite: record.isFavorite ? 1 : 0 })
     return record
   }
 
@@ -147,6 +154,7 @@ export class CreationRepository {
 
   list(input: ListCreationsInput = {}) {
     const query = input.query?.trim() ?? ''
+    const requiredTags = input.tags?.map((t) => t.trim()).filter(Boolean) ?? []
     const rows = this.db.prepare(`
       SELECT * FROM creations
       WHERE (@includeDeleted = 1 OR deleted_at IS NULL)
@@ -169,7 +177,9 @@ export class CreationRepository {
       limit: clampInteger(input.limit, 50, 1, 100),
       offset: clampInteger(input.offset, 0, 0, 100_000),
     }) as CreationRow[]
-    return rows.map(mapCreation)
+    const mapped = rows.map(mapCreation)
+    if (!requiredTags.length) return mapped
+    return mapped.filter((record) => requiredTags.every((tag) => record.tags.includes(tag)))
   }
 
   update(id: string, input: UpdateCreationInput) {
@@ -188,6 +198,7 @@ export class CreationRepository {
       params: input.params ?? current.params,
       isFavorite: input.isFavorite ?? current.isFavorite,
       coverAssetId: input.coverAssetId === undefined ? current.coverAssetId : input.coverAssetId,
+      tags: input.tags ?? current.tags,
       updatedAt: new Date().toISOString(),
     }
     this.db.prepare(`
@@ -203,9 +214,10 @@ export class CreationRepository {
         params_json = @paramsJson,
         is_favorite = @isFavorite,
         cover_asset_id = @coverAssetId,
+        tags_json = @tagsJson,
         updated_at = @updatedAt
       WHERE id = @id
-    `).run({ ...next, paramsJson: JSON.stringify(next.params), isFavorite: next.isFavorite ? 1 : 0 })
+    `).run({ ...next, paramsJson: JSON.stringify(next.params), tagsJson: JSON.stringify(next.tags), isFavorite: next.isFavorite ? 1 : 0 })
     return next
   }
 
@@ -292,6 +304,7 @@ function mapCreation(row: CreationRow): CreationRecord {
     source: row.source,
     isFavorite: row.is_favorite === 1,
     coverAssetId: row.cover_asset_id,
+    tags: parseTags(row.tags_json),
     deletedAt: row.deleted_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -304,6 +317,16 @@ function parseObject(value: string): Record<string, unknown> {
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {}
   } catch {
     return {}
+  }
+}
+
+function parseTags(value: string | null | undefined): string[] {
+  if (!value) return []
+  try {
+    const parsed = JSON.parse(value) as unknown
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : []
+  } catch {
+    return []
   }
 }
 

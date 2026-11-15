@@ -97,14 +97,17 @@ export class AssetRepository {
     return row ? mapAsset(row) : null
   }
 
-  list(kind?: AssetKind, limit = 100, offset = 0) {
+  list(kind?: AssetKind, limit = 100, offset = 0, tags?: string[]) {
+    const requiredTags = tags?.map((t) => t.trim()).filter(Boolean) ?? []
     const rows = this.db.prepare(`
       SELECT * FROM assets
       WHERE (@kind IS NULL OR kind = @kind) AND deleted_at IS NULL
       ORDER BY created_at DESC
       LIMIT @limit OFFSET @offset
     `).all({ kind: kind ?? null, limit, offset }) as AssetRow[]
-    return rows.map(mapAsset)
+    const mapped = rows.map(mapAsset)
+    if (!requiredTags.length) return mapped
+    return mapped.filter((record) => requiredTags.every((tag) => record.tags.includes(tag)))
   }
 
   listByCreation(creationId: string) {
@@ -121,6 +124,14 @@ export class AssetRepository {
     const result = this.db.prepare(
       'UPDATE assets SET deleted_at = @now WHERE id = @id AND deleted_at IS NULL',
     ).run({ id, now: new Date().toISOString() })
+    return result.changes === 1
+  }
+
+  /** Replace an asset's tag list. Returns true if the asset exists. */
+  updateTags(id: string, tags: string[]): boolean {
+    const result = this.db.prepare(
+      'UPDATE assets SET tags_json = @tagsJson WHERE id = @id AND deleted_at IS NULL',
+    ).run({ id, tagsJson: JSON.stringify(tags ?? []) })
     return result.changes === 1
   }
 

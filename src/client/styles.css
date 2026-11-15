@@ -2902,3 +2902,223 @@
     transition-duration: 0.01ms !important;
   }
 }
+/* ---------------------------------------------------------------------------
+ * 主题色变体：通过 .pa-root[data-theme] 覆盖主色变量
+ * ------------------------------------------------------------------------- */
+.pa-root[data-theme='jade'] {
+  --pa-bg: #0c1410;
+  --pa-bg-soft: #12201a;
+  --pa-panel: #1b2b22;
+  --pa-panel-raised: #243a2e;
+  --pa-panel-soft: #2c4638;
+  --pa-border: #3f5f4c;
+  --pa-border-soft: rgba(112, 168, 138, 0.22);
+  --pa-gold: #8fd4b0;
+  --pa-gold-light: #c2ecd3;
+  --pa-gold-dark: #5f9c78;
+  --pa-text: #eaf5ee;
+  --pa-muted: #b3cabc;
+  --pa-quiet: #7d9488;
+}
+
+.pa-root[data-theme='indigo'] {
+  --pa-bg: #0e0f1a;
+  --pa-bg-soft: #151728;
+  --pa-panel: #1e2036;
+  --pa-panel-raised: #292c48;
+  --pa-panel-soft: #333758;
+  --pa-border: #4a4e78;
+  --pa-border-soft: rgba(128, 134, 200, 0.22);
+  --pa-gold: #9aa4e8;
+  --pa-gold-light: #c9cef5;
+  --pa-gold-dark: #6d76c4;
+  --pa-text: #eceefb;
+  --pa-muted: #b8bcd8;
+  --pa-quiet: #8286a8;
+}
+
+.pa-root[data-theme='crimson'] {
+  --pa-bg: #1a0e0e;
+  --pa-bg-soft: #281515;
+  --pa-panel: #361c1c;
+  --pa-panel-raised: #482626;
+  --pa-panel-soft: #583030;
+  --pa-border: #7a4040;
+  --pa-border-soft: rgba(200, 128, 128, 0.22);
+  --pa-gold: #e89a9a;
+  --pa-gold-light: #f5cccc;
+  --pa-gold-dark: #c46d6d;
+  --pa-text: #fbecec;
+  --pa-muted: #d8b8b8;
+  --pa-quiet: #a88282;
+}
+
+/* 批量操作栏 */
+.pa-batch-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 4px;
+}
+.pa-batch-bar__count {
+  color: var(--pa-muted);
+  font-size: 13px;
+}
+
+/* 复选框 */
+.pa-check {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+.pa-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--pa-gold);
+  cursor: pointer;
+}
+.pa-creation-card__check {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+}
+
+/* 发布外部链接 */
+.pa-publish-external a {
+  color: var(--pa-gold-light);
+  text-decoration: none;
+  font-size: 13px;
+}
+.pa-publish-external a:hover {
+  text-decoration: underline;
+}
+.pa-publish-url-editor {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+.pa-publish-url-editor input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--pa-border);
+  border-radius: var(--pa-radius-sm);
+  background: var(--pa-bg-soft);
+  color: var(--pa-text);
+}
+
+/* 云供应商预设 */
+.pa-cloud-presets {
+  margin-bottom: 18px;
+}
+.pa-cloud-presets__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* 连接测试结果 */
+.pa-backend-test-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  border-radius: var(--pa-radius-sm);
+  font-size: 13px;
+  border: 1px solid var(--pa-border-soft);
+}
+.pa-backend-test-result[data-ok='true'] {
+  background: rgba(159, 197, 149, 0.12);
+  color: var(--pa-success);
+}
+.pa-backend-test-result[data-ok='false'] {
+  background: rgba(226, 130, 118, 0.12);
+  color: var(--pa-danger);
+}
+
+/* API Key 可见性切换 */
+.pa-input-with-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pa-input-with-toggle input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 主题色选择器 */
+.pa-theme-settings {
+  align-items: flex-start;
+}
+.pa-theme-swatches {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  width: 100%;
+  margin-top: 6px;
+}
+.pa-theme-swatch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--pa-border-soft);
+  border-radius: var(--pa-radius-sm);
+  background: var(--pa-bg-soft);
+  color: var(--pa-text);
+  cursor: pointer;
+  transition: border-color var(--pa-motion-fast) ease-out;
+}
+.pa-theme-swatch[data-active='true'] {
+  border-color: var(--pa-gold);
+}
+.pa-theme-swatch__dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2) inset;
+}
+.pa-theme-swatch__label {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--pa-muted);
+}
+.pa-theme-swatch[data-active='true'] .pa-theme-swatch__label {
+  color: var(--pa-gold-light);
+}
+
+/* 模板管理 */
+.pa-template-manager {
+  align-items: flex-start;
+}
+.pa-template-manager__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+  margin-top: 6px;
+}
+
+/* 检查更新 */
+.pa-update-check {
+  align-items: flex-start;
+}
+.pa-update-check__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+  margin-top: 6px;
+}
+.pa-update-check__actions a {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
