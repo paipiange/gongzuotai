@@ -217,6 +217,10 @@ export async function generateImages(input: {
     seed?: number
     steps?: number
     cfg?: number
+    /** Reference image for repainting (data URL), ComfyUI only. */
+    image?: string
+    /** Repaint strength 0–1 when image is present. */
+    denoise?: number
   }
   sourceCreationId?: string
 }): Promise<GeneratedImageResult[]> {

@@ -17,6 +17,17 @@ export interface ImageGenRequest {
   steps?: number
   /** ComfyUI: classifier-free guidance scale. */
   cfg?: number
+  /**
+   * Reference image for editing/repainting (img2img). Encoded as a data URL
+   * (`data:image/png;base64,...`). Only the ComfyUI backend (Qwen-Image-Edit)
+   * consumes it today; LLM providers ignore it.
+   */
+  image?: string
+  /**
+   * Repaint strength (0–1) applied when `image` is present. Higher = more
+   * deviation from the reference. Default 0.7 when an image is supplied.
+   */
+  denoise?: number
 }
 
 export interface GeneratedImage {

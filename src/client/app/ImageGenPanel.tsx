@@ -1,5 +1,5 @@
-import { ImageSquare, Sparkle, ArrowClockwise, DownloadSimple, CheckCircle } from '@phosphor-icons/react'
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { ImageSquare, Sparkle, ArrowClockwise, DownloadSimple, CheckCircle, UploadSimple } from '@phosphor-icons/react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { generateImages, setCreationCover, type GeneratedImageResult } from './hostClient'
 import { loadSettings } from './imagegenStore'
 import { buildImagePrompt, buildPromptSummary } from './promptBuilder'
@@ -26,6 +26,9 @@ const styleGroups = Array.from(new Set(stylePresets.map((s) => s.group)))
  *
  * 当传入 `creationId` 时，生成的图片会关联到该创作（sourceCreationId），
  * 且每张结果可「设为封面」，形成「生图 → 落盘 → 关联 → 复用」的闭环。
+ *
+ * ComfyUI 后端支持「参考图重绘」：上传一张底图 + 调整重绘强度，即可做
+ * img2img 局部/整体编辑（配合本机 Qwen-Image-Edit 编辑模型）。
  */
 export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creationId?: string }) {
   const [topic, setTopic] = useState('')
@@ -41,6 +44,9 @@ export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creatio
   const [lastPrompt, setLastPrompt] = useState('')
   const [coverId, setCoverId] = useState<string | null>(null)
   const [coverBusy, setCoverBusy] = useState(false)
+  const [referenceImage, setReferenceImage] = useState<string | null>(null)
+  const [denoise, setDenoise] = useState(0.7)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -82,7 +88,12 @@ export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creatio
     try {
       const images = await generateImages({
         provider,
-        request: { prompt, count, size },
+        request: {
+          prompt,
+          count,
+          size,
+          ...(referenceImage && provider === 'comfyui' ? { image: referenceImage, denoise } : {}),
+        },
         sourceCreationId: creationId,
       })
       setResults(images)
@@ -92,6 +103,26 @@ export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creatio
     } finally {
       setBusy(false)
     }
+  }
+
+  const handleReferenceUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      onToast('请选择图片文件', 'warning')
+      return
+    }
+    if (file.size > 16 * 1024 * 1024) {
+      onToast('参考图不能超过 16MB', 'warning')
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      setReferenceImage(typeof reader.result === 'string' ? reader.result : null)
+    }
+    reader.readAsDataURL(file)
+    // Allow re-selecting the same file.
+    event.target.value = ''
   }
 
   const applyAsCover = async (imageId: string) => {
@@ -119,6 +150,8 @@ export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creatio
     setResults([])
     setLastPrompt('')
     setCoverId(null)
+    setReferenceImage(null)
+    setDenoise(0.7)
   }
 
   return (
@@ -202,6 +235,31 @@ export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creatio
             <option value={4}>4 张</option>
           </select>
         </label>
+
+        {provider === 'comfyui' && (
+          <div className="pa-imagegen-panel__repaint">
+            <label className="pa-field">
+              <span>参考图（重绘底图，可选）</span>
+              <div className="pa-imagegen-panel__upload">
+                <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={handleReferenceUpload} className="pa-visually-hidden" />
+                <button type="button" className="pa-secondary-button" onClick={() => fileInputRef.current?.click()}>
+                  <UploadSimple aria-hidden="true" size={16} />{referenceImage ? '更换参考图' : '上传参考图'}
+                </button>
+                {referenceImage && (
+                  <button type="button" className="pa-icon-button" aria-label="清除参考图" title="清除参考图" onClick={() => setReferenceImage(null)}><ArrowClockwise aria-hidden="true" size={16} /></button>
+                )}
+              </div>
+              {referenceImage && <img src={referenceImage} alt="参考图预览" className="pa-imagegen-panel__ref-preview" />}
+            </label>
+            {referenceImage && (
+              <label className="pa-field">
+                <span>重绘强度 <b>{denoise.toFixed(1)}</b></span>
+                <input type="range" min={0.1} max={1} step={0.05} value={denoise} onChange={(event) => setDenoise(Number(event.target.value))} />
+                <small>越小越接近原图，越大改动越多</small>
+              </label>
+            )}
+          </div>
+        )}
 
         <div className="pa-imagegen-panel__provider" role="group" aria-label="生图后端">
           <span>后端</span>

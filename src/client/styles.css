@@ -2325,6 +2325,36 @@
   color: var(--pa-gold-light);
 }
 
+.pa-root .pa-imagegen-panel__repaint {
+  padding: 12px;
+  margin-bottom: 4px;
+  border: 1px dashed rgba(196, 146, 95, 0.28);
+  border-radius: 10px;
+  background: rgba(16, 10, 7, 0.18);
+}
+
+.pa-root .pa-imagegen-panel__upload {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pa-root .pa-imagegen-panel__ref-preview {
+  display: block;
+  width: 100%;
+  max-height: 160px;
+  margin-top: 10px;
+  object-fit: contain;
+  border: 1px solid var(--pa-border-soft);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.pa-root .pa-imagegen-panel__repaint input[type="range"] {
+  width: 100%;
+  accent-color: var(--pa-gold-light);
+}
+
 /* ---- Library pages: assets / publish queue / inspiration ---- */
 
 .pa-root .pa-asset-thumb {

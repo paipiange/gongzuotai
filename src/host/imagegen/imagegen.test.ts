@@ -90,6 +90,53 @@ describe('ComfyUIProvider', () => {
     expect(prompt['1'].inputs.unet_name).toBe('qwen_image_edit_2511.safetensors')
   })
 
+  it('uploads a reference image and builds an img2img workflow for repainting', async () => {
+    const png = Buffer.from('png-bytes')
+    const calls: Array<{ url: string; body?: unknown }> = []
+    let submittedBody: Record<string, unknown> | undefined
+    globalThis.fetch = vi.fn(async (input: unknown, init?: RequestInit) => {
+      const url = String(input)
+      calls.push({ url, body: init?.body })
+      if (url.endsWith('/upload/image')) {
+        return new Response(JSON.stringify({ name: 'ref.png' }), { status: 200 })
+      }
+      if (url.endsWith('/prompt')) {
+        submittedBody = JSON.parse(String(init?.body))
+        return new Response(JSON.stringify({ prompt_id: 'p1' }), { status: 200 })
+      }
+      if (url.includes('/history/p1')) {
+        return new Response(
+          JSON.stringify({ p1: { status: { completed: true }, outputs: { '9': { images: [{ filename: 'out.png', subfolder: '', type: 'output' }] } } } }),
+          { status: 200 },
+        )
+      }
+      if (url.includes('/view')) {
+        return new Response(png, { status: 200, headers: { 'content-type': 'image/png' } })
+      }
+      return new Response('{}', { status: 404 })
+    }) as unknown as typeof fetch
+
+    const provider = new ComfyUIProvider({
+      server: 'http://127.0.0.1:8188',
+      unet: 'qwen_image_edit_2511.safetensors',
+      clip: 'qwen_2.5_vl_7b.safetensors',
+      vae: 'qwen_image_vae.safetensors',
+    })
+    const dataUrl = `data:image/png;base64,${Buffer.from('ref-image-bytes').toString('base64')}`
+    const images = await provider.generate({ prompt: 'make it sunny', image: dataUrl, denoise: 0.6 })
+
+    expect(images).toHaveLength(1)
+    // The reference image was uploaded first.
+    expect(calls.some((c) => c.url.endsWith('/upload/image'))).toBe(true)
+    // The img2img workflow uses LoadImage + VAEEncode + KSampler with denoise.
+    const prompt = (submittedBody?.prompt ?? {}) as Record<string, { class_type: string; inputs: Record<string, unknown> }>
+    expect(prompt['5'].class_type).toBe('LoadImage')
+    expect(prompt['6'].class_type).toBe('VAEEncode')
+    expect(prompt['7'].class_type).toBe('KSampler')
+    expect(prompt['7'].inputs.denoise).toBe(0.6)
+    expect(prompt['5'].inputs.image).toBe('ref.png')
+  })
+
   it('propagates ComfyUI execution errors', async () => {
     globalThis.fetch = vi.fn(async (input: unknown) => {
       const url = String(input)

@@ -20,8 +20,10 @@ export class ComfyUIProvider implements ImageGenProvider {
   async generate(request: ImageGenRequest, signal?: AbortSignal): Promise<GeneratedImage[]> {
     const seed = request.seed ?? Math.floor(Math.random() * 0xffffffff)
 
-    // Split-model path (Qwen-Image-Edit etc.) takes precedence when configured.
-    const workflow = buildWorkflow(this.config, request, seed)
+    // When a reference image is supplied, upload it to ComfyUI and build an
+    // img2img (repaint) workflow; otherwise fall back to the plain txt2img path.
+    const uploadedName = request.image ? await this.uploadImage(request.image, signal) : undefined
+    const workflow = buildWorkflow(this.config, request, seed, uploadedName)
 
     const promptId = await this.submit(workflow, signal)
     const outputs = await this.poll(promptId, signal)
@@ -29,6 +31,31 @@ export class ComfyUIProvider implements ImageGenProvider {
 
     if (images.length === 0) throw new Error('ComfyUI 未产出图片')
     return images.map((data) => ({ data, mimeType: 'image/png', meta: { seed, promptId } }))
+  }
+
+  /** Upload a data-URL reference image to ComfyUI's input directory. */
+  private async uploadImage(dataUrl: string, signal?: AbortSignal): Promise<string> {
+    const match = dataUrl.match(/^data:image\/(png|jpeg|jpg|webp);base64,(.+)$/)
+    if (!match) throw new Error('参考图必须是 base64 编码的 PNG/JPEG/WebP')
+    const ext = match[1] === 'jpeg' ? 'jpg' : match[1]
+    const bytes = Buffer.from(match[2], 'base64')
+    const name = `paipiange-ref-${Date.now()}.${ext}`
+    const form = new FormData()
+    form.append('image', new Blob([new Uint8Array(bytes)], { type: `image/${ext}` }), name)
+    form.append('overwrite', 'true')
+
+    const response = await fetch(`${this.base}/upload/image`, {
+      method: 'POST',
+      body: form,
+      ...(signal ? { signal } : {}),
+    })
+    if (!response.ok) {
+      const body = await response.text().catch(() => '')
+      throw new Error(`ComfyUI /upload/image error ${response.status}: ${body.slice(0, 200)}`)
+    }
+    const json = (await response.json()) as { name?: string }
+    if (!json.name) throw new Error('ComfyUI /upload/image 未返回文件名')
+    return json.name
   }
 
   private async submit(workflow: Record<string, unknown>, signal?: AbortSignal): Promise<string> {
@@ -94,6 +121,7 @@ function buildWorkflow(
   config: ComfyUiConfig,
   request: ImageGenRequest,
   seed: number,
+  referenceImageName?: string,
 ): Record<string, unknown> {
   const steps = request.steps ?? 20
   const cfg = request.cfg ?? 4.0
@@ -101,9 +129,41 @@ function buildWorkflow(
   const positive = request.prompt
   const negative = request.negativePrompt ?? 'blurry, low quality, distorted, deformed, ugly'
   const count = request.count ?? 1
+  const denoise = request.denoise ?? 0.7
 
   // Split-model path (UNet + CLIP + VAE), e.g. Qwen-Image-Edit.
   if (config.unet && config.clip && config.vae) {
+    // img2img (repaint): encode the uploaded reference into latent space and
+    // sample with the requested denoise strength.
+    if (referenceImageName) {
+      return {
+        '1': { class_type: 'UNETLoader', inputs: { unet_name: config.unet, weight_dtype: 'default' } },
+        '2': { class_type: 'CLIPLoader', inputs: { clip_name: config.clip, type: 'qwen_image', device: 'default' } },
+        '3': { class_type: 'VAELoader', inputs: { vae_name: config.vae } },
+        '4': { class_type: 'TextEncodeQwenImageEdit', inputs: { clip: ['2', 0], prompt: positive } },
+        '4n': { class_type: 'TextEncodeQwenImageEdit', inputs: { clip: ['2', 0], prompt: negative } },
+        '5': { class_type: 'LoadImage', inputs: { image: referenceImageName } },
+        '6': { class_type: 'VAEEncode', inputs: { pixels: ['5', 0], vae: ['3', 0] } },
+        '7': {
+          class_type: 'KSampler',
+          inputs: {
+            model: ['1', 0],
+            positive: ['4', 0],
+            negative: ['4n', 0],
+            latent_image: ['6', 0],
+            seed,
+            steps,
+            cfg,
+            sampler_name: 'euler',
+            scheduler: 'simple',
+            denoise,
+          },
+        },
+        '8': { class_type: 'VAEDecode', inputs: { samples: ['7', 0], vae: ['3', 0] } },
+        '9': { class_type: 'SaveImage', inputs: { images: ['8', 0], filename_prefix: 'paipiange' } },
+      }
+    }
+
     return {
       '1': { class_type: 'UNETLoader', inputs: { unet_name: config.unet, weight_dtype: 'default' } },
       '2': { class_type: 'CLIPLoader', inputs: { clip_name: config.clip, type: 'qwen_image', device: 'default' } },
