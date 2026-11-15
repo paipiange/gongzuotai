@@ -44,5 +44,13 @@ export default defineConfig([
     outExtensions: () => ({ js: '.js' }),
     plugins: [rawPlugin()],
     external: clientExternals,
+    // 把 @phosphor-icons/react 打进 bundle（不在 Harness seed 模块表，运行时 require 不到）
+    noExternal: ['@phosphor-icons/react'],
+    banner: {
+      js: `window.__ModuleLoader__.load({ id: 'dsh-paipiange', factory: (require) => { var module = { exports: {} }; var exports = module.exports;`,
+    },
+    footer: {
+      js: `\nreturn module.exports;\n} });`,
+    },
   },
 ])

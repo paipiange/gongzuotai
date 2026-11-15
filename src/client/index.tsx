@@ -4,8 +4,8 @@ import type { ComponentType } from 'react'
 import { PaipiangeRoot } from './app/PaipiangeRoot'
 import styles from './styles.css?raw'
 
-function PaipiangeSidebarIcon() {
-  return <FilmSlate aria-hidden="true" size={22} weight="duotone" />
+function PaipiangeSidebarIcon({ size = 16 }: { size?: number }) {
+  return <FilmSlate aria-hidden="true" size={size} weight="duotone" />
 }
 
 function PaipiangePanel() {
@@ -24,25 +24,40 @@ export function apply(ctx: Context) {
   const slots = (ctx as Context & {
     slots: {
       inject: (name: string, setup: () => void) => void
-      register: (options: Record<string, unknown>, component: ComponentType) => void
+      register: (options: Record<string, unknown>, component: ComponentType) => () => void
     }
   }).slots
 
-  slots.inject('sidebar.panellist', () => {
-    slots.register(
-      {
-        name: 'sidebar.panellist',
-        id: 'paipiange',
-        order: 70,
-        label: () => '拍片哥工作台',
-      },
-      PaipiangeSidebarIcon,
+  const register = () => {
+    if (!slots?.inject || !slots?.register) return () => {}
+    const disposers: Array<() => void> = []
+    disposers.push(
+      slots.inject('sidebar.panellist', () => {
+        const off = slots.register(
+          {
+            name: 'sidebar.panellist',
+            id: 'paipiange',
+            order: 70,
+            label: () => '拍片哥工作台',
+          },
+          PaipiangeSidebarIcon,
+        )
+        if (typeof off === 'function') disposers.push(off)
+      }),
     )
-  })
+    disposers.push(
+      slots.inject('main', () => {
+        const off = slots.register({ name: 'main', key: 'paipiange' }, PaipiangePanel)
+        if (typeof off === 'function') disposers.push(off)
+      }),
+    )
+    return () => {
+      for (const dispose of disposers.reverse()) if (typeof dispose === 'function') dispose()
+    }
+  }
 
-  slots.inject('main', () => {
-    slots.register({ name: 'main', key: 'paipiange' }, PaipiangePanel)
-  })
+  if (typeof ctx.effect === 'function') ctx.effect(register, 'paipiange: panel registrations')
+  else register()
 }
 
 export default apply

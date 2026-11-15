@@ -12,6 +12,7 @@
 - [x] Phase 3（部分）：Host 侧 SQLite 持久化层（迁移 9 表、CreationRepository CRUD/搜索/软删/恢复/版本快照、备份、路径穿越防护、卸载关闭）
 - [x] 安装全局 ponytail skill（`~/.workbuddy/skills/ponytail/`）
 - [x] 建立本 todolist.md
+- [x] **修复插件不显示在侧边栏**：client 端改为 `window.__ModuleLoader__.load({id, factory})` 副作用脚本格式（banner/footer 包装 + `var module/exports` shim）；`@phosphor-icons/react` 打进 bundle（不在 Harness seed 模块表，require 不到）；图标组件接收 owner `size`；slots 注册用 `ctx.effect` + disposer 收集（规范生命周期）
 
 ## 未完成
 
