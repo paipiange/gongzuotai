@@ -34,12 +34,14 @@
 
 ### C. 生图 Provider（Phase 5）—— 本次重点
 
-- [ ] 生图设置页：可配置「大模型」后端，字段 baseUrl / apiKey / model
-- [ ] 生图设置页：可配置「本机 ComfyUI」后端，字段 server 地址（默认 127.0.0.1:8188）+ 工作流/checkpoint
-- [ ] 后端适配器抽象：统一的 text-to-image 接口，实现 OpenAI 兼容 / ComfyUI 两个 provider
-- [ ] 大模型 provider：调用 OpenAI 兼容 images API（baseUrl + key + model）
-- [ ] ComfyUI provider：提交 workflow（prompt 图生图/文生图）、轮询进度、拉取结果图
+- [x] 生图设置页：可配置「大模型」后端，字段 baseUrl / apiKey / model（ImageGenSettings 组件，localStorage 暂存）
+- [x] 生图设置页：可配置「本机 ComfyUI」后端，字段 server 地址（默认 127.0.0.1:8188）+ checkpoint
+- [x] 后端适配器抽象：统一的 text-to-image 接口，实现 OpenAI 兼容 / ComfyUI 两个 provider（ImageGenService 门面）
+- [x] 大模型 provider：调用 OpenAI 兼容 images API（baseUrl + key + model）
+- [x] ComfyUI provider：提交 workflow、轮询 /history、拉取结果图（/prompt /history /view）
+- [x] 生图配置安全存储（SettingsRepository，API key 只存 Host 侧 app_settings，summary 不含 key）
 - [ ] 结果图下载并落盘到 assets 表 + media 目录，回写 source_creation_id
+- [ ] Client 端实际调用 Host 生图（端到端，依赖 Host↔Client 通信契约，待 Harness 实机验证）
 - [ ] 无凭证/未连接时的「需配置」状态与错误提示（不虚构完成）
 
 ### D. 导出 / 品质 / 发布（Phase 6）
