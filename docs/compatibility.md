@@ -54,17 +54,24 @@ profile（`~/.dsh/profiles/desktop/cordis.patch.yml`）：
 必须与目标 Harness 的 Electron 运行时 ABI 严格一致，否则启用时抛
 `ERR_DLOPEN_FAILED` / `NODE_MODULE_VERSION mismatch`。
 
-实机 Harness 桌面端为 **Electron 43.3.0**（内置 **Node v24.18.1**，
-**NODE_MODULE_VERSION = 148**）。
+实机 Harness 桌面端为 **Electron 44.7.0**（内置 **Node v24.21.0**，
+**NODE_MODULE_VERSION = 149**）。
 
-- ABI 对应关系：Electron 40/41/42/43 → 143/145/146/148；Node 22 → 127；
-  Node 24 标准 → 137；Node 25 → 149。
-- **踩坑记录**：曾误将 ABI 149（Electron 44 / Node 25）编译产物同步到实机，
-  导致 `Cannot find module 'bindings'` + `was compiled against a different
-  Node.js version (149 vs required)` 双重报错。根因是手动 `cp` 同步时未针对
-  Electron 43 重编译，且 `bindings`、`file-uri-to-path` 两个纯 JS 依赖被遗漏。
+- **⚠️ 版本判断必须读安装目录 `D:/software/dsh/version`（= 44.7.0）**，
+  或用主程序实测 `process.versions.modules`（= 149）。**不要**读
+  `~/.dsh/electron/version`——那是残留旧目录（Electron 43.3.0 / ABI 148），
+  会把编译目标带偏。
+- ABI 对应关系：Electron 40/41/42/43/44 → 143/145/146/148/149；Node 22 → 127；
+  Node 24 标准 → 137；Node 25 → 147。
+- **踩坑记录（反复报错的完整根因）**：
+  1. `onlyBuiltDependencies: [better-sqlite3]` 让 pnpm 每次 install 都重跑
+     better-sqlite3 的 install 脚本，下载标准 Node ABI 的 prebuild 覆盖
+     Electron ABI 产物（已移除该配置）。
+  2. `bindings`、`file-uri-to-path` 两个纯 JS 依赖被遗漏（已补齐）。
+  3. 曾误信 `~/.dsh/electron/version`（43.3.0）编出 ABI 148，但实机真正
+     loading 的 Electron 是 44.7.0（ABI 149），导致「148 vs 149」反向报错。
 - **正确重建流程**（见 [docs/native-rebuild.md](./docs/native-rebuild.md)）：
-  在本地项目用 `@electron/rebuild` 针对 Electron 43.3.0 重编译，再同步产物。
+  用 `bash scripts/deploy.sh` 一键部署，脚本会自动探测正确版本并重编译。
 
 ## 仍需实机验证（需真实 Harness GUI 桌面会话）
 

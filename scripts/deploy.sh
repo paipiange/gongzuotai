@@ -18,20 +18,47 @@ TARBALL="$ARTIFACTS_DIR/${PKG_NAME}-0.1.0.tgz"
 # 实机 dsh 相关路径
 DSH_HOME="${DSH_HOME:-$HOME/.dsh}"
 PROFILE_DIR="$DSH_HOME/profiles/desktop"
-ELECTRON_VERSION_FILE="$DSH_HOME/electron/version"
 PROFILE_NM="$PROFILE_DIR/node_modules"
 
 log()  { printf '\n\033[1;36m[deploy]\033[0m %s\n' "$*"; }
 fail() { printf '\n\033[1;31m[deploy][FAIL]\033[0m %s\n' "$*" >&2; exit 1; }
 ok()   { printf '\033[1;32m[deploy][OK]\033[0m %s\n' "$*"; }
 
-# ---- 0. 探测实机 Electron 版本 ----
+# ---- 0. 探测实机 Electron 版本（关键：读正确的主程序，不是残留目录）----
 log "0/6 探测实机 Electron 版本..."
-if [ ! -f "$ELECTRON_VERSION_FILE" ]; then
-  fail "找不到 $ELECTRON_VERSION_FILE，无法确定目标 Electron 版本。"
+# 真正的 dsh 主程序在安装目录 D:/software/dsh（Electron 44），
+# 而 ~/.dsh/electron/ 是残留旧目录（Electron 43），两者 ABI 不同。
+# 优先用主程序实际探测 process.versions，最准确。
+DSH_MAIN_EXE=""
+for candidate in \
+  "/d/software/dsh/DeepSeek Harness.exe" \
+  "/c/software/dsh/DeepSeek Harness.exe" \
+  "/d/software/DeepSeek Harness/DeepSeek Harness.exe"; do
+  if [ -f "$candidate" ]; then DSH_MAIN_EXE="$candidate"; break; fi
+done
+
+if [ -n "$DSH_MAIN_EXE" ]; then
+  log "   找到 dsh 主程序: $DSH_MAIN_EXE"
+  # 用主程序实际运行探测 electron 版本与 ABI（最可靠）
+  cat > /tmp/dsh-probe.cjs <<'EOF'
+console.log(process.versions.electron + '|' + process.versions.modules);
+EOF
+  PROBE_OUT="$("$DSH_MAIN_EXE" /tmp/dsh-probe.cjs 2>/dev/null | tail -1)"
+  ELECTRON_VER="$(echo "$PROBE_OUT" | cut -d'|' -f1 | tr -d '\r\n ')"
+  ELECTRON_ABI="$(echo "$PROBE_OUT" | cut -d'|' -f2 | tr -d '\r\n ')"
+  if [ -z "$ELECTRON_VER" ] || [ "$ELECTRON_VER" = "undefined" ]; then
+    fail "无法从主程序探测 Electron 版本，输出: $PROBE_OUT"
+  fi
+  ok "实机 Electron 版本 = $ELECTRON_VER（ABI = $ELECTRON_ABI）"
+else
+  # 回退：读安装目录 version 文件
+  VERSION_FILE="/d/software/dsh/version"
+  if [ ! -f "$VERSION_FILE" ]; then
+    fail "找不到 dsh 主程序或 version 文件，请确认 dsh 安装位置"
+  fi
+  ELECTRON_VER="$(cat "$VERSION_FILE" | tr -d '\r\n ')"
+  ok "实机 Electron 版本（version 文件）= $ELECTRON_VER"
 fi
-ELECTRON_VER="$(cat "$ELECTRON_VERSION_FILE" | tr -d '\r\n ')"
-ok "实机 Electron 版本 = $ELECTRON_VER"
 
 # ---- 1. 构建 + 打包 ----
 log "1/6 构建插件并打包 tarball..."
@@ -131,9 +158,12 @@ const pkg = require(path.join(root, 'dsh-paipiange', 'package.json'));
 console.log('[verify] dsh-paipiange OK, version =', pkg.version);
 EOF
 
-ELECTRON_BIN="$DSH_HOME/electron/electron.exe"
+ELECTRON_BIN="$DSH_MAIN_EXE"
+if [ -z "$ELECTRON_BIN" ] || [ ! -f "$ELECTRON_BIN" ]; then
+  ELECTRON_BIN="$DSH_HOME/electron/electron.exe"
+fi
 if [ ! -f "$ELECTRON_BIN" ]; then
-  fail "找不到 $ELECTRON_BIN"
+  fail "找不到可用的 Electron 运行时用于自校验"
 fi
 DSH_NM="$PROFILE_NM" "$ELECTRON_BIN" /tmp/dsh-paipiange-verify.cjs \
   | grep -E "\[verify\]" || fail "实机 Electron 加载校验失败"
