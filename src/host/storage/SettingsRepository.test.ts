@@ -56,4 +56,20 @@ describe('SettingsRepository', () => {
     expect(repo.getImageGenSummary()).toEqual({})
     storage.close()
   })
+
+  it('defaults text-gen to deepseek-official and persists overrides', async () => {
+    const storage = await openTemporaryStorage()
+    const repo = new SettingsRepository(storage.db)
+
+    // 未配置时回退到官方适配器默认值
+    expect(repo.getTextGenConfig()).toEqual({ provider: 'deepseek-official', model: 'deepseek-chat' })
+
+    repo.setTextGenConfig({ provider: 'pi-ai', model: 'gpt-4o' })
+    expect(repo.getTextGenConfig()).toEqual({ provider: 'pi-ai', model: 'gpt-4o' })
+
+    // 空白字段回退默认，避免空 provider 打到 llm 服务报错
+    repo.setTextGenConfig({ provider: '  ', model: '' })
+    expect(repo.getTextGenConfig()).toEqual({ provider: 'deepseek-official', model: 'deepseek-chat' })
+    storage.close()
+  })
 })

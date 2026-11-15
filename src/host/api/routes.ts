@@ -211,6 +211,19 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
       return json({ summary: settings.getImageGenSummary() })
   })
 
+  // ---- Text-gen config (provider + model, no secrets) ----
+
+  register('/api/paipiange.textgen.config', ['GET', 'PUT'], async (request) => {
+      if (request.method === 'PUT') {
+        const body = await request.json().catch(() => null) as { provider?: string; model?: string } | null
+        if (!body) return error('请求体无效')
+        if (!body.provider?.trim() || !body.model?.trim()) return error('缺少 provider 或 model')
+        settings.setTextGenConfig({ provider: body.provider.trim(), model: body.model.trim() })
+        return json({ config: settings.getTextGenConfig() })
+      }
+      return json({ config: settings.getTextGenConfig() })
+  })
+
   // ---- Image generation ----
 
   register('/api/paipiange.imagegen.generate', ['POST'], async (request) => {

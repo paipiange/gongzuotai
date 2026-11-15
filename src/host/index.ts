@@ -11,6 +11,10 @@ import { ExportService } from './storage/exportService'
 import { ImageGenService } from './imagegen/ImageGenService'
 import { registerApiRoutes } from './api/routes'
 import { sendWebResponse, toWebRequest } from './api/webServerAdapter'
+import { generateText } from './textgen/textGenService'
+import type { TextGenRequest } from './textgen/textGenService'
+import type { LlmService } from './textgen/types'
+import { startSse } from './textgen/sse'
 
 export const name = 'paipiange'
 
@@ -18,8 +22,9 @@ export const name = 'paipiange'
  * Declare the Harness services this plugin needs:
  * - `webServer`: registers the private `/api/paipiange.*` routes.
  * - `connection`: enforces the host's request/Origin checks on those routes.
+ * - `llm`: consumes the user's configured text model for studio generation.
  */
-export const inject = ['webServer', 'connection']
+export const inject = ['webServer', 'connection', 'llm']
 
 export interface Config {
   /** Base data directory. The plugin creates a private `paipiange` folder inside it. */
@@ -36,7 +41,7 @@ interface ConnectionService {
   requestRejection?: (request: IncomingMessage) => undefined | unknown
 }
 
-type HostContext = Context & { webServer?: WebServerService; connection?: ConnectionService }
+type HostContext = Context & { webServer?: WebServerService; connection?: ConnectionService; llm?: LlmService }
 
 /**
  * Initializes private Host storage and registers the full API surface (health,
@@ -100,6 +105,68 @@ export async function apply(ctx: Context, config: Config = {}) {
               { headers: { 'Cache-Control': 'no-store' } },
             ),
           )
+        },
+      }),
+    )
+
+    // Text generation: consume the Harness `llm` service and stream deltas back
+    // over SSE. This route is registered separately because it does not return a
+    // single buffered Response — it owns the response for the stream's lifetime.
+    disposers.push(
+      webServer.register({
+        kind: 'exact',
+        path: '/api/paipiange.textgen.generate',
+        async handler(req, res) {
+          if (trust) {
+            const rejection = trust(req)
+            if (rejection !== undefined) {
+              await sendWebResponse(res, Response.json({ error: '未授权' }, { status: 401 }))
+              return
+            }
+          }
+          if (req.method !== 'POST') {
+            await sendWebResponse(res, Response.json({ error: '方法不允许' }, { status: 405 }))
+            return
+          }
+          const send = startSse(res)
+          try {
+            const llm = host.llm
+            if (!llm || typeof llm.prepareCall !== 'function') {
+              send('error', { message: 'Harness 文本模型服务未就绪，请先在 Harness 中配置模型' })
+              send('done', '')
+              return
+            }
+            const request = await toWebRequest(req)
+            const body = await request.json().catch(() => null) as TextGenRequest | null
+            if (!body || !body.topic) {
+              send('error', { message: '缺少 topic' })
+              send('done', '')
+              return
+            }
+            // Fall back to the saved text-gen config when the client omits them.
+            const defaults = settings.getTextGenConfig()
+            const resolved: TextGenRequest = {
+              ...body,
+              provider: body.provider?.trim() || defaults.provider,
+              model: body.model?.trim() || defaults.model,
+            }
+            const result = await generateText(llm, resolved, {
+              signal: request.signal,
+              onDelta: (delta) => send('delta', delta),
+            })
+            send('usage', result.usage)
+            send('finish', { reason: result.finishReason })
+            send('done', '')
+          } catch (error) {
+            // Some errors arrive after headers are already flushed; guard the
+            // write and fall back to closing the stream.
+            try {
+              send('error', { message: error instanceof Error ? error.message : String(error) })
+              send('done', '')
+            } catch {
+              res.end()
+            }
+          }
         },
       }),
     )

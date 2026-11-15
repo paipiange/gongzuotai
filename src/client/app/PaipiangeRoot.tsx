@@ -49,9 +49,10 @@ import {
   type CreationStatus,
 } from './workspaceStore'
 import { ImageGenSettings } from './ImageGenSettings'
+import { TextGenSettings } from './TextGenSettings'
 import { ImageGenPanel } from './ImageGenPanel'
 import { AssetsPage, InspirationPage, PublishQueuePage } from './LibraryPages'
-import { exportCreation } from './hostClient'
+import { exportCreation, generateTextStream } from './hostClient'
 
 type ArtVariant = 'river' | 'court' | 'blossom' | 'night' | 'portrait' | 'hero'
 
@@ -510,8 +511,11 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
   const [content, setContent] = useState(initialCreation?.content ?? '')
   const [style, setStyle] = useState(initialCreation?.style ?? 'cinematic')
   const [requirement, setRequirement] = useState(initialCreation?.requirement ?? '')
+  const [generating, setGenerating] = useState(false)
+  const abortRef = useRef<AbortController | null>(null)
   const isVideo = studio === 'video'
   const isImage = studio === 'image'
+  const isText = !isVideo && !isImage
 
   useEffect(() => {
     setCreationId(initialCreation?.id)
@@ -567,7 +571,7 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
     return saved
   }
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault()
     if (isVideo) {
       onToast('视频生成暂未开放，不会创建真实任务', 'warning')
@@ -577,7 +581,51 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
       onToast('请先填写创作主题', 'warning')
       return
     }
-    onToast(isImage ? '请先在设置中心配置图片 Provider' : '请先在设置中心选择可用的 Harness 文本模型', 'warning')
+    if (isImage) {
+      onToast('请先在设置中心配置图片 Provider', 'warning')
+      return
+    }
+    // Text studios: stream a real generation from the Harness llm service.
+    if (generating) {
+      abortRef.current?.abort()
+      return
+    }
+    const controller = new AbortController()
+    abortRef.current = controller
+    setGenerating(true)
+    setContent('')
+    let accumulated = ''
+    try {
+      await generateTextStream(
+        {
+          provider: '',
+          model: '',
+          studio: studio as 'article' | 'headline' | 'marketing' | 'xiaohongshu',
+          topic: topic.trim(),
+          style,
+          requirement,
+        },
+        (event) => {
+          if (event.delta) {
+            accumulated += event.delta
+            setContent(accumulated)
+          } else if (event.error) {
+            onToast(event.error, 'warning')
+          }
+        },
+        controller.signal,
+      )
+      onToast('生成完成，内容已填入画布', 'success')
+    } catch (cause) {
+      if (controller.signal.aborted) {
+        onToast('已取消生成', 'info')
+      } else {
+        onToast(cause instanceof Error ? cause.message : '生成失败，请确认 Harness 已配置文本模型', 'warning')
+      }
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null
+      setGenerating(false)
+    }
   }
 
   const copyContent = async () => {
@@ -629,7 +677,7 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
     <div className="pa-page pa-studio-page">
       <div className="pa-studio-heading">
         <button type="button" className="pa-icon-button" aria-label="返回 AI 创作" onClick={onBack}><ArrowLeft aria-hidden="true" size={19} /></button>
-        <div><span className="pa-overline">CREATION STUDIO</span><h1>{studioLabels[studio]}</h1><p>{isVideo ? '完整界面占位，不调用模型、不扣费、不创建任务。' : isImage ? '输入主题并选择风格，一键生成配图（handraw-style 风格库）。' : '填写创作要求，模型接入将在后续阶段启用。'}</p></div>
+        <div><span className="pa-overline">CREATION STUDIO</span><h1>{studioLabels[studio]}</h1><p>{isVideo ? '完整界面占位，不调用模型、不扣费、不创建任务。' : isImage ? '输入主题并选择风格，一键生成配图（handraw-style 风格库）。' : '填写创作要求，一键调用 Harness 文本模型生成，逐字流式填入画布。'}</p></div>
       </div>
       {isImage ? (
         <ImageGenPanel onToast={onToast} />
@@ -643,7 +691,7 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
           <label className="pa-field"><span>内容风格</span><select value={style} onChange={(event) => setStyle(event.target.value)}><option value="cinematic">电影感叙事</option><option value="poetic">东方诗意</option><option value="clear">清晰专业</option><option value="lively">轻松活泼</option></select></label>
           <label className="pa-field"><span>补充要求</span><input value={requirement} onChange={(event) => setRequirement(event.target.value)} placeholder="目标受众、篇幅、结构或画面比例" /></label>
           <button type="submit" className="pa-primary-button pa-studio-submit" disabled={isVideo} aria-describedby={isVideo ? 'video-disabled-hint' : undefined}>
-            <Sparkle aria-hidden="true" size={18} weight="fill" />{isVideo ? '功能暂未开放' : '开始生成'}
+            <Sparkle aria-hidden="true" size={18} weight="fill" />{isVideo ? '功能暂未开放' : generating ? '停止生成' : '开始生成'}
           </button>
           <div className="pa-studio-save-row">
             <button type="button" className="pa-secondary-button" disabled={isVideo} onClick={() => save('draft')}><FloppyDisk aria-hidden="true" size={17} />保存草稿</button>
@@ -660,9 +708,9 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
             <div className="pa-studio-canvas__empty"><Sparkle aria-hidden="true" size={40} weight="duotone" /><strong>视频生成暂未开放</strong><p>后续版本将根据明确授权接入视频能力；当前不会保存任务或伪造结果。</p></div>
           ) : (
             <div className="pa-manual-editor">
-              <div className="pa-manual-editor__notice"><PencilSimple aria-hidden="true" size={18} /><span>这里保存的是你手动输入的内容，不是 AI 生成结果。连接 Harness 模型后再启用真实生成。</span></div>
+              <div className="pa-manual-editor__notice"><PencilSimple aria-hidden="true" size={18} /><span>点击「开始生成」由 Harness 文本模型流式产出；也可直接在下方手动写作，内容会随草稿保存。</span></div>
               <label htmlFor="pa-manual-content">{isImage ? '图片构思、提示词补充或版权说明' : '正文草稿'}</label>
-              <textarea id="pa-manual-content" value={content} onChange={(event) => setContent(event.target.value)} placeholder={isImage ? '记录画面主体、构图、光线和需要规避的元素…' : '从这里开始手动写作，内容会随草稿保存到当前浏览器本地…'} />
+              <textarea id="pa-manual-content" value={content} onChange={(event) => setContent(event.target.value)} placeholder={isImage ? '记录画面主体、构图、光线和需要规避的元素…' : generating ? '正在生成…' : '从这里开始手动写作，或点击「开始生成」由模型产出…'} />
               <div className="pa-manual-editor__footer"><span>{content.length} 字</span><span>{creationId ? '已建立本地草稿' : '尚未保存'}</span></div>
             </div>
           )}
@@ -775,8 +823,9 @@ function WorkspacePage({ page, creations, storageSource, onNavigate, onOpenStudi
       <div className="pa-page">
         <PageIntro title={meta.title} description={meta.description} />
         <div className="pa-settings-grid">
-          {[['文本模型', '复用 Harness 已配置的模型，不在浏览器保存密钥。'], ['本地草稿', storageSource === 'host' ? `已连接本地服务，当前共 ${creations.length} 条记录保存在 Host SQLite。` : `当前共 ${creations.length} 条记录，保存在浏览器本地（Host 未连接时降级）。`], ['主题与界面', '当前使用暖棕金国风深色主题。']].map(([title, description], index) => <section key={title} className="pa-panel pa-setting-card"><div className="pa-setting-card__icon">{index === 0 ? <Sparkle aria-hidden="true" size={23} /> : index === 1 ? <FolderOpen aria-hidden="true" size={23} /> : <GearSix aria-hidden="true" size={23} />}</div><div><h2>{title}</h2><p>{description}</p></div><button type="button" className="pa-secondary-button" onClick={() => onToast(index === 1 ? (storageSource === 'host' ? '草稿保存在本地 Host SQLite 数据库' : '草稿仅保存在当前浏览器，不会上传或提交到仓库') : `${title}将在后续功能阶段接入`)}>查看</button></section>)}
+          <TextGenSettings onToast={onToast} />
           <ImageGenSettings onToast={onToast} />
+          {[['本地草稿', storageSource === 'host' ? `已连接本地服务，当前共 ${creations.length} 条记录保存在 Host SQLite。` : `当前共 ${creations.length} 条记录，保存在浏览器本地（Host 未连接时降级）。`], ['主题与界面', '当前使用暖棕金国风深色主题。']].map(([title, description], index) => <section key={title} className="pa-panel pa-setting-card"><div className="pa-setting-card__icon">{index === 0 ? <FolderOpen aria-hidden="true" size={23} /> : <GearSix aria-hidden="true" size={23} />}</div><div><h2>{title}</h2><p>{description}</p></div><button type="button" className="pa-secondary-button" onClick={() => onToast(index === 0 ? (storageSource === 'host' ? '草稿保存在本地 Host SQLite 数据库' : '草稿仅保存在当前浏览器，不会上传或提交到仓库') : `主题切换将在后续功能阶段接入`)}>查看</button></section>)}
         </div>
       </div>
     )

@@ -3,6 +3,12 @@ import type { ComfyUiConfig, LlmImageConfig } from '../imagegen/types'
 
 const IMAGE_LLM_KEY = 'imagegen.llm'
 const IMAGE_COMFYUI_KEY = 'imagegen.comfyui'
+const TEXTGEN_KEY = 'textgen'
+
+export interface TextGenConfig {
+  provider: string
+  model: string
+}
 
 interface SettingsRow {
   key: string
@@ -68,6 +74,19 @@ export class SettingsRepository {
 
   clearComfyUiConfig(): void {
     this.db.prepare('DELETE FROM app_settings WHERE key = ?').run(IMAGE_COMFYUI_KEY)
+  }
+
+  /** Text-gen route/model defaults; falls back to the DeepSeek official adapter. */
+  getTextGenConfig(): TextGenConfig {
+    const value = readJson(this.db, TEXTGEN_KEY) as Partial<TextGenConfig> | undefined
+    return {
+      provider: value?.provider?.trim() || 'deepseek-official',
+      model: value?.model?.trim() || 'deepseek-chat',
+    }
+  }
+
+  setTextGenConfig(config: TextGenConfig): void {
+    writeJson(this.db, TEXTGEN_KEY, config)
   }
 
   /** Non-secret summary for the client to know what backends are configured. */
