@@ -6,6 +6,7 @@
 
 import {
   CloudArrowUp,
+  DownloadSimple,
   FolderOpen,
   Lightbulb,
   PaperPlaneTilt,
@@ -15,6 +16,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { CreationRecord } from './workspaceStore'
 import {
   assetUrl,
+  exportForPlatform,
   listAssets,
   listInspirations,
   listPublishItems,
@@ -180,6 +182,21 @@ export function PublishQueuePage({ creations, onOpen, onToast }: {
     }
   }
 
+  const downloadPlatform = async (item: PublishItem) => {
+    try {
+      const blob = await exportForPlatform(item.creationId, item.platform)
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `paipiange-${item.platform}.txt`
+      anchor.click()
+      URL.revokeObjectURL(url)
+      onToast(`已导出「${PLATFORM_LABELS[item.platform]}」适配文本`, 'success')
+    } catch (cause) {
+      onToast(cause instanceof Error ? cause.message : '平台导出失败', 'warning')
+    }
+  }
+
   if (source === 'loading') {
     return <div className="pa-page"><section className="pa-panel pa-large-empty"><p>正在读取待发布清单…</p></section></div>
   }
@@ -202,6 +219,11 @@ export function PublishQueuePage({ creations, onOpen, onToast }: {
                 <p>{creation?.content.trim() || creation?.topic || ''}</p>
                 <div>
                   {creation && <button type="button" className="pa-secondary-button" onClick={() => onOpen(creation)}>查看与编辑</button>}
+                  {creation && (
+                    <button type="button" className="pa-secondary-button" onClick={() => downloadPlatform(item)}>
+                      <DownloadSimple aria-hidden="true" size={15} />按平台导出
+                    </button>
+                  )}
                   <button type="button" className="pa-link-button" onClick={() => markStatus(item.id, 'published')} disabled={item.status === 'published'}>
                     {item.status === 'published' ? '已发布' : '标记已发布'}
                   </button>

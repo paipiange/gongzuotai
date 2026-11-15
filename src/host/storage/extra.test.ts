@@ -92,6 +92,32 @@ describe('templates, inspirations, publish and export', () => {
 
     storage.close()
   })
+
+  it('exports platform-adapted plain text (title cap + hashtags + markdown strip)', async () => {
+    const storage = await openTemporaryStorage()
+    const service = new ExportService(storage.paths)
+    const content = {
+      title: '一个非常长的标题超过了二十个字的限制测试用例',
+      bodyMd: '# 副标题\n**加粗**正文 [链接](https://x) 和 `代码`',
+      topic: '春日 野餐 露营',
+    }
+
+    // 小红书：标题截断到 20 字 + 话题标签。
+    const xhs = service.exportForPlatform(content, 'xiaohongshu')
+    const xhsText = readFileSync(service.resolveAbsolute(xhs.relativePath), 'utf-8')
+    expect(xhsText).toContain('…')
+    expect(xhsText).toContain('#春日')
+    expect(xhsText).not.toContain('**')
+    expect(xhsText).not.toContain('[链接](https://x)')
+
+    // 头条：标题 + 分隔线，无话题。
+    const tt = service.exportForPlatform(content, 'toutiao')
+    const ttText = readFileSync(service.resolveAbsolute(tt.relativePath), 'utf-8')
+    expect(ttText).toContain('——————')
+    expect(ttText).not.toContain('#')
+
+    storage.close()
+  })
 })
 
 async function openTemporaryStorage() {

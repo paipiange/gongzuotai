@@ -4,7 +4,9 @@ import { randomUUID } from 'node:crypto'
 import type { StoragePaths } from './paths'
 import { resolvePrivatePath } from './paths'
 
-export type ExportFormat = 'markdown' | 'html' | 'zip'
+export type ExportFormat = 'markdown' | 'html' | 'zip' | 'text'
+
+export type ExportPlatform = 'wechat' | 'xiaohongshu' | 'zhihu' | 'toutiao' | 'other'
 
 export interface ExportResult {
   id: string
@@ -17,7 +19,11 @@ export interface ExportResult {
 export interface ExportableContent {
   title: string
   bodyMd: string
-  bodyHtml: string
+  bodyHtml?: string
+  /** Optional topic/keywords used to synthesize hashtags for social platforms. */
+  topic?: string
+  /** Optional tags to append as hashtags. */
+  tags?: string[]
 }
 
 /** Minimal in-memory ZIP writer (no external dependency). */
@@ -154,6 +160,100 @@ export class ExportService {
     writeFileSync(join(this.paths.exports, fileName), zipData)
     return { id, format, fileName, relativePath: join('exports', fileName).replace(/\\/g, '/'), sizeBytes: zipData.byteLength }
   }
+
+  /**
+   * Platform-adapted export: produces copy-paste-ready plain text tailored to a
+   * target social platform. Unlike the generic markdown/html/zip formats, this
+   * applies platform conventions (title length caps, hashtag synthesis, plain
+   * text stripping of Markdown syntax).
+   */
+  exportForPlatform(content: ExportableContent, platform: ExportPlatform): ExportResult {
+    const id = randomUUID()
+    const baseName = sanitizeFileName(content.title)
+    mkdirSync(this.paths.exports, { recursive: true })
+
+    const text = buildPlatformText(content, platform)
+    const fileName = `${baseName}-${platform}.txt`
+    const data = new TextEncoder().encode(text)
+    writeFileSync(join(this.paths.exports, fileName), data)
+    return { id, format: 'text', fileName, relativePath: join('exports', fileName).replace(/\\/g, '/'), sizeBytes: data.byteLength }
+  }
+}
+
+/**
+ * Build platform-adapted plain text for direct paste into a social platform.
+ * Pure function; exported for unit testing.
+ */
+export function buildPlatformText(content: ExportableContent, platform: ExportPlatform): string {
+  const title = content.title?.trim() ?? ''
+  const body = stripMarkdown(content.bodyMd || content.bodyHtml || '').trim()
+  const hashtags = synthesizeHashtags(content.topic, content.tags)
+
+  switch (platform) {
+    case 'xiaohongshu': {
+      // 小红书：标题 ≤ 20 字，正文前加空行分隔，话题标签铺底。
+      const capped = title.length > 20 ? `${title.slice(0, 20)}…` : title
+      const parts = [capped, body]
+      if (hashtags.length) parts.push(hashtags.join(' '))
+      return parts.filter(Boolean).join('\n\n')
+    }
+    case 'zhihu': {
+      // 知乎：标题 + 首段摘要提示 + 正文。
+      const parts = [title, body]
+      if (hashtags.length) parts.push(hashtags.join(' '))
+      return parts.filter(Boolean).join('\n\n')
+    }
+    case 'toutiao': {
+      // 头条：标题 + 分隔线 + 正文，不堆话题。
+      return [title, body].filter(Boolean).join('\n\n——————\n\n')
+    }
+    case 'wechat': {
+      // 公众号：正文为主，标题作首行，保留自然分段。
+      return [title, body].filter(Boolean).join('\n\n')
+    }
+    default:
+      return [title, body].filter(Boolean).join('\n\n')
+  }
+}
+
+/** Strip Markdown syntax into plain text (headings, emphasis, links, lists). */
+function stripMarkdown(markdown: string): string {
+  return markdown
+    .replace(/```[\s\S]*?```/g, (code) => code.replace(/^```\w*\n?/, '').replace(/```$/, ''))
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^\s*[-*+]\s+/gm, '· ')
+    .replace(/^\s*\d+[.)]\s+/gm, '')
+    .replace(/(\*\*|__)(.*?)\1/g, '$2')
+    .replace(/(\*|_)(.*?)\1/g, '$2')
+    .replace(/>\s?/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+/** Synthesize `#tag` hashtags from a topic string and explicit tags. */
+function synthesizeHashtags(topic?: string, tags?: string[]): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+  const push = (raw: string) => {
+    const tag = raw.trim().replace(/^#/, '').replace(/\s+/g, '')
+    if (!tag || seen.has(tag)) return
+    seen.add(tag)
+    result.push(`#${tag}`)
+  }
+  // Prefer explicit tags first, then fall back to topic-derived keywords.
+  for (const tag of tags ?? []) push(tag)
+  if ((tags?.length ?? 0) === 0 && topic) {
+    const keywords = topic
+      .split(/[,，、\s/]+/)
+      .map((s) => s.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, ''))
+      .filter((s) => s.length >= 2)
+      .slice(0, 3)
+    for (const kw of keywords) push(kw)
+  }
+  return result
 }
 
 function escapeHtml(value: string): string {

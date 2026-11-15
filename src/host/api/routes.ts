@@ -404,21 +404,47 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
   // ---- Export ----
 
   register('/api/paipiange.export', ['POST'], async (request) => {
-      const body = await request.json().catch(() => null) as { creationId?: string; format?: string } | null
+      const body = await request.json().catch(() => null) as { creationId?: string; format?: string; platform?: string } | null
       if (!body || !body.creationId) return error('缺少 creationId')
-      if (!['markdown', 'html', 'zip'].includes(body.format ?? '')) return error('不支持的导出格式')
+      const format = body.format ?? 'markdown'
+      if (!['markdown', 'html', 'zip', 'text'].includes(format)) return error('不支持的导出格式')
       const creation = creations.getById(body.creationId)
       if (!creation) return error('创作记录不存在', 404)
-      const { readFileSync, statSync } = await import('node:fs')
+      const { readFileSync } = await import('node:fs')
+
+      // Platform-adapted plain-text export.
+      if (format === 'text') {
+        const platform = ['wechat', 'xiaohongshu', 'zhihu', 'toutiao', 'other'].includes(body.platform ?? '') ? body.platform as 'wechat' | 'xiaohongshu' | 'zhihu' | 'toutiao' | 'other' : 'other'
+        const result = exports.exportForPlatform(
+          {
+            title: creation.title,
+            bodyMd: creation.bodyMd,
+            bodyHtml: creation.bodyHtml,
+            topic: creation.summary,
+            tags: Array.isArray(creation.params.tags) ? creation.params.tags as string[] : [],
+          },
+          platform,
+        )
+        const absolute = exports.resolveAbsolute(result.relativePath)
+        const buffer = readFileSync(absolute)
+        return new Response(new Uint8Array(buffer), {
+          headers: {
+            'Content-Type': 'text/plain; charset=utf-8',
+            'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(result.fileName)}`,
+            'Cache-Control': 'no-store',
+          },
+        })
+      }
+
       const result = exports.export(
         { title: creation.title, bodyMd: creation.bodyMd, bodyHtml: creation.bodyHtml },
-        body.format as ExportFormat,
+        format as ExportFormat,
       )
       const absolute = exports.resolveAbsolute(result.relativePath)
       const buffer = readFileSync(absolute)
       return new Response(new Uint8Array(buffer), {
         headers: {
-          'Content-Type': body.format === 'markdown' ? 'text/markdown' : body.format === 'html' ? 'text/html' : 'application/zip',
+          'Content-Type': format === 'markdown' ? 'text/markdown' : format === 'html' ? 'text/html' : 'application/zip',
           'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(result.fileName)}`,
           'Cache-Control': 'no-store',
         },

@@ -436,6 +436,20 @@ export async function exportCreation(creationId: string, format: 'markdown' | 'h
   return response.blob()
 }
 
+/** Export copy-paste-ready plain text adapted to a target platform. */
+export async function exportForPlatform(creationId: string, platform: PublishPlatform): Promise<Blob> {
+  const response = await fetch(`${BASE}.export`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ creationId, format: 'text', platform }),
+  })
+  if (!response.ok) {
+    const body = await response.json().catch(() => null) as { error?: string } | null
+    throw new HostError(body?.error ?? `导出失败 (HTTP ${response.status})`, response.status)
+  }
+  return response.blob()
+}
+
 // ---- Assets ----
 
 export async function listAssets(input?: { kind?: 'image' | 'file' | 'prompt' | 'document'; creationId?: string }): Promise<AssetRecord[]> {
