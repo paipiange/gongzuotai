@@ -48,7 +48,22 @@
 - [x] Host API 迁移到官方 `webServer` 服务 + `connection` 信任校验（`webServerAdapter` Node↔Fetch 桥接）；实机验收清单见 `docs/harness-acceptance.md`（截图回归仍需真实 Harness GUI）
 - [x] 最终 tgz 安装包（`dsh-paipiange-0.1.0.tgz`）+ 安装文档（`docs/install.md`）+ CHANGELOG + Release 0.1.0 说明（`docs/release-0.1.0.md`）
 
+### E. 新 TOP10（产品可用性 / 打磨 / 分发）
+
+- [x] 文本模型接入：文章/标题/营销/小红书接 Harness `ctx.llm`（`prepareCall` 异步 + `listProviders` 运行时发现），SSE 流式逐字渲染；设置页 provider/model 下拉
+- [x] 生图端到端链路：生图结果落盘关联草稿（`sourceCreationId`）+ 一键设为封面（`creation.cover` 路由 + creations 表 `cover_asset_id` v2 迁移）+ 创作卡封面缩略图
+- [x] 图片重绘/编辑：ComfyUI img2img（`LoadImage`→`VAEEncode`→`KSampler(denoise)`），参考图上传 + 重绘强度滑杆
+- [x] 待发布多平台导出：小红书（标题 20 字 + 话题）/ 知乎 / 头条 / 公众号平台适配纯文本（`exportForPlatform` + `buildPlatformText`）
+- [x] 数据分析页接真实数据：工作室分布 / 发布漏斗 / 素材统计（`AnalyticsPage`）
+- [x] 错误与降级体验统一：全局离线横幅 + 重试连接；修复离线草稿在 Host 恢复后被丢弃的数据分裂 bug（`reconcileIntoHost`）
+- [x] 富文本编辑器：Markdown 工具栏 + 实时预览（`markdown.ts` 内联渲染器 + `MarkdownEditor`）
+- [x] 数据备份与恢复 UI：创建 / 列表 / 下载 SQLite 快照（`BackupSettings` + 3 条备份路由）
+- [x] 自动化发布流水线：`.github/workflows/release.yml`（打 v* tag 自动出 tgz + GitHub Release）+ `pnpm release` 一键打包
+- [ ] 实机 Harness GUI 截图回归（侧栏入口 / 文本流式渲染 / 生图落盘 / 草稿持久化 / 卸载清理）—— 仍需真实 Harness 桌面会话，见 `docs/harness-acceptance.md`
+
 ## 备注
 
 - 关键环境：本机 better-sqlite3 等原生依赖需走 FlClash 代理 `http://127.0.0.1:7890`（见 `.workbuddy/memory/2026-11-15.md`）。
 - 视频生成：永久占位，不接模型、不建真实任务（AGENTS.md 强制）。
+- 实机 provider route：本机 Harness 只有 `llm-pi-ai` 的 `huatu717333`/`aaa42w`，无 `deepseek-official`；文本生成 provider 须运行时 `listProviders()` 发现。
+- push 依赖 FlClash 代理，代理 502 时本地 commit 已保存、待网络恢复补推。
