@@ -49,6 +49,7 @@ import {
   type CreationRecord,
   type CreationStatus,
 } from './workspaceStore'
+import { ImageGenSettings } from './ImageGenSettings'
 
 type ArtVariant = 'river' | 'court' | 'blossom' | 'night' | 'portrait' | 'hero'
 
@@ -753,7 +754,8 @@ function WorkspacePage({ page, creations, onNavigate, onOpenStudio, onOpenCreati
       <div className="pa-page">
         <PageIntro title={meta.title} description={meta.description} />
         <div className="pa-settings-grid">
-          {[['文本模型', '复用 Harness 已配置的模型，不在浏览器保存密钥。'], ['图片 Provider', '未配置。后续通过 Host 安全读取凭证。'], ['本地草稿', `当前浏览器已保存 ${creations.length} 条记录；后续迁移到 Host SQLite。`], ['主题与界面', '当前使用暖棕金国风深色主题。']].map(([title, description], index) => <section key={title} className="pa-panel pa-setting-card"><div className="pa-setting-card__icon">{index === 0 ? <Sparkle aria-hidden="true" size={23} /> : index === 1 ? <ImageSquare aria-hidden="true" size={23} /> : index === 2 ? <FolderOpen aria-hidden="true" size={23} /> : <GearSix aria-hidden="true" size={23} />}</div><div><h2>{title}</h2><p>{description}</p></div><button type="button" className="pa-secondary-button" onClick={() => onToast(index === 2 ? '草稿仅保存在当前浏览器，不会上传或提交到仓库' : `${title}将在后续功能阶段接入`)}>查看</button></section>)}
+          {[['文本模型', '复用 Harness 已配置的模型，不在浏览器保存密钥。'], ['本地草稿', `当前浏览器已保存 ${creations.length} 条记录；后续迁移到 Host SQLite。`], ['主题与界面', '当前使用暖棕金国风深色主题。']].map(([title, description], index) => <section key={title} className="pa-panel pa-setting-card"><div className="pa-setting-card__icon">{index === 0 ? <Sparkle aria-hidden="true" size={23} /> : index === 1 ? <FolderOpen aria-hidden="true" size={23} /> : <GearSix aria-hidden="true" size={23} />}</div><div><h2>{title}</h2><p>{description}</p></div><button type="button" className="pa-secondary-button" onClick={() => onToast(index === 1 ? '草稿仅保存在当前浏览器，不会上传或提交到仓库' : `${title}将在后续功能阶段接入`)}>查看</button></section>)}
+          <ImageGenSettings onToast={onToast} />
         </div>
       </div>
     )
