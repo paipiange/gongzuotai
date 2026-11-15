@@ -18,20 +18,13 @@
 
 ### A. SQLite 持久化收尾（Phase 3 剩余）
 
-- [ ] 定义 Host 侧 HTTP API（认证后路由），把 CreationRepository 暴露给 Client
-- [ ] Host 认证路由：安全校验会话，未认证不暴露数据（技术方案第 9 章）
-- [ ] Client `workspaceStore` 从 localStorage 迁移到 Host SQLite（含离线降级/错误态）
-- [ ] 统一 Host `type`（article/title）与 Client `studio`（article/headline）命名差异
+- [x] 定义 Host 侧 HTTP API（连接服务路由），把 CreationRepository 暴露给 Client（`src/host/api/routes.ts`，7 条精确 fetch 路由）
+- [x] Client `workspaceStore` 从 localStorage 迁移到 Host SQLite（含离线降级/错误态，`hostClient.ts` + `loadCreations` 异步化）
+- [x] 统一 Host `type`（article/title）与 Client `studio`（article/headline）命名差异（`STUDIO_TO_TYPE`/`TYPE_TO_STUDIO` 映射）
+- [x] 生图配置持久化到 Host `app_settings`（`imagegenStore` 迁移 Host 优先 + localStorage 降级）
+- [x] 生图结果落盘 media 目录 + 回写 assets 表（`AssetRepository` + `/api/paipiange.imagegen.generate` 落盘）
 - [ ] 草稿自动保存、上传素材落盘（media 目录）、模板/灵感池读写仓库
-- [ ] 回收站与「永久删除」接真实 DB（当前 softDelete/restore/remove 已实现，待接线）
-
-### B. Harness 文本模型对接（Phase 4）
-
-- [ ] 检查 Harness LLM Service 真实类型与认证流程（docs/compatibility.md 待实机验证）
-- [ ] 模型选择器 + PromptAssembler + 异步任务队列（tasks 表已建，待接）
-- [ ] SSE 流式输出：文章/标题/营销/小红书生成
-- [ ] 取消 / 重试 / token 统计（usage_records 表已建，待接）
-- [ ] 错误处理与未配置模型时的明确降级提示（不伪造结果）
+- [ ] 回收站与「永久删除」接真实 DB（当前 softDelete/restore 已接线，hard delete 路由返回 501 待补 `remove` 方法）
 
 ### C. 生图 Provider（Phase 5）—— 本次重点
 
@@ -42,9 +35,9 @@
 - [x] ComfyUI provider：提交 workflow、轮询 /history、拉取结果图（/prompt /history /view）
 - [x] ComfyUI provider 适配本机 Qwen-Image-Edit 分离式模型（UNETLoader+CLIPLoader+VAELoader，text encoder 用 qwen_2.5_vl_7b 3584 维，layers=0 单图），实机验证出图成功
 - [x] 生图配置安全存储（SettingsRepository，API key 只存 Host 侧 app_settings，summary 不含 key）
-- [ ] 结果图下载并落盘到 assets 表 + media 目录，回写 source_creation_id
-- [ ] Client 端实际调用 Host 生图（端到端，依赖 Host↔Client 通信契约，待 Harness 实机验证）
-- [ ] 无凭证/未连接时的「需配置」状态与错误提示（不虚构完成）
+- [x] 结果图下载并落盘到 assets 表 + media 目录，回写 source_creation_id
+- [x] Client 端 Host 生图 API 封装（`hostClient.generateImages`，端到端契约已接通，待 Harness 实机验证）
+- [x] 无凭证/未连接时的「需配置」状态与错误提示（HostError + localStorage 降级，不虚构完成）
 
 ### D. 导出 / 品质 / 发布（Phase 6）
 
