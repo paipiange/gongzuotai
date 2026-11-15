@@ -1,6 +1,8 @@
 import {
+  Archive,
   ArrowLeft,
   ArrowRight,
+  ArrowCounterClockwise,
   Bell,
   CaretRight,
   CheckCircle,
@@ -8,17 +10,21 @@ import {
   CloudArrowUp,
   Copy,
   DownloadSimple,
+  FileText,
   FilmSlate,
+  FloppyDisk,
   FolderOpen,
   GearSix,
   ImageSquare,
   List,
   MagnifyingGlass,
   PaperPlaneTilt,
+  PencilSimple,
   Plus,
   Shuffle,
   SidebarSimple,
   Sparkle,
+  Trash,
   X,
 } from '@phosphor-icons/react'
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
@@ -33,6 +39,16 @@ import {
   type QuickAction,
   type StudioId,
 } from './data'
+import {
+  loadWorkspace,
+  persistWorkspace,
+  removeCreation,
+  updateCreationStatus,
+  upsertCreation,
+  type CreationDraft,
+  type CreationRecord,
+  type CreationStatus,
+} from './workspaceStore'
 
 type ArtVariant = 'river' | 'court' | 'blossom' | 'night' | 'portrait' | 'hero'
 
@@ -48,6 +64,24 @@ const studioLabels: Record<StudioId, string> = {
   headline: '爆款标题工作台',
   marketing: '营销文案工作台',
   xiaohongshu: '小红书笔记工作台',
+}
+
+const statusLabels: Record<CreationStatus, string> = {
+  draft: '草稿',
+  queued: '待发布',
+  archived: '已归档',
+}
+
+function formatLocalTime(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '时间未知'
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date)
 }
 
 function ScenicArt({ variant, label }: { variant: ArtVariant; label: string }) {
@@ -149,14 +183,18 @@ function Sidebar({
   activePage,
   collapsed,
   mobileOpen,
+  recentCreations,
   onNavigate,
+  onOpenCreation,
   onCollapse,
   onCloseMobile,
 }: {
   activePage: PageId
   collapsed: boolean
   mobileOpen: boolean
+  recentCreations: CreationRecord[]
   onNavigate: (page: PageId) => void
+  onOpenCreation: (creation: CreationRecord) => void
   onCollapse: () => void
   onCloseMobile: () => void
 }) {
@@ -175,7 +213,7 @@ function Sidebar({
           </button>
         </div>
 
-        <button type="button" className="pa-sidebar-search" onClick={() => onNavigate('home')}>
+        <button type="button" className="pa-sidebar-search" aria-label="搜索工作区" onClick={() => onNavigate('home')}>
           <MagnifyingGlass aria-hidden="true" size={18} />
           <span>搜索工作区</span>
         </button>
@@ -189,6 +227,7 @@ function Sidebar({
                 type="button"
                 className="pa-nav__item"
                 data-active={activePage === item.id}
+                aria-label={item.label}
                 aria-current={activePage === item.id ? 'page' : undefined}
                 onClick={() => onNavigate(item.id)}
               >
@@ -201,16 +240,25 @@ function Sidebar({
 
         <div className="pa-sidebar__recent">
           <div className="pa-sidebar__label"><span>最近创作</span><Plus aria-hidden="true" size={15} /></div>
-          <div className="pa-sidebar__empty">暂无真实创作记录</div>
+          {recentCreations.length ? (
+            <div className="pa-sidebar__recent-list">
+              {recentCreations.slice(0, 3).map((creation) => (
+                <button key={creation.id} type="button" onClick={() => onOpenCreation(creation)}>
+                  <FileText aria-hidden="true" size={15} />
+                  <span><strong>{creation.title}</strong><small>{formatLocalTime(creation.updatedAt)}</small></span>
+                </button>
+              ))}
+            </div>
+          ) : <div className="pa-sidebar__empty">暂无真实创作记录</div>}
         </div>
 
         <div className="pa-sidebar__bottom">
-          <button type="button" className="pa-model-card" onClick={() => onNavigate('settings')}>
+          <button type="button" className="pa-model-card" aria-label="模型与设置" onClick={() => onNavigate('settings')}>
             <Sparkle aria-hidden="true" size={22} weight="duotone" />
             <span><strong>模型与设置</strong><small>连接 Harness 模型</small></span>
             <CaretRight aria-hidden="true" size={16} />
           </button>
-          <button type="button" className="pa-settings-link" onClick={() => onNavigate('settings')}>
+          <button type="button" className="pa-settings-link" aria-label="设置中心" onClick={() => onNavigate('settings')}>
             <GearSix aria-hidden="true" size={19} /><span>设置中心</span>
           </button>
           <button type="button" className="pa-collapse-button" onClick={onCollapse} aria-label={collapsed ? '展开侧栏' : '收起侧栏'}>
@@ -334,20 +382,39 @@ function QuickCard({ item, onOpen }: { item: QuickAction; onOpen: (id: StudioId)
   )
 }
 
+function RecentCreationList({ creations, onOpen }: { creations: CreationRecord[]; onOpen: (creation: CreationRecord) => void }) {
+  return (
+    <div className="pa-recent-list">
+      {creations.slice(0, 4).map((creation) => (
+        <button key={creation.id} type="button" className="pa-recent-item" onClick={() => onOpen(creation)}>
+          <span className="pa-recent-item__icon"><FileText aria-hidden="true" size={19} weight="duotone" /></span>
+          <span className="pa-recent-item__copy"><strong>{creation.title}</strong><small>{studioLabels[creation.studio]} · {formatLocalTime(creation.updatedAt)}</small></span>
+          <span className="pa-status-badge" data-status={creation.status}>{statusLabels[creation.status]}</span>
+          <CaretRight aria-hidden="true" size={16} />
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function HomePage({
   inspirationIndex,
   activeCategory,
+  creations,
   onCategory,
   onShuffle,
   onOpenStudio,
+  onOpenCreation,
   onNavigate,
   onToast,
 }: {
   inspirationIndex: number
   activeCategory: string
+  creations: CreationRecord[]
   onCategory: (category: string) => void
   onShuffle: () => void
   onOpenStudio: (studio: StudioId) => void
+  onOpenCreation: (creation: CreationRecord) => void
   onNavigate: (page: PageId) => void
   onToast: (message: string, tone?: ToastState['tone']) => void
 }) {
@@ -390,7 +457,9 @@ function HomePage({
 
         <section className="pa-panel pa-recent-panel">
           <SectionHeading title="创作记录" action="查看更多" onAction={() => onNavigate('history')} />
-          <EmptyState title="还没有创作记录" description="完成并保存内容后，会在这里显示真实的本地记录。" action="开始创作" onAction={() => onOpenStudio('article')} />
+          {creations.some((item) => item.status !== 'archived')
+            ? <RecentCreationList creations={creations.filter((item) => item.status !== 'archived')} onOpen={onOpenCreation} />
+            : <EmptyState title="还没有创作记录" description="完成并保存内容后，会在这里显示真实的本地记录。" action="开始创作" onAction={() => onOpenStudio('article')} />}
         </section>
       </div>
     </div>
@@ -425,10 +494,53 @@ function CreateHub({ onOpenStudio }: { onOpenStudio: (studio: StudioId) => void 
   )
 }
 
-function StudioPage({ studio, onBack, onToast }: { studio: StudioId; onBack: () => void; onToast: (message: string, tone?: ToastState['tone']) => void }) {
-  const [topic, setTopic] = useState('')
+function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
+  studio: StudioId
+  initialCreation: CreationRecord | null
+  onBack: () => void
+  onSave: (draft: CreationDraft) => CreationRecord | null
+  onToast: (message: string, tone?: ToastState['tone']) => void
+}) {
+  const [creationId, setCreationId] = useState<string | undefined>(initialCreation?.id)
+  const [title, setTitle] = useState(initialCreation?.title ?? '')
+  const [topic, setTopic] = useState(initialCreation?.topic ?? '')
+  const [content, setContent] = useState(initialCreation?.content ?? '')
+  const [style, setStyle] = useState(initialCreation?.style ?? 'cinematic')
+  const [requirement, setRequirement] = useState(initialCreation?.requirement ?? '')
   const isVideo = studio === 'video'
   const isImage = studio === 'image'
+
+  useEffect(() => {
+    setCreationId(initialCreation?.id)
+    setTitle(initialCreation?.title ?? '')
+    setTopic(initialCreation?.topic ?? '')
+    setContent(initialCreation?.content ?? '')
+    setStyle(initialCreation?.style ?? 'cinematic')
+    setRequirement(initialCreation?.requirement ?? '')
+  }, [initialCreation, studio])
+
+  const save = (status: CreationStatus = initialCreation?.status ?? 'draft') => {
+    if (isVideo) {
+      onToast('视频功能仅为未开放占位，不会创建记录或任务', 'warning')
+      return null
+    }
+    if (!topic.trim() && !title.trim()) {
+      onToast('请至少填写标题或创作主题', 'warning')
+      return null
+    }
+    const saved = onSave({
+      id: creationId,
+      studio,
+      title,
+      topic,
+      content,
+      style,
+      requirement,
+      status,
+    })
+    if (saved) setCreationId(saved.id)
+    return saved
+  }
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
@@ -443,6 +555,35 @@ function StudioPage({ studio, onBack, onToast }: { studio: StudioId; onBack: () 
     onToast(isImage ? '请先在设置中心配置图片 Provider' : '请先在设置中心选择可用的 Harness 文本模型', 'warning')
   }
 
+  const copyContent = async () => {
+    const value = content.trim() || topic.trim()
+    if (!value) {
+      onToast('当前没有可复制的内容', 'warning')
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(value)
+      onToast('内容已复制到剪贴板', 'success')
+    } catch {
+      onToast('复制失败，请手动选择内容', 'warning')
+    }
+  }
+
+  const exportDraft = () => {
+    if (!content.trim() && !topic.trim()) {
+      onToast('请先填写并保存内容', 'warning')
+      return
+    }
+    const body = `# ${title.trim() || topic.trim() || '未命名草稿'}\n\n主题：${topic.trim() || '未填写'}\n\n${content.trim()}`
+    const url = URL.createObjectURL(new Blob([body], { type: 'text/markdown;charset=utf-8' }))
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = 'paipiange-draft.md'
+    anchor.click()
+    URL.revokeObjectURL(url)
+    onToast('草稿已导出为 Markdown', 'success')
+  }
+
   return (
     <div className="pa-page pa-studio-page">
       <div className="pa-studio-heading">
@@ -453,24 +594,34 @@ function StudioPage({ studio, onBack, onToast }: { studio: StudioId; onBack: () 
         <form className="pa-panel pa-studio-form" onSubmit={submit}>
           <SectionHeading title="创作参数" />
           <label className="pa-field"><span>创作类型</span><select defaultValue={studio}><option value={studio}>{studioLabels[studio]}</option></select></label>
+          <label className="pa-field"><span>草稿标题</span><input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={80} placeholder="例如：春日品牌故事初稿" /></label>
           <label className="pa-field"><span>主题 / 关键词 <b aria-hidden="true">*</b></span><textarea value={topic} onChange={(event) => setTopic(event.target.value)} maxLength={300} placeholder="例如：以江南春日为主题，写一篇有画面感的品牌故事" /><small>{topic.length}/300</small></label>
-          <label className="pa-field"><span>内容风格</span><select defaultValue="cinematic"><option value="cinematic">电影感叙事</option><option value="poetic">东方诗意</option><option value="clear">清晰专业</option><option value="lively">轻松活泼</option></select></label>
-          <label className="pa-field"><span>补充要求</span><input placeholder="目标受众、篇幅、结构或画面比例" /></label>
+          <label className="pa-field"><span>内容风格</span><select value={style} onChange={(event) => setStyle(event.target.value)}><option value="cinematic">电影感叙事</option><option value="poetic">东方诗意</option><option value="clear">清晰专业</option><option value="lively">轻松活泼</option></select></label>
+          <label className="pa-field"><span>补充要求</span><input value={requirement} onChange={(event) => setRequirement(event.target.value)} placeholder="目标受众、篇幅、结构或画面比例" /></label>
           <button type="submit" className="pa-primary-button pa-studio-submit" disabled={isVideo} aria-describedby={isVideo ? 'video-disabled-hint' : undefined}>
             <Sparkle aria-hidden="true" size={18} weight="fill" />{isVideo ? '功能暂未开放' : '开始生成'}
           </button>
+          <div className="pa-studio-save-row">
+            <button type="button" className="pa-secondary-button" disabled={isVideo} onClick={() => save('draft')}><FloppyDisk aria-hidden="true" size={17} />保存草稿</button>
+            <button type="button" className="pa-secondary-button" disabled={isVideo} onClick={() => save('queued')}><PaperPlaneTilt aria-hidden="true" size={17} />加入待发布</button>
+          </div>
           {isVideo && <p id="video-disabled-hint" className="pa-form-notice">视频功能仅展示界面，不会发送任何生成请求。</p>}
         </form>
         <section className="pa-panel pa-studio-canvas">
           <div className="pa-studio-canvas__toolbar">
-            <span>创作画布</span>
-            <div><button type="button" className="pa-icon-button" aria-label="复制" onClick={() => onToast('当前没有可复制的内容')}><Copy aria-hidden="true" size={18} /></button><button type="button" className="pa-icon-button" aria-label="导出" onClick={() => onToast('保存内容后即可导出')}><DownloadSimple aria-hidden="true" size={18} /></button></div>
+            <span>{isImage ? '提示词备注' : '手动创作画布'}</span>
+            <div><button type="button" className="pa-icon-button" aria-label="复制" onClick={copyContent}><Copy aria-hidden="true" size={18} /></button><button type="button" className="pa-icon-button" aria-label="导出" onClick={exportDraft}><DownloadSimple aria-hidden="true" size={18} /></button></div>
           </div>
-          <div className="pa-studio-canvas__empty">
-            {isImage ? <ImageSquare aria-hidden="true" size={40} weight="duotone" /> : <Sparkle aria-hidden="true" size={40} weight="duotone" />}
-            <strong>{isVideo ? '视频生成暂未开放' : '等待开始创作'}</strong>
-            <p>{isVideo ? '后续版本将根据明确授权接入视频能力。' : '生成结果会显示在这里；无模型时绝不使用固定样例冒充结果。'}</p>
-          </div>
+          {isVideo ? (
+            <div className="pa-studio-canvas__empty"><Sparkle aria-hidden="true" size={40} weight="duotone" /><strong>视频生成暂未开放</strong><p>后续版本将根据明确授权接入视频能力；当前不会保存任务或伪造结果。</p></div>
+          ) : (
+            <div className="pa-manual-editor">
+              <div className="pa-manual-editor__notice"><PencilSimple aria-hidden="true" size={18} /><span>这里保存的是你手动输入的内容，不是 AI 生成结果。连接 Harness 模型后再启用真实生成。</span></div>
+              <label htmlFor="pa-manual-content">{isImage ? '图片构思、提示词补充或版权说明' : '正文草稿'}</label>
+              <textarea id="pa-manual-content" value={content} onChange={(event) => setContent(event.target.value)} placeholder={isImage ? '记录画面主体、构图、光线和需要规避的元素…' : '从这里开始手动写作，内容会随草稿保存到当前浏览器本地…'} />
+              <div className="pa-manual-editor__footer"><span>{content.length} 字</span><span>{creationId ? '已建立本地草稿' : '尚未保存'}</span></div>
+            </div>
+          )}
         </section>
       </div>
     </div>
@@ -481,15 +632,107 @@ function MetricCard({ label, value, note }: { label: string; value: string; note
   return <div className="pa-metric-card"><span>{label}</span><strong>{value}</strong><small>{note}</small></div>
 }
 
-function WorkspacePage({ page, onNavigate, onOpenStudio, onToast }: { page: Exclude<PageId, 'home' | 'create'>; onNavigate: (page: PageId) => void; onOpenStudio: (studio: StudioId) => void; onToast: (message: string, tone?: ToastState['tone']) => void }) {
+function CreationCard({ creation, onOpen, onStatus, onDelete }: {
+  creation: CreationRecord
+  onOpen: (creation: CreationRecord) => void
+  onStatus: (id: string, status: CreationStatus) => void
+  onDelete: (id: string) => void
+}) {
+  return (
+    <article className="pa-panel pa-creation-card">
+      <div className="pa-creation-card__icon"><FileText aria-hidden="true" size={23} weight="duotone" /></div>
+      <div className="pa-creation-card__body">
+        <div className="pa-creation-card__meta"><span className="pa-status-badge" data-status={creation.status}>{statusLabels[creation.status]}</span><span>{studioLabels[creation.studio]}</span><span>{formatLocalTime(creation.updatedAt)}</span></div>
+        <h2>{creation.title}</h2>
+        <p>{creation.content.trim() || creation.topic || '尚未填写正文内容'}</p>
+      </div>
+      <div className="pa-creation-card__actions">
+        <button type="button" className="pa-secondary-button" onClick={() => onOpen(creation)}><PencilSimple aria-hidden="true" size={16} />继续编辑</button>
+        {creation.status === 'archived' ? (
+          <button type="button" className="pa-icon-button" aria-label={`恢复 ${creation.title}`} title="恢复" onClick={() => onStatus(creation.id, 'draft')}><ArrowCounterClockwise aria-hidden="true" size={18} /></button>
+        ) : (
+          <button type="button" className="pa-icon-button" aria-label={`归档 ${creation.title}`} title="归档" onClick={() => onStatus(creation.id, 'archived')}><Archive aria-hidden="true" size={18} /></button>
+        )}
+        <button type="button" className="pa-icon-button pa-danger-button" aria-label={`删除 ${creation.title}`} title="删除" onClick={() => onDelete(creation.id)}><Trash aria-hidden="true" size={18} /></button>
+      </div>
+    </article>
+  )
+}
+
+function HistoryPage({ creations, onOpen, onStatus, onDelete, onCreate }: {
+  creations: CreationRecord[]
+  onOpen: (creation: CreationRecord) => void
+  onStatus: (id: string, status: CreationStatus) => void
+  onDelete: (id: string) => void
+  onCreate: () => void
+}) {
+  const [query, setQuery] = useState('')
+  const [filter, setFilter] = useState<'active' | 'archived'>('active')
+  const visible = creations.filter((creation) => {
+    const matchesStatus = filter === 'archived' ? creation.status === 'archived' : creation.status !== 'archived'
+    const haystack = `${creation.title}${creation.topic}${creation.content}${studioLabels[creation.studio]}`.toLowerCase()
+    return matchesStatus && haystack.includes(query.trim().toLowerCase())
+  })
+
+  return (
+    <div className="pa-page">
+      <PageIntro title="创作记录" description="搜索、继续编辑、归档和管理保存在当前浏览器中的真实草稿。" action="新建创作" onAction={onCreate} />
+      <div className="pa-record-toolbar">
+        <label className="pa-record-search"><MagnifyingGlass aria-hidden="true" size={17} /><span className="pa-visually-hidden">搜索创作记录</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索标题、主题或正文" /></label>
+        <div className="pa-segmented" aria-label="记录状态筛选">
+          <button type="button" data-active={filter === 'active'} onClick={() => setFilter('active')}>进行中</button>
+          <button type="button" data-active={filter === 'archived'} onClick={() => setFilter('archived')}>已归档</button>
+        </div>
+      </div>
+      {visible.length ? <div className="pa-creation-list">{visible.map((creation) => <CreationCard key={creation.id} creation={creation} onOpen={onOpen} onStatus={onStatus} onDelete={onDelete} />)}</div> : (
+        <section className="pa-panel pa-large-empty"><div className="pa-large-empty__icon"><ClockCounterClockwise aria-hidden="true" size={27} weight="duotone" /></div><h2>{query ? '没有匹配的创作记录' : filter === 'archived' ? '暂时没有归档内容' : '暂无创作记录'}</h2><p>保存草稿后即可在这里继续编辑、加入待发布列表或归档。</p><button type="button" className="pa-secondary-button" onClick={onCreate}>开始创作</button></section>
+      )}
+    </div>
+  )
+}
+
+function PublishPage({ creations, onOpen, onStatus, onCreate }: {
+  creations: CreationRecord[]
+  onOpen: (creation: CreationRecord) => void
+  onStatus: (id: string, status: CreationStatus) => void
+  onCreate: () => void
+}) {
+  const queued = creations.filter((creation) => creation.status === 'queued')
+  return (
+    <div className="pa-page">
+      <PageIntro title="发布管理" description="仅管理本地待发布清单，不登录或自动发布到任何第三方平台。" />
+      {queued.length ? <div className="pa-publish-grid">{queued.map((creation) => (
+        <article key={creation.id} className="pa-panel pa-publish-card">
+          <div className="pa-publish-card__top"><span className="pa-status-badge" data-status="queued">待发布</span><small>{formatLocalTime(creation.updatedAt)}</small></div>
+          <h2>{creation.title}</h2><p>{creation.content.trim() || creation.topic}</p>
+          <div><button type="button" className="pa-secondary-button" onClick={() => onOpen(creation)}>查看与编辑</button><button type="button" className="pa-link-button" onClick={() => onStatus(creation.id, 'draft')}>移回草稿</button></div>
+        </article>
+      ))}</div> : <section className="pa-panel pa-large-empty"><div className="pa-large-empty__icon"><PaperPlaneTilt aria-hidden="true" size={27} weight="duotone" /></div><h2>暂无待发布内容</h2><p>在创作工作台保存草稿时选择“加入待发布”，内容会出现在这里。</p><button type="button" className="pa-secondary-button" onClick={onCreate}>开始创作</button></section>}
+    </div>
+  )
+}
+
+function WorkspacePage({ page, creations, onNavigate, onOpenStudio, onOpenCreation, onStatus, onDelete, onToast }: {
+  page: Exclude<PageId, 'home' | 'create'>
+  creations: CreationRecord[]
+  onNavigate: (page: PageId) => void
+  onOpenStudio: (studio: StudioId) => void
+  onOpenCreation: (creation: CreationRecord) => void
+  onStatus: (id: string, status: CreationStatus) => void
+  onDelete: (id: string) => void
+  onToast: (message: string, tone?: ToastState['tone']) => void
+}) {
   const meta = pageMeta[page]
+
+  if (page === 'history') return <HistoryPage creations={creations} onOpen={onOpenCreation} onStatus={onStatus} onDelete={onDelete} onCreate={() => onOpenStudio('article')} />
+  if (page === 'publish') return <PublishPage creations={creations} onOpen={onOpenCreation} onStatus={onStatus} onCreate={() => onOpenStudio('article')} />
 
   if (page === 'analytics') {
     return (
       <div className="pa-page">
         <PageIntro title={meta.title} description={meta.description} />
-        <div className="pa-metrics-grid"><MetricCard label="创作总数" value="0" note="仅统计真实本地记录" /><MetricCard label="近 7 天" value="0" note="尚无生成任务" /><MetricCard label="已导出" value="0" note="本地导出记录" /><MetricCard label="模型用量" value="—" note="模型连接后显示" /></div>
-        <section className="pa-panel pa-chart-panel"><SectionHeading title="近 7 天创作趋势" /><div className="pa-chart-empty"><ChartBars /><p>完成创作后，这里会显示真实趋势，不使用虚构数据。</p></div></section>
+        <div className="pa-metrics-grid"><MetricCard label="创作总数" value={String(creations.length)} note="仅统计真实本地记录" /><MetricCard label="进行中" value={String(creations.filter((item) => item.status === 'draft').length)} note="当前草稿" /><MetricCard label="待发布" value={String(creations.filter((item) => item.status === 'queued').length)} note="本地发布清单" /><MetricCard label="模型用量" value="—" note="模型连接后显示" /></div>
+        <section className="pa-panel pa-chart-panel"><SectionHeading title="创作状态分布" /><div className="pa-chart-empty"><ChartBars values={[creations.filter((item) => item.status === 'draft').length, creations.filter((item) => item.status === 'queued').length, creations.filter((item) => item.status === 'archived').length]} /><p>{creations.length ? '图表来自当前浏览器保存的真实记录。' : '完成创作后，这里会显示真实趋势，不使用虚构数据。'}</p></div></section>
       </div>
     )
   }
@@ -510,7 +753,7 @@ function WorkspacePage({ page, onNavigate, onOpenStudio, onToast }: { page: Excl
       <div className="pa-page">
         <PageIntro title={meta.title} description={meta.description} />
         <div className="pa-settings-grid">
-          {[['文本模型', '复用 Harness 已配置的模型，不在浏览器保存密钥。'], ['图片 Provider', '未配置。后续通过 Host 安全读取凭证。'], ['本地存储', '数据目录将在持久化阶段启用。'], ['主题与界面', '当前使用暖棕金国风深色主题。']].map(([title, description], index) => <section key={title} className="pa-panel pa-setting-card"><div className="pa-setting-card__icon">{index === 0 ? <Sparkle aria-hidden="true" size={23} /> : index === 1 ? <ImageSquare aria-hidden="true" size={23} /> : index === 2 ? <FolderOpen aria-hidden="true" size={23} /> : <GearSix aria-hidden="true" size={23} />}</div><div><h2>{title}</h2><p>{description}</p></div><button type="button" className="pa-secondary-button" onClick={() => onToast(`${title}将在后续功能阶段接入`)}>配置</button></section>)}
+          {[['文本模型', '复用 Harness 已配置的模型，不在浏览器保存密钥。'], ['图片 Provider', '未配置。后续通过 Host 安全读取凭证。'], ['本地草稿', `当前浏览器已保存 ${creations.length} 条记录；后续迁移到 Host SQLite。`], ['主题与界面', '当前使用暖棕金国风深色主题。']].map(([title, description], index) => <section key={title} className="pa-panel pa-setting-card"><div className="pa-setting-card__icon">{index === 0 ? <Sparkle aria-hidden="true" size={23} /> : index === 1 ? <ImageSquare aria-hidden="true" size={23} /> : index === 2 ? <FolderOpen aria-hidden="true" size={23} /> : <GearSix aria-hidden="true" size={23} />}</div><div><h2>{title}</h2><p>{description}</p></div><button type="button" className="pa-secondary-button" onClick={() => onToast(index === 2 ? '草稿仅保存在当前浏览器，不会上传或提交到仓库' : `${title}将在后续功能阶段接入`)}>查看</button></section>)}
         </div>
       </div>
     )
@@ -518,8 +761,6 @@ function WorkspacePage({ page, onNavigate, onOpenStudio, onToast }: { page: Excl
 
   const content = {
     assets: { icon: <CloudArrowUp aria-hidden="true" size={27} weight="duotone" />, title: '素材库还是空的', description: '后续可导入图片、文稿、提示词与文件；当前阶段先完成界面结构。', action: '导入素材' },
-    publish: { icon: <PaperPlaneTilt aria-hidden="true" size={27} weight="duotone" />, title: '暂无待发布内容', description: '第一版仅管理本地发布队列和导出，不会自动登录或发布到第三方平台。', action: '查看创作' },
-    history: { icon: <ClockCounterClockwise aria-hidden="true" size={27} weight="duotone" />, title: '暂无创作记录', description: '保存真实草稿后可在这里搜索、恢复、导出与归档。', action: '开始创作' },
   }[page]
 
   return (
@@ -527,19 +768,22 @@ function WorkspacePage({ page, onNavigate, onOpenStudio, onToast }: { page: Excl
       <PageIntro title={meta.title} description={meta.description} action={page === 'assets' ? '导入素材' : undefined} onAction={() => onToast('本地数据功能将在后续阶段启用')} />
       <section className="pa-panel pa-large-empty">
         <div className="pa-large-empty__icon">{content.icon}</div><h2>{content.title}</h2><p>{content.description}</p>
-        <button type="button" className="pa-secondary-button" onClick={() => page === 'history' || page === 'publish' ? onNavigate('create') : onToast('素材导入将在本地存储阶段启用')}>{content.action}</button>
+        <button type="button" className="pa-secondary-button" onClick={() => onToast('素材导入将在 Host 文件存储阶段启用')}>{content.action}</button>
       </section>
     </div>
   )
 }
 
-function ChartBars() {
-  return <div className="pa-chart-bars" aria-label="空数据趋势图"><i style={{ height: '18%' }} /><i style={{ height: '26%' }} /><i style={{ height: '22%' }} /><i style={{ height: '32%' }} /><i style={{ height: '25%' }} /><i style={{ height: '20%' }} /><i style={{ height: '28%' }} /></div>
+function ChartBars({ values = [0, 0, 0] }: { values?: number[] }) {
+  const max = Math.max(...values, 1)
+  return <div className="pa-chart-bars" aria-label="本地创作状态分布图">{values.map((value, index) => <i key={index} style={{ height: `${Math.max(10, (value / max) * 90)}%` }} title={String(value)} />)}</div>
 }
 
 export function PaipiangeRoot() {
   const [activePage, setActivePage] = useState<PageId>('home')
   const [studio, setStudio] = useState<StudioId | null>(null)
+  const [selectedCreation, setSelectedCreation] = useState<CreationRecord | null>(null)
+  const [creations, setCreations] = useState<CreationRecord[]>(() => loadWorkspace().creations)
   const [activeCategory, setActiveCategory] = useState('热门推荐')
   const [inspirationIndex, setInspirationIndex] = useState(0)
   const [collapsed, setCollapsed] = useState(false)
@@ -559,16 +803,54 @@ export function PaipiangeRoot() {
     mainRef.current?.focus({ preventScroll: true })
   }, [activePage, studio])
 
+  useEffect(() => {
+    persistWorkspace({ version: 1, creations })
+  }, [creations])
+
   const navigate = (page: PageId) => {
     setActivePage(page)
     setStudio(null)
+    setSelectedCreation(null)
     setMobileOpen(false)
   }
 
   const openStudio = (id: StudioId) => {
     setActivePage('create')
     setStudio(id)
+    setSelectedCreation(null)
     setMobileOpen(false)
+  }
+
+  const openCreation = (creation: CreationRecord) => {
+    setActivePage('create')
+    setStudio(creation.studio)
+    setSelectedCreation(creation)
+    setMobileOpen(false)
+  }
+
+  const saveCreation = (draft: CreationDraft) => {
+    const next = upsertCreation(creations, draft)
+    const saved = next[0]
+    setCreations(next)
+    setSelectedCreation(saved)
+    showToast(draft.status === 'queued' ? '草稿已保存到待发布列表' : '草稿已保存在当前浏览器', 'success')
+    return saved
+  }
+
+  const setCreationStatus = (id: string, status: CreationStatus) => {
+    setCreations((current) => updateCreationStatus(current, id, status))
+    showToast(status === 'archived' ? '内容已归档' : status === 'queued' ? '已加入待发布列表' : '内容已恢复为草稿', 'success')
+  }
+
+  const deleteCreation = (id: string) => {
+    const target = creations.find((item) => item.id === id)
+    if (!target || !window.confirm(`确定永久删除“${target.title}”吗？此操作无法撤销。`)) return
+    setCreations((current) => removeCreation(current, id))
+    if (selectedCreation?.id === id) {
+      setSelectedCreation(null)
+      setStudio(null)
+    }
+    showToast('创作记录已永久删除', 'success')
   }
 
   const shuffleInspiration = () => {
@@ -584,7 +866,11 @@ export function PaipiangeRoot() {
     }
     const action = quickActions.find((item) => `${item.title}${item.description}${item.category}`.toLowerCase().includes(normalized))
     const template = templates.find((item) => `${item.title}${item.subtitle}`.toLowerCase().includes(normalized))
-    if (action) {
+    const creation = creations.find((item) => `${item.title}${item.topic}${item.content}`.toLowerCase().includes(normalized))
+    if (creation) {
+      openCreation(creation)
+      showToast(`已打开创作：${creation.title}`, 'success')
+    } else if (action) {
       openStudio(action.id)
       showToast(`已找到：${action.title}`, 'success')
     } else if (template) {
@@ -595,21 +881,24 @@ export function PaipiangeRoot() {
   }
 
   const goBack = () => {
-    if (studio) setStudio(null)
+    if (studio) {
+      setStudio(null)
+      setSelectedCreation(null)
+    }
     else navigate('home')
   }
 
   return (
     <div className="pa-root">
       <a className="pa-skip-link" href="#pa-main-content">跳到主要内容</a>
-      <Sidebar activePage={activePage} collapsed={collapsed} mobileOpen={mobileOpen} onNavigate={navigate} onCollapse={() => setCollapsed((value) => !value)} onCloseMobile={() => setMobileOpen(false)} />
+      <Sidebar activePage={activePage} collapsed={collapsed} mobileOpen={mobileOpen} recentCreations={creations.filter((item) => item.status !== 'archived')} onNavigate={navigate} onOpenCreation={openCreation} onCollapse={() => setCollapsed((value) => !value)} onCloseMobile={() => setMobileOpen(false)} />
       <div className="pa-main-shell">
         <Topbar activePage={activePage} studio={studio} onBack={goBack} onHome={() => navigate('home')} onOpenMobile={() => setMobileOpen(true)} onSearch={search} onToast={showToast} />
         <main id="pa-main-content" className="pa-content" ref={mainRef} tabIndex={-1}>
-          {activePage === 'home' && !studio && <HomePage inspirationIndex={inspirationIndex} activeCategory={activeCategory} onCategory={setActiveCategory} onShuffle={shuffleInspiration} onOpenStudio={openStudio} onNavigate={navigate} onToast={showToast} />}
+          {activePage === 'home' && !studio && <HomePage inspirationIndex={inspirationIndex} activeCategory={activeCategory} creations={creations} onCategory={setActiveCategory} onShuffle={shuffleInspiration} onOpenStudio={openStudio} onOpenCreation={openCreation} onNavigate={navigate} onToast={showToast} />}
           {activePage === 'create' && !studio && <CreateHub onOpenStudio={openStudio} />}
-          {studio && <StudioPage studio={studio} onBack={() => setStudio(null)} onToast={showToast} />}
-          {activePage !== 'home' && activePage !== 'create' && !studio && <WorkspacePage page={activePage} onNavigate={navigate} onOpenStudio={openStudio} onToast={showToast} />}
+          {studio && <StudioPage studio={studio} initialCreation={selectedCreation} onBack={() => { setStudio(null); setSelectedCreation(null) }} onSave={saveCreation} onToast={showToast} />}
+          {activePage !== 'home' && activePage !== 'create' && !studio && <WorkspacePage page={activePage} creations={creations} onNavigate={navigate} onOpenStudio={openStudio} onOpenCreation={openCreation} onStatus={setCreationStatus} onDelete={deleteCreation} onToast={showToast} />}
         </main>
       </div>
       {toast && <div className="pa-toast" data-tone={toast.tone} role="status" aria-live="polite"><CheckCircle aria-hidden="true" size={20} weight="fill" /><span>{toast.message}</span><button type="button" aria-label="关闭提示" onClick={() => setToast(null)}><X aria-hidden="true" size={16} /></button></div>}
