@@ -85,14 +85,6 @@ function createId() {
   return `pa-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
-/** Merge host records over any legacy local records, then clear the local copy. */
-function reconcile(hostRecords: CreationRecord[], localRecords: CreationRecord[]): CreationRecord[] {
-  const byId = new Map<string, CreationRecord>()
-  for (const record of localRecords) byId.set(record.id, record)
-  for (const record of hostRecords) byId.set(record.id, record)
-  return [...byId.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-}
-
 export type StoreSource = 'host' | 'local'
 
 export interface LoadResult {
@@ -103,11 +95,45 @@ export interface LoadResult {
 /** Load all creations, preferring the Host. */
 export async function loadCreations(): Promise<LoadResult> {
   try {
-    const creations = await hostList()
+    const hostRecords = await hostList()
+    // Reconcile any legacy local records into the Host before clearing the
+    // local copy — otherwise drafts saved while offline would be silently
+    // dropped once the Host comes back.
+    const localRecords = loadLocal()
+    if (localRecords.length) {
+      await reconcileIntoHost(hostRecords, localRecords)
+    }
     saveLocal([])
-    return { creations, source: 'host' }
+    return { creations: hostRecords, source: 'host' }
   } catch {
     return { creations: loadLocal(), source: 'local' }
+  }
+}
+
+/**
+ * Push local-only drafts into the Host when it becomes reachable, so offline
+ * work is not lost. Local records whose ids already exist on the Host are
+ * skipped (the Host copy is authoritative); brand-new local records are created.
+ */
+async function reconcileIntoHost(hostRecords: CreationRecord[], localRecords: CreationRecord[]): Promise<void> {
+  const hostIds = new Set(hostRecords.map((r) => r.id))
+  for (const local of localRecords) {
+    if (hostIds.has(local.id)) continue
+    try {
+      // Local records are re-created on the Host (which assigns a fresh id);
+      // the point is to preserve offline-authored content, not the local id.
+      await hostCreate({
+        studio: local.studio,
+        title: local.title,
+        topic: local.topic,
+        content: local.content,
+        style: local.style,
+        requirement: local.requirement,
+        status: local.status,
+      })
+    } catch {
+      // A single failed upload must not abort the remaining reconciliation.
+    }
   }
 }
 
@@ -170,6 +196,3 @@ function upsertLocal(draft: CreationDraft): CreationRecord {
   saveLocal([record, ...current.filter((item) => item.id !== record.id)])
   return record
 }
-
-// Re-export for consumers that still use the pure helper (compat shim).
-export { reconcile }

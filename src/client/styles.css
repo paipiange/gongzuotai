@@ -1735,6 +1735,32 @@
   font-size: 12px;
 }
 
+.pa-root .pa-offline-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  color: var(--pa-gold-light);
+  font-size: 12px;
+  background: rgba(196, 146, 95, 0.1);
+  border-bottom: 1px solid rgba(196, 146, 95, 0.24);
+}
+
+.pa-root .pa-offline-banner__retry {
+  margin-left: auto;
+  padding: 5px 12px;
+  color: var(--pa-gold-light);
+  font-size: 12px;
+  background: transparent;
+  border: 1px solid rgba(196, 146, 95, 0.32);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.pa-root .pa-offline-banner__retry:hover {
+  background: rgba(196, 146, 95, 0.12);
+}
+
 .pa-root .pa-inspiration-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

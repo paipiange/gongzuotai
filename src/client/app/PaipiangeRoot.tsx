@@ -830,7 +830,7 @@ function WorkspacePage({ page, creations, storageSource, onNavigate, onOpenStudi
         <div className="pa-settings-grid">
           <TextGenSettings onToast={onToast} />
           <ImageGenSettings onToast={onToast} />
-          {[['本地草稿', storageSource === 'host' ? `已连接本地服务，当前共 ${creations.length} 条记录保存在 Host SQLite。` : `当前共 ${creations.length} 条记录，保存在浏览器本地（Host 未连接时降级）。`], ['主题与界面', '当前使用暖棕金国风深色主题。']].map(([title, description], index) => <section key={title} className="pa-panel pa-setting-card"><div className="pa-setting-card__icon">{index === 0 ? <FolderOpen aria-hidden="true" size={23} /> : <GearSix aria-hidden="true" size={23} />}</div><div><h2>{title}</h2><p>{description}</p></div><button type="button" className="pa-secondary-button" onClick={() => onToast(index === 0 ? (storageSource === 'host' ? '草稿保存在本地 Host SQLite 数据库' : '草稿仅保存在当前浏览器，不会上传或提交到仓库') : `主题切换将在后续功能阶段接入`)}>查看</button></section>)}
+          {[['本地草稿', storageSource === 'host' ? `已连接本地服务，当前共 ${creations.length} 条记录保存在 Host SQLite。` : `当前共 ${creations.length} 条记录，保存在浏览器本地（离线模式，恢复连接后自动合并到本地服务）。`], ['主题与界面', '当前使用暖棕金国风深色主题。']].map(([title, description], index) => <section key={title} className="pa-panel pa-setting-card"><div className="pa-setting-card__icon">{index === 0 ? <FolderOpen aria-hidden="true" size={23} /> : <GearSix aria-hidden="true" size={23} />}</div><div><h2>{title}</h2><p>{description}</p></div><button type="button" className="pa-secondary-button" onClick={() => onToast(index === 0 ? (storageSource === 'host' ? '草稿保存在本地 Host SQLite 数据库' : '草稿暂存于浏览器本地，连接恢复后自动合并到本地服务，不会丢失') : `主题切换将在后续功能阶段接入`)}>查看</button></section>)}
         </div>
       </div>
     )
@@ -859,6 +859,14 @@ export function PaipiangeRoot() {
   const mainRef = useRef<HTMLElement>(null)
 
   const showToast = (message: string, tone: ToastState['tone'] = 'info') => setToast({ message, tone })
+
+  const reloadWorkspace = async () => {
+    setStorageSource('loading')
+    const { creations: loaded, source } = await loadCreations()
+    setCreations(loaded)
+    setStorageSource(source)
+    showToast(source === 'host' ? '已连接本地服务，数据已同步' : '仍未连接到本地服务', source === 'host' ? 'success' : 'warning')
+  }
 
   // Initial load from Host (with local fallback).
   useEffect(() => {
@@ -979,6 +987,13 @@ export function PaipiangeRoot() {
       <Sidebar activePage={activePage} collapsed={collapsed} mobileOpen={mobileOpen} recentCreations={creations.filter((item) => item.status !== 'archived')} onNavigate={navigate} onOpenCreation={openCreation} onCollapse={() => setCollapsed((value) => !value)} onCloseMobile={() => setMobileOpen(false)} />
       <div className="pa-main-shell">
         <Topbar activePage={activePage} studio={studio} onBack={goBack} onHome={() => navigate('home')} onOpenMobile={() => setMobileOpen(true)} onSearch={search} onToast={showToast} />
+        {storageSource === 'local' && (
+          <div className="pa-offline-banner" role="status" aria-live="polite">
+            <CloudArrowUp aria-hidden="true" size={17} />
+            <span>本地服务未连接，当前为离线模式：草稿保存在浏览器本地，恢复连接后将自动合并。</span>
+            <button type="button" className="pa-offline-banner__retry" onClick={() => void reloadWorkspace()}>重试连接</button>
+          </div>
+        )}
         <main id="pa-main-content" className="pa-content" ref={mainRef} tabIndex={-1}>
           {activePage === 'home' && !studio && <HomePage inspirationIndex={inspirationIndex} activeCategory={activeCategory} creations={creations} onCategory={setActiveCategory} onShuffle={shuffleInspiration} onOpenStudio={openStudio} onOpenCreation={openCreation} onNavigate={navigate} onToast={showToast} />}
           {activePage === 'create' && !studio && <CreateHub onOpenStudio={openStudio} />}
