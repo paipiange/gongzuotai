@@ -34,7 +34,8 @@
     "build": "pnpm typecheck && pnpm build:preview && pnpm build:plugin",
     "test": "vitest run",
     "prepack": "pnpm build:plugin",
-    "prepublishOnly": "pnpm typecheck && pnpm test && pnpm build:plugin"
+    "prepublishOnly": "pnpm typecheck && pnpm test && pnpm build:plugin",
+    "release": "pnpm typecheck && pnpm test && pnpm build:plugin && npm pack --pack-destination .artifacts"
   },
   "dependencies": {
     "@deepseek-ai/cordis": "^4.1.0",
