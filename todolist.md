@@ -35,10 +35,11 @@
 ### C. 生图 Provider（Phase 5）—— 本次重点
 
 - [x] 生图设置页：可配置「大模型」后端，字段 baseUrl / apiKey / model（ImageGenSettings 组件，localStorage 暂存）
-- [x] 生图设置页：可配置「本机 ComfyUI」后端，字段 server 地址（默认 127.0.0.1:8188）+ checkpoint
+- [x] 生图设置页：可配置「本机 ComfyUI」后端，字段 server 地址（默认 127.0.0.1:8188）+ 分离式模型（unet/clip/vae）或 checkpoint
 - [x] 后端适配器抽象：统一的 text-to-image 接口，实现 OpenAI 兼容 / ComfyUI 两个 provider（ImageGenService 门面）
 - [x] 大模型 provider：调用 OpenAI 兼容 images API（baseUrl + key + model）
 - [x] ComfyUI provider：提交 workflow、轮询 /history、拉取结果图（/prompt /history /view）
+- [x] ComfyUI provider 适配本机 Qwen-Image-Edit 分离式模型（UNETLoader+CLIPLoader+VAELoader，text encoder 用 qwen_2.5_vl_7b 3584 维，layers=0 单图），实机验证出图成功
 - [x] 生图配置安全存储（SettingsRepository，API key 只存 Host 侧 app_settings，summary 不含 key）
 - [ ] 结果图下载并落盘到 assets 表 + media 目录，回写 source_creation_id
 - [ ] Client 端实际调用 Host 生图（端到端，依赖 Host↔Client 通信契约，待 Harness 实机验证）
