@@ -44,9 +44,9 @@
 
 - [x] 公众号 HTML / Markdown / ZIP 导出（`ExportService` + `/api/paipiange.export` 路由 + client 导出按钮走 Host）
 - [x] 本地待发布清单接入 publish_items 表（`PublishRepository` + `/api/paipiange.publish` 路由 + 发布管理页接 Host，creation 标记 queued 时自动 upsert）
-- [ ] 全面测试 + CI + 依赖打包
-- [ ] 实机 Harness 安装 / 卸载 / 截图回归测试（docs/compatibility.md 遗留项）
-- [ ] 最终 tgz 安装包 + 安装文档 + Release
+- [x] 全面测试 + CI + 依赖打包（25 项单测；`.github/workflows/ci.yml` Node 20/22 矩阵；`prepack`/`prepublishOnly` 发布校验）
+- [x] Host API 迁移到官方 `webServer` 服务 + `connection` 信任校验（`webServerAdapter` Node↔Fetch 桥接）；实机验收清单见 `docs/harness-acceptance.md`（截图回归仍需真实 Harness GUI）
+- [x] 最终 tgz 安装包（`dsh-paipiange-0.1.0.tgz`）+ 安装文档（`docs/install.md`）+ CHANGELOG + Release 0.1.0 说明（`docs/release-0.1.0.md`）
 
 ## 备注
 
