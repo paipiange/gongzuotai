@@ -37,6 +37,21 @@ pnpm dev
 
 安装、升级与卸载见 [docs/install.md](./docs/install.md)。
 
+## 部署到实机 Harness（重要）
+
+本插件依赖 `better-sqlite3`（原生 addon），其实机运行时为 Electron，
+**ABI 与开发机标准 Node 不同**。每次改代码后，请勿手工 `pnpm install` 或
+`cp` 覆盖（会破坏 native 依赖的 ABI），统一用一键部署脚本：
+
+```bash
+bash scripts/deploy.sh
+```
+
+脚本会自动完成：探测实机 Electron 版本 → 构建打包 → 针对该版本重编译
+`better-sqlite3` → 同步 native 二进制 + 补齐 `bindings`/`file-uri-to-path`
+→ 更新插件产物 → 用实机 Electron 实测自校验。详细原理见
+[docs/native-rebuild.md](./docs/native-rebuild.md)。
+
 ## 验证
 
 ```bash

@@ -48,6 +48,24 @@ profile（`~/.dsh/profiles/desktop/cordis.patch.yml`）：
   自定义 route。插件已改为：生成时若默认 provider 不在 `listProviders()` 结果
   里，自动回退到第一个可用 route，避免 `UNKNOWN_MODEL`/未注册 route 报错。
 
+## Native 依赖 ABI（实机核验，2026-11-15）
+
+`dsh-paipiange` 依赖 `better-sqlite3`（原生 addon），其编译产物 `.node`
+必须与目标 Harness 的 Electron 运行时 ABI 严格一致，否则启用时抛
+`ERR_DLOPEN_FAILED` / `NODE_MODULE_VERSION mismatch`。
+
+实机 Harness 桌面端为 **Electron 43.3.0**（内置 **Node v24.18.1**，
+**NODE_MODULE_VERSION = 148**）。
+
+- ABI 对应关系：Electron 40/41/42/43 → 143/145/146/148；Node 22 → 127；
+  Node 24 标准 → 137；Node 25 → 149。
+- **踩坑记录**：曾误将 ABI 149（Electron 44 / Node 25）编译产物同步到实机，
+  导致 `Cannot find module 'bindings'` + `was compiled against a different
+  Node.js version (149 vs required)` 双重报错。根因是手动 `cp` 同步时未针对
+  Electron 43 重编译，且 `bindings`、`file-uri-to-path` 两个纯 JS 依赖被遗漏。
+- **正确重建流程**（见 [docs/native-rebuild.md](./docs/native-rebuild.md)）：
+  在本地项目用 `@electron/rebuild` 针对 Electron 43.3.0 重编译，再同步产物。
+
 ## 仍需实机验证（需真实 Harness GUI 桌面会话）
 
 - `lib/client.js` 在 Harness GUI 上的实际加载、文本生成流式渲染与截图回归。
