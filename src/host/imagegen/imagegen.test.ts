@@ -43,9 +43,36 @@ describe('OpenAICompatImageProvider', () => {
 })
 
 describe('ComfyUIProvider', () => {
-  it('rejects when no model is configured', async () => {
+  it('falls back to the recommended split-model files when UNet/CLIP/VAE are blank', async () => {
+    const png = Buffer.from('png-bytes')
+    let submittedBody: Record<string, unknown> | undefined
+    globalThis.fetch = vi.fn(async (input: unknown, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/prompt')) {
+        submittedBody = JSON.parse(String(init?.body))
+        return new Response(JSON.stringify({ prompt_id: 'p1' }), { status: 200 })
+      }
+      if (url.includes('/history/p1')) {
+        return new Response(
+          JSON.stringify({ p1: { status: { completed: true }, outputs: { '8': { images: [{ filename: 'out.png', subfolder: '', type: 'output' }] } } } }),
+          { status: 200 },
+        )
+      }
+      if (url.includes('/view')) {
+        return new Response(png, { status: 200, headers: { 'content-type': 'image/png' } })
+      }
+      return new Response('{}', { status: 404 })
+    }) as unknown as typeof fetch
+
     const provider = new ComfyUIProvider({ server: 'http://127.0.0.1:8188' })
-    await expect(provider.generate({ prompt: 'p' })).rejects.toThrow(/未配置模型/)
+    const images = await provider.generate({ prompt: 'p', seed: 7 })
+
+    expect(images).toHaveLength(1)
+    const prompt = (submittedBody?.prompt ?? {}) as Record<string, { class_type: string; inputs: Record<string, unknown> }>
+    expect(prompt['1'].class_type).toBe('UNETLoader')
+    expect(prompt['1'].inputs.unet_name).toBe('qwen_image_edit_2511_int8_convrot.safetensors')
+    expect(prompt['2'].inputs.clip_name).toBe('qwen_2.5_vl_7b_fp8_scaled.safetensors')
+    expect(prompt['3'].inputs.vae_name).toBe('qwen_image_vae.safetensors')
   })
 
   it('builds a split-model Qwen workflow and fetches the image', async () => {

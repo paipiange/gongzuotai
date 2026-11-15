@@ -9,11 +9,12 @@ import { AssetRepository } from './storage/assetRepository'
 import { TemplateRepository } from './storage/templateRepository'
 import { InspirationRepository } from './storage/inspirationRepository'
 import { PublishRepository } from './storage/publishRepository'
+import { TaskRepository } from './storage/taskRepository'
 import { ExportService } from './storage/exportService'
 import { ImageGenService } from './imagegen/ImageGenService'
 import { registerApiRoutes } from './api/routes'
 import { sendWebResponse, toWebRequest } from './api/webServerAdapter'
-import { generateText } from './textgen/textGenService'
+import { generateText, generateTextDirect } from './textgen/textGenService'
 import type { TextGenRequest } from './textgen/textGenService'
 import type { LlmService } from './textgen/types'
 import { startSse } from './textgen/sse'
@@ -70,6 +71,7 @@ export async function apply(ctx: Context, config: Config = {}) {
   const inspirations = new InspirationRepository(storage.db)
   const publish = new PublishRepository(storage.db)
   const exports = new ExportService(storage.paths)
+  const tasks = new TaskRepository(storage.db)
 
   // The image-gen service is rebuilt on demand from the latest saved config so
   // a newly saved backend takes effect without a plugin restart.
@@ -277,24 +279,83 @@ export async function apply(ctx: Context, config: Config = {}) {
             return
           }
           const send = startSse(res)
+          let task: ReturnType<TaskRepository['start']> | null = null
           try {
+            const request = await toWebRequest(req)
+            const body = await request.json().catch(() => null) as (TextGenRequest & { baseUrl?: string; apiKey?: string; backendId?: string }) | null
+            if (!body || !body.topic) {
+              send('error', { message: '缺少 topic' })
+              send('done', '')
+              return
+            }
+
+            // Record this generation attempt (success or failure) for later review.
+            task = tasks.start({
+              kind: 'text',
+              modelId: body.model?.trim() || null,
+              input: {
+                studio: body.studio,
+                topic: body.topic,
+                style: body.style,
+                requirement: body.requirement,
+                provider: body.provider,
+                model: body.model,
+                backendId: body.backendId,
+                direct: !!(body.baseUrl?.trim()),
+              },
+            })
+
+            // Resolve the full backend config (with secrets) when the client
+            // references a saved text backend by id. This keeps apiKey host-side.
+            let directBaseUrl = body.baseUrl?.trim().replace(/\/+$/, '') || ''
+            let directApiKey = body.apiKey?.trim() ?? ''
+            let directModel = body.model?.trim() ?? ''
+            if (body.backendId) {
+              const backend = settings.listBackendsWithSecrets().find((b) => b.id === body.backendId)
+              if (backend?.kind === 'llm-text' && backend.text) {
+                directBaseUrl = backend.text.baseUrl?.trim().replace(/\/+$/, '') || ''
+                directApiKey = backend.text.apiKey ?? ''
+                directModel = backend.text.model || directModel
+              }
+            }
+
+            // Direct mode: a third-party OpenAI-compatible endpoint was supplied
+            // (via a custom text backend). Bypass the Harness `llm` service.
+            if (directBaseUrl) {
+              if (!directModel) {
+                send('error', { message: '直连文字后端缺少模型名' })
+                send('done', '')
+                return
+              }
+              const result = await generateTextDirect(
+                { baseUrl: directBaseUrl, apiKey: directApiKey, model: directModel },
+                body,
+                {
+                  signal: request.signal,
+                  onDelta: (delta) => send('delta', delta),
+                },
+              )
+              tasks.markSuccess(task!.id, {
+                text: result.text,
+                usage: result.usage,
+                finishReason: result.finishReason,
+              }, directModel)
+              send('usage', result.usage)
+              send('finish', { reason: result.finishReason })
+              send('done', '')
+              return
+            }
+
             const llm = host.llm
             if (!llm || typeof llm.prepareCall !== 'function') {
               send('error', { message: 'Harness 文本模型服务未就绪，请先在 Harness 中配置模型' })
               send('done', '')
               return
             }
-            const request = await toWebRequest(req)
-            const body = await request.json().catch(() => null) as TextGenRequest | null
-            if (!body || !body.topic) {
-              send('error', { message: '缺少 topic' })
-              send('done', '')
-              return
-            }
             // Fall back to the saved text-gen config when the client omits them.
             const defaults = settings.getTextGenConfig()
             let provider = body.provider?.trim() || ''
-            let model = body.model?.trim() || ''
+            let model = directModel
             // If no explicit provider, prefer a saved one that still exists; if the
             // saved default is stale (e.g. `deepseek-official` with no such route),
             // fall back to the first registered route so generation can still run.
@@ -321,14 +382,28 @@ export async function apply(ctx: Context, config: Config = {}) {
               signal: request.signal,
               onDelta: (delta) => send('delta', delta),
             })
+            tasks.markSuccess(task!.id, {
+              text: result.text,
+              usage: result.usage,
+              finishReason: result.finishReason,
+            }, model)
             send('usage', result.usage)
             send('finish', { reason: result.finishReason })
             send('done', '')
           } catch (error) {
+            // Record the failure, then forward the message to the client.
+            const message = error instanceof Error ? error.message : String(error)
+            if (task) {
+              try {
+                tasks.markFailed(task.id, 'textgen', message)
+              } catch {
+                // task recording must never break the stream
+              }
+            }
             // Some errors arrive after headers are already flushed; guard the
             // write and fall back to closing the stream.
             try {
-              send('error', { message: error instanceof Error ? error.message : String(error) })
+              send('error', { message })
               send('done', '')
             } catch {
               res.end()
@@ -339,7 +414,7 @@ export async function apply(ctx: Context, config: Config = {}) {
     )
 
     registerApiRoutes(
-      { creations, settings, assets, templates, inspirations, publish, exports, buildImageGen, llm: host.llm },
+      { creations, settings, assets, templates, inspirations, publish, exports, tasks, buildImageGen, llm: host.llm },
       (path, methods, handler) => {
         disposers.push(
           webServer.register({

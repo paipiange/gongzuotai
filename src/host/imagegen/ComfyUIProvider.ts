@@ -1,4 +1,4 @@
-import type { ComfyUiConfig, GeneratedImage, ImageGenProvider, ImageGenRequest } from './types'
+import { COMFYUI_DEFAULT_MODELS, type ComfyUiConfig, type GeneratedImage, type ImageGenProvider, type ImageGenRequest } from './types'
 
 /**
  * Local ComfyUI provider. Builds a minimal txt2img workflow, submits it to
@@ -131,15 +131,22 @@ function buildWorkflow(
   const count = request.count ?? 1
   const denoise = request.denoise ?? 0.7
 
+  // Resolve the split-model files, falling back to the recommended defaults
+  // when the user left a field blank (the settings form mirrors these as
+  // placeholders, so "blank = use the recommended model").
+  const unet = (config.unet?.trim() || COMFYUI_DEFAULT_MODELS.unet)
+  const clip = (config.clip?.trim() || COMFYUI_DEFAULT_MODELS.clip)
+  const vae = (config.vae?.trim() || COMFYUI_DEFAULT_MODELS.vae)
+
   // Split-model path (UNet + CLIP + VAE), e.g. Qwen-Image-Edit.
-  if (config.unet && config.clip && config.vae) {
+  if (unet && clip && vae) {
     // img2img (repaint): encode the uploaded reference into latent space and
     // sample with the requested denoise strength.
     if (referenceImageName) {
       return {
-        '1': { class_type: 'UNETLoader', inputs: { unet_name: config.unet, weight_dtype: 'default' } },
-        '2': { class_type: 'CLIPLoader', inputs: { clip_name: config.clip, type: 'qwen_image', device: 'default' } },
-        '3': { class_type: 'VAELoader', inputs: { vae_name: config.vae } },
+        '1': { class_type: 'UNETLoader', inputs: { unet_name: unet, weight_dtype: 'default' } },
+        '2': { class_type: 'CLIPLoader', inputs: { clip_name: clip, type: 'qwen_image', device: 'default' } },
+        '3': { class_type: 'VAELoader', inputs: { vae_name: vae } },
         '4': { class_type: 'TextEncodeQwenImageEdit', inputs: { clip: ['2', 0], prompt: positive } },
         '4n': { class_type: 'TextEncodeQwenImageEdit', inputs: { clip: ['2', 0], prompt: negative } },
         '5': { class_type: 'LoadImage', inputs: { image: referenceImageName } },
@@ -165,9 +172,9 @@ function buildWorkflow(
     }
 
     return {
-      '1': { class_type: 'UNETLoader', inputs: { unet_name: config.unet, weight_dtype: 'default' } },
-      '2': { class_type: 'CLIPLoader', inputs: { clip_name: config.clip, type: 'qwen_image', device: 'default' } },
-      '3': { class_type: 'VAELoader', inputs: { vae_name: config.vae } },
+      '1': { class_type: 'UNETLoader', inputs: { unet_name: unet, weight_dtype: 'default' } },
+      '2': { class_type: 'CLIPLoader', inputs: { clip_name: clip, type: 'qwen_image', device: 'default' } },
+      '3': { class_type: 'VAELoader', inputs: { vae_name: vae } },
       '4': { class_type: 'TextEncodeQwenImageEdit', inputs: { clip: ['2', 0], prompt: positive } },
       '4n': { class_type: 'TextEncodeQwenImageEdit', inputs: { clip: ['2', 0], prompt: negative } },
       '5': {

@@ -177,6 +177,26 @@ describe('templates, inspirations, publish and export', () => {
 
     storage.close()
   })
+
+  it('writes saved images under media/images with a matching relative path', async () => {
+    const storage = await openTemporaryStorage()
+    const repo = new AssetRepository(storage.db, storage.paths)
+
+    const saved = repo.save({ kind: 'image', name: 'pic.png', mimeType: 'image/png', data: Buffer.from('fake-png-bytes') })
+
+    // relativePath 必须带 media/ 前缀，与 StoragePaths.images 对齐，
+    // 否则写入目录与读取目录错位会触发 ENOENT（回归 bug）。
+    expect(saved.relativePath.startsWith('media/images/')).toBe(true)
+
+    const absolute = repo.resolveAbsolutePath(saved)
+    expect(existsSync(absolute)).toBe(true)
+    expect(readFileSync(absolute, 'utf-8')).toBe('fake-png-bytes')
+
+    // 读回记录也应指向同一路径。
+    expect(repo.getById(saved.id)?.relativePath).toBe(saved.relativePath)
+
+    storage.close()
+  })
 })
 
 async function openTemporaryStorage() {

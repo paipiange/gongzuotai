@@ -200,3 +200,57 @@ function upsertLocal(draft: CreationDraft): CreationRecord {
   saveLocal([record, ...current.filter((item) => item.id !== record.id)])
   return record
 }
+
+// ---- Per-studio in-progress draft cache (survives page switches) ----
+
+const STUDIO_DRAFT_PREFIX = 'paipiange.studio-draft.'
+
+/** The subset of draft state we preserve across page switches. */
+export interface StudioDraftCache {
+  title: string
+  topic: string
+  content: string
+  style: string
+  requirement: string
+  tags: string[]
+}
+
+/** Persist an in-progress studio form so switching pages never loses work. */
+export function saveStudioDraft(studio: Exclude<StudioId, 'video'>, draft: StudioDraftCache): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(STUDIO_DRAFT_PREFIX + studio, JSON.stringify(draft))
+  } catch {
+    // ignore quota / privacy-mode errors
+  }
+}
+
+/** Restore the last in-progress studio form (or null if none). */
+export function loadStudioDraft(studio: Exclude<StudioId, 'video'>): StudioDraftCache | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(STUDIO_DRAFT_PREFIX + studio)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<StudioDraftCache>
+    return {
+      title: typeof parsed.title === 'string' ? parsed.title : '',
+      topic: typeof parsed.topic === 'string' ? parsed.topic : '',
+      content: typeof parsed.content === 'string' ? parsed.content : '',
+      style: typeof parsed.style === 'string' ? parsed.style : 'cinematic',
+      requirement: typeof parsed.requirement === 'string' ? parsed.requirement : '',
+      tags: Array.isArray(parsed.tags) ? parsed.tags.filter((t): t is string => typeof t === 'string') : [],
+    }
+  } catch {
+    return null
+  }
+}
+
+/** Clear the cached in-progress form for a studio (after a successful save). */
+export function clearStudioDraft(studio: Exclude<StudioId, 'video'>): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.removeItem(STUDIO_DRAFT_PREFIX + studio)
+  } catch {
+    // ignore
+  }
+}

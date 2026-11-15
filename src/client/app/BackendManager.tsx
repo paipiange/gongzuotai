@@ -1,4 +1,4 @@
-import { ChatText, ImageSquare, Cpu, Plus, PencilSimple, Trash, FloppyDisk, X, Eye, EyeSlash, Lightning } from '@phosphor-icons/react'
+import { ChatText, ImageSquare, Cpu, Plus, PencilSimple, Trash, FloppyDisk, X, Eye, EyeSlash, Lightning, ListMagnifyingGlass } from '@phosphor-icons/react'
 import { FormEvent, useEffect, useState } from 'react'
 import {
   createBackend,
@@ -6,6 +6,7 @@ import {
   listBackends,
   testBackend,
   updateBackend,
+  fetchBackendModels,
   type Backend,
   type BackendKind,
 } from './hostClient'
@@ -37,6 +38,8 @@ interface BackendForm {
   // llm-text
   provider: string
   textModel: string
+  textBaseUrl: string
+  textApiKey: string
   // comfyui
   server: string
   unet: string
@@ -53,6 +56,8 @@ const EMPTY_FORM: BackendForm = {
   model: '',
   provider: '',
   textModel: '',
+  textBaseUrl: '',
+  textApiKey: '',
   server: 'http://127.0.0.1:8188',
   unet: '',
   clip: '',
@@ -60,9 +65,41 @@ const EMPTY_FORM: BackendForm = {
   checkpoint: '',
 }
 
+/** Build a connection-test input from the current (possibly unsaved) form state. */
+function buildTestInput(editing: BackendForm): { kind: 'comfyui' | 'llm-image' | 'llm-text'; llm?: { baseUrl: string; apiKey: string; model: string }; comfyui?: { server: string }; text?: { provider?: string; baseUrl?: string; apiKey?: string; model: string } } | null {
+  if (editing.kind === 'comfyui') {
+    const server = editing.server.trim().replace(/\/+$/, '')
+    if (!server) return null
+    return { kind: 'comfyui', comfyui: { server } }
+  }
+  if (editing.kind === 'llm-image') {
+    const baseUrl = editing.baseUrl.trim().replace(/\/+$/, '')
+    const apiKey = editing.apiKey.trim()
+    const model = editing.model.trim()
+    if (!baseUrl) return null
+    return { kind: 'llm-image', llm: { baseUrl, apiKey, model } }
+  }
+  if (editing.kind === 'llm-text') {
+    const provider = editing.provider.trim()
+    const model = editing.textModel.trim()
+    const baseUrl = editing.textBaseUrl.trim().replace(/\/+$/, '')
+    const apiKey = editing.textApiKey.trim()
+    if (baseUrl) {
+      if (!model) return null
+      return { kind: 'llm-text', text: { baseUrl, apiKey, model } }
+    }
+    if (!provider || !model) return null
+    return { kind: 'llm-text', text: { provider, model } }
+  }
+  return null
+}
+
 function summaryOf(backend: Backend): string {
   if (backend.kind === 'llm-image' && backend.llm) return `${backend.llm.model} · ${backend.llm.baseUrl}`
-  if (backend.kind === 'llm-text' && backend.text) return `${backend.text.model} · ${backend.text.provider}`
+  if (backend.kind === 'llm-text' && backend.text) {
+    if (backend.text.baseUrl) return `${backend.text.model} · ${backend.text.baseUrl}`
+    return `${backend.text.model} · ${backend.text.provider}`
+  }
   if (backend.kind === 'comfyui' && backend.comfyui) {
     const parts = [backend.comfyui.server]
     if (backend.comfyui.unet) parts.push(backend.comfyui.unet)
@@ -87,6 +124,13 @@ export function BackendManager({ onToast }: { onToast: Toast }) {
   const [showApiKey, setShowApiKey] = useState(false)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string; latencyMs?: number } | null>(null)
+  // Form-scoped test state (test a config before/while editing, not just a saved backend).
+  const [testingForm, setTestingForm] = useState(false)
+  const [formTestResult, setFormTestResult] = useState<{ ok: boolean; message: string; latencyMs?: number } | null>(null)
+  // Model-list fetching (a picker for the model fields).
+  const [fetchingModels, setFetchingModels] = useState(false)
+  const [modelOptions, setModelOptions] = useState<string[]>([])
+  const [modelFilter, setModelFilter] = useState('')
 
   const reload = async () => {
     try {
@@ -119,6 +163,8 @@ export function BackendManager({ onToast }: { onToast: Toast }) {
       model: backend.llm?.model ?? '',
       provider: backend.text?.provider ?? '',
       textModel: backend.text?.model ?? '',
+      textBaseUrl: backend.text?.baseUrl ?? '',
+      textApiKey: backend.text?.apiKey ?? '',
       server: backend.comfyui?.server ?? 'http://127.0.0.1:8188',
       unet: backend.comfyui?.unet ?? '',
       clip: backend.comfyui?.clip ?? '',
@@ -130,7 +176,75 @@ export function BackendManager({ onToast }: { onToast: Toast }) {
   const cancelEdit = () => {
     setEditing(null)
     setEditingId(null)
+    setFormTestResult(null)
   }
+
+  /** Test the connection using the values currently entered in the form. */
+  const handleFormTest = async () => {
+    if (!editing) return
+    const input = buildTestInput(editing)
+    if (!input) {
+      setFormTestResult({ ok: false, message: '请先填写完整后再测试：图片 API 需要 Base URL；文字 API 需要 Provider/模型名 或 第三方 Base URL；ComfyUI 需要服务地址。' })
+      return
+    }
+    if (editing.kind === 'llm-image' && !editing.apiKey.trim()) {
+      setFormTestResult({ ok: false, message: '请先填写 API Key（部分网关无 Key 会直接拒绝访问）。' })
+      return
+    }
+    setTestingForm(true)
+    setFormTestResult(null)
+    try {
+      const result = await testBackend(input)
+      setFormTestResult(result)
+    } catch (cause) {
+      setFormTestResult({ ok: false, message: cause instanceof Error ? cause.message : '测试失败，本地服务未连接' })
+    } finally {
+      setTestingForm(false)
+    }
+  }
+
+  const handleFetchModels = async (target: 'llm-image' | 'llm-text') => {
+    if (!editing) return
+    setFetchingModels(true)
+    setModelOptions([])
+    setModelFilter('')
+    try {
+      if (target === 'llm-image') {
+        const baseUrl = editing.baseUrl.trim().replace(/\/+$/, '')
+        if (!baseUrl) {
+          onToast('请先填写 Base URL，才能拉取模型列表', 'warning')
+          return
+        }
+        const result = await fetchBackendModels({ kind: 'llm-image', baseUrl, apiKey: editing.apiKey.trim() || undefined, backendId: editingId ?? undefined })
+        if (result.ok) setModelOptions(result.models)
+        else onToast(result.message ?? '拉取失败', 'warning')
+      } else {
+        const baseUrl = editing.textBaseUrl.trim().replace(/\/+$/, '')
+        if (baseUrl) {
+          const result = await fetchBackendModels({ kind: 'llm-text', baseUrl, apiKey: editing.textApiKey.trim() || undefined, backendId: editingId ?? undefined })
+          if (result.ok) setModelOptions(result.models)
+          else onToast(result.message ?? '拉取失败', 'warning')
+        } else {
+          const provider = editing.provider.trim()
+          if (!provider) {
+            onToast('请先填写 Provider（或第三方 Base URL），才能拉取模型列表', 'warning')
+            return
+          }
+          const result = await fetchBackendModels({ kind: 'llm-text', provider })
+          if (result.ok) setModelOptions(result.models)
+          else onToast(result.message ?? '拉取失败', 'warning')
+        }
+      }
+    } catch (cause) {
+      onToast(cause instanceof Error ? cause.message : '拉取失败', 'warning')
+    } finally {
+      setFetchingModels(false)
+    }
+  }
+
+  const filteredModelOptions = modelFilter.trim()
+    ? modelOptions.filter((m) => m.toLowerCase().includes(modelFilter.trim().toLowerCase()))
+    : modelOptions
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
@@ -146,8 +260,14 @@ export function BackendManager({ onToast }: { onToast: Toast }) {
         return
       }
     } else if (kind === 'llm-text') {
-      if (!editing.provider.trim() || !editing.textModel.trim()) {
-        onToast('请填写文字 API 的 Provider 与模型名', 'warning')
+      const hasDirect = editing.textBaseUrl.trim()
+      if (hasDirect) {
+        if (!editing.textModel.trim()) {
+          onToast('请填写文字 API 的模型名', 'warning')
+          return
+        }
+      } else if (!editing.provider.trim() || !editing.textModel.trim()) {
+        onToast('请填写文字 API 的 Provider 与模型名（或改用第三方 Base URL）', 'warning')
         return
       }
     } else {
@@ -155,12 +275,8 @@ export function BackendManager({ onToast }: { onToast: Toast }) {
         onToast('请填写 ComfyUI 服务地址', 'warning')
         return
       }
-      const hasSplit = editing.unet.trim() && editing.clip.trim() && editing.vae.trim()
-      const hasCheckpoint = editing.checkpoint.trim()
-      if (!hasSplit && !hasCheckpoint) {
-        onToast('请填写 UNet/CLIP/VAE 或 checkpoint', 'warning')
-        return
-      }
+      // Model fields are optional: when left blank, generation falls back to
+      // the recommended Qwen-Image-Edit defaults (mirrored in the placeholders).
     }
 
     setSaving(true)
@@ -172,7 +288,14 @@ export function BackendManager({ onToast }: { onToast: Toast }) {
           ? { llm: { baseUrl: editing.baseUrl.trim().replace(/\/+$/, ''), apiKey: editing.apiKey.trim(), model: editing.model.trim() } }
           : {}),
         ...(kind === 'llm-text'
-          ? { text: { provider: editing.provider.trim(), model: editing.textModel.trim() } }
+          ? {
+              text: {
+                provider: editing.provider.trim() || undefined,
+                baseUrl: editing.textBaseUrl.trim().replace(/\/+$/, '') || undefined,
+                apiKey: editing.textApiKey.trim() || undefined,
+                model: editing.textModel.trim(),
+              },
+            }
           : {}),
         ...(kind === 'comfyui'
           ? {
@@ -223,8 +346,10 @@ export function BackendManager({ onToast }: { onToast: Toast }) {
         result = await testBackend({ kind: 'comfyui', comfyui: { server: backend.comfyui.server } })
       } else if (backend.kind === 'llm-image' && backend.llm) {
         result = await testBackend({ kind: 'llm-image', llm: { baseUrl: backend.llm.baseUrl, apiKey: backend.llm.apiKey ?? '', model: backend.llm.model } })
+      } else if (backend.kind === 'llm-text' && backend.text) {
+        result = await testBackend({ kind: 'llm-text', text: { provider: backend.text.provider, baseUrl: backend.text.baseUrl, apiKey: backend.text.apiKey ?? '', model: backend.text.model } })
       } else {
-        onToast('文字后端无需连接测试（复用 Harness 服务）', 'info')
+        onToast('后端配置不完整，无法测试', 'info')
         return
       }
       setTestResult(result)
@@ -256,7 +381,7 @@ export function BackendManager({ onToast }: { onToast: Toast }) {
   const renderBackendRow = (backend: Backend) => {
     const meta = KIND_META[backend.kind]
     const Icon = meta.icon
-    const testable = backend.kind === 'comfyui' || backend.kind === 'llm-image'
+    const testable = backend.kind === 'comfyui' || backend.kind === 'llm-image' || backend.kind === 'llm-text'
     return (
       <li key={backend.id} className="pa-backend-row">
         <div className="pa-backend-row__icon"><Icon aria-hidden="true" size={20} /></div>
@@ -369,20 +494,59 @@ export function BackendManager({ onToast }: { onToast: Toast }) {
               </label>
               <label className="pa-field pa-field--full">
                 <span>模型 <b aria-hidden="true">*</b></span>
-                <input type="text" placeholder="gpt-image-2.5 或兼容模型名" value={editing.model} onChange={(e) => setEditing({ ...editing, model: e.target.value })} />
+                <span className="pa-input-with-toggle">
+                  <input type="text" placeholder="gpt-image-2.5 或兼容模型名" value={editing.model} onChange={(e) => setEditing({ ...editing, model: e.target.value })} />
+                  <button type="button" className="pa-icon-button" title="拉取支持的模型" disabled={fetchingModels} onClick={() => handleFetchModels('llm-image')}>
+                    <ListMagnifyingGlass aria-hidden="true" size={17} />
+                  </button>
+                </span>
+                <ModelSuggestions
+                  options={filteredModelOptions}
+                  filter={modelFilter}
+                  onFilterChange={setModelFilter}
+                  onPick={(m) => setEditing({ ...editing, model: m })}
+                  loading={fetchingModels}
+                />
               </label>
             </>
           )}
 
           {editing.kind === 'llm-text' && (
             <>
+              <div className="pa-imagegen-settings__divider">方式一：复用 Harness 模型服务（填 Provider + 模型名）</div>
               <label className="pa-field pa-field--full">
-                <span>Provider（Harness 模型 route）<b aria-hidden="true">*</b></span>
+                <span>Provider（Harness 模型 route）</span>
                 <input type="text" placeholder="例如 huatu717333" value={editing.provider} onChange={(e) => setEditing({ ...editing, provider: e.target.value })} />
+              </label>
+              <div className="pa-imagegen-settings__divider">方式二：第三方 API 直连（填 Base URL + API Key + 模型名）</div>
+              <label className="pa-field pa-field--full">
+                <span>Base URL</span>
+                <input type="url" placeholder="https://api.example.com/v1（OpenAI 兼容 /chat/completions）" value={editing.textBaseUrl} onChange={(e) => setEditing({ ...editing, textBaseUrl: e.target.value })} />
+              </label>
+              <label className="pa-field pa-field--full">
+                <span>API Key</span>
+                <span className="pa-input-with-toggle">
+                  <input type={showApiKey ? 'text' : 'password'} autoComplete="off" placeholder="sk-..." value={editing.textApiKey} onChange={(e) => setEditing({ ...editing, textApiKey: e.target.value })} />
+                  <button type="button" className="pa-icon-button" title={showApiKey ? '隐藏' : '显示'} onClick={() => setShowApiKey((v) => !v)}>
+                    {showApiKey ? <EyeSlash aria-hidden="true" size={17} /> : <Eye aria-hidden="true" size={17} />}
+                  </button>
+                </span>
               </label>
               <label className="pa-field pa-field--full">
                 <span>模型名 <b aria-hidden="true">*</b></span>
-                <input type="text" placeholder="例如 deepseek-flash" value={editing.textModel} onChange={(e) => setEditing({ ...editing, textModel: e.target.value })} />
+                <span className="pa-input-with-toggle">
+                  <input type="text" placeholder="例如 deepseek-chat / gpt-4o-mini" value={editing.textModel} onChange={(e) => setEditing({ ...editing, textModel: e.target.value })} />
+                  <button type="button" className="pa-icon-button" title="拉取支持的模型" disabled={fetchingModels} onClick={() => handleFetchModels('llm-text')}>
+                    <ListMagnifyingGlass aria-hidden="true" size={17} />
+                  </button>
+                </span>
+                <ModelSuggestions
+                  options={filteredModelOptions}
+                  filter={modelFilter}
+                  onFilterChange={setModelFilter}
+                  onPick={(m) => setEditing({ ...editing, textModel: m })}
+                  loading={fetchingModels}
+                />
               </label>
             </>
           )}
@@ -395,15 +559,15 @@ export function BackendManager({ onToast }: { onToast: Toast }) {
               </label>
               <div className="pa-imagegen-settings__divider">分离式模型（推荐，如 Qwen-Image-Edit）</div>
               <label className="pa-field pa-field--full">
-                <span>UNet（扩散模型）</span>
+                <span>UNet（扩散模型，留空用推荐）</span>
                 <input type="text" placeholder="qwen_image_edit_2511_int8_convrot.safetensors" value={editing.unet} onChange={(e) => setEditing({ ...editing, unet: e.target.value })} />
               </label>
               <label className="pa-field pa-field--full">
-                <span>CLIP（文本编码器）</span>
+                <span>CLIP（文本编码器，留空用推荐）</span>
                 <input type="text" placeholder="qwen_2.5_vl_7b_fp8_scaled.safetensors" value={editing.clip} onChange={(e) => setEditing({ ...editing, clip: e.target.value })} />
               </label>
               <label className="pa-field pa-field--full">
-                <span>VAE</span>
+                <span>VAE（留空用推荐）</span>
                 <input type="text" placeholder="qwen_image_vae.safetensors" value={editing.vae} onChange={(e) => setEditing({ ...editing, vae: e.target.value })} />
               </label>
               <div className="pa-imagegen-settings__divider">或单文件模型</div>
@@ -414,6 +578,26 @@ export function BackendManager({ onToast }: { onToast: Toast }) {
             </>
           )}
 
+          <div className="pa-backend-form__test">
+            <button
+              type="button"
+              className="pa-secondary-button"
+              disabled={testingForm}
+              onClick={handleFormTest}
+            >
+              <Lightning aria-hidden="true" size={16} /> {testingForm ? '测试中…' : '测试连接'}
+            </button>
+            {formTestResult && (
+              <div className="pa-backend-test-result" data-ok={formTestResult.ok}>
+                <span>{formTestResult.ok ? '✓' : '✕'}</span>
+                <span>
+                  {formTestResult.message}
+                  {formTestResult.latencyMs !== undefined ? `（${formTestResult.latencyMs}ms）` : ''}
+                </span>
+              </div>
+            )}
+          </div>
+
           <div className="pa-imagegen-settings__actions">
             <button type="submit" className="pa-primary-button" disabled={saving}><FloppyDisk aria-hidden="true" size={17} /> {saving ? '保存中…' : '保存'}</button>
             <button type="button" className="pa-secondary-button" onClick={cancelEdit}>取消</button>
@@ -421,5 +605,41 @@ export function BackendManager({ onToast }: { onToast: Toast }) {
         </form>
       )}
     </section>
+  )
+}
+
+/** 模型候选列表：拉取后展示，点选填充到模型输入框，支持关键字过滤。 */
+function ModelSuggestions(props: {
+  options: string[]
+  filter: string
+  onFilterChange: (value: string) => void
+  onPick: (model: string) => void
+  loading: boolean
+}) {
+  const { options, filter, onFilterChange, onPick, loading } = props
+  if (loading) {
+    return <div className="pa-model-suggest__loading">正在拉取模型列表…</div>
+  }
+  if (options.length === 0) return null
+  return (
+    <div className="pa-model-suggest">
+      <input
+        type="text"
+        className="pa-model-suggest__filter"
+        placeholder="搜索模型名…"
+        value={filter}
+        onChange={(e) => onFilterChange(e.target.value)}
+      />
+      <ul className="pa-model-suggest__list">
+        {options.slice(0, 50).map((model) => (
+          <li key={model}>
+            <button type="button" className="pa-model-suggest__item" onClick={() => onPick(model)} title={`使用 ${model}`}>
+              {model}
+            </button>
+          </li>
+        ))}
+        {options.length === 0 && <li className="pa-model-suggest__empty">无匹配模型</li>}
+      </ul>
+    </div>
   )
 }

@@ -51,6 +51,17 @@ export interface LlmImageConfig {
   model: string
 }
 
+/**
+ * Recommended default split-model files for ComfyUI (Qwen-Image-Edit stack).
+ * Used as the fallback when the user leaves UNet/CLIP/VAE empty, and mirrored
+ * by the settings form placeholders so "blank = use the recommended model".
+ */
+export const COMFYUI_DEFAULT_MODELS = {
+  unet: 'qwen_image_edit_2511_int8_convrot.safetensors',
+  clip: 'qwen_2.5_vl_7b_fp8_scaled.safetensors',
+  vae: 'qwen_image_vae.safetensors',
+} as const
+
 /** Local ComfyUI backend config. */
 export interface ComfyUiConfig {
   server: string
@@ -81,9 +92,19 @@ export interface LlmBackendConfig {
   model: string
 }
 
-/** LLM text backend config (reuses the Harness `llm` service route/model). */
+/**
+ * LLM text backend config. Two modes:
+ * - Harness mode: `provider` + `model` reuse the host `llm` service route.
+ * - Direct mode: `baseUrl` + `apiKey` + `model` call an OpenAI-compatible
+ *   `/chat/completions` endpoint directly (third-party API).
+ */
 export interface LlmTextBackendConfig {
-  provider: string
+  /** Harness provider route (only used when `baseUrl` is empty). */
+  provider?: string
+  /** OpenAI-compatible base URL; when set, enables direct third-party calls. */
+  baseUrl?: string
+  /** API key for direct mode (secret, host-only). */
+  apiKey?: string
   model: string
 }
 

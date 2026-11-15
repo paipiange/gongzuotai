@@ -42,8 +42,10 @@ import {
 } from './data'
 import {
   loadCreations,
+  loadStudioDraft,
   removeCreation,
   saveCreation as persistCreation,
+  saveStudioDraft,
   setStatus,
   type CreationDraft,
   type CreationRecord,
@@ -58,7 +60,8 @@ import { MarkdownEditor } from './MarkdownEditor'
 import { ThemeSettings } from './ThemeSettings'
 import { TemplateManager } from './TemplateManager'
 import { UpdateCheck } from './UpdateCheck'
-import { exportCreation, generateTextStream, listBackends, batchCreations, type Backend } from './hostClient'
+import { exportCreation, generateTextStream, listBackends, batchCreations, type Backend, type TaskRecord } from './hostClient'
+import { GenerationLogPage } from './GenerationLog'
 
 type ArtVariant = 'river' | 'court' | 'blossom' | 'night' | 'portrait' | 'hero'
 
@@ -515,7 +518,7 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
   const [title, setTitle] = useState(initialCreation?.title ?? '')
   const [topic, setTopic] = useState(initialCreation?.topic ?? '')
   const [content, setContent] = useState(initialCreation?.content ?? '')
-  const [style, setStyle] = useState(initialCreation?.style ?? 'cinematic')
+  const [style, setStyle] = useState(initialCreation?.style ?? '')
   const [requirement, setRequirement] = useState(initialCreation?.requirement ?? '')
   const [tags, setTags] = useState(initialCreation?.tags ?? [])
   const [generating, setGenerating] = useState(false)
@@ -528,12 +531,26 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
 
   useEffect(() => {
     setCreationId(initialCreation?.id)
-    setTitle(initialCreation?.title ?? '')
-    setTopic(initialCreation?.topic ?? '')
-    setContent(initialCreation?.content ?? '')
-    setStyle(initialCreation?.style ?? 'cinematic')
-    setRequirement(initialCreation?.requirement ?? '')
-    setTags(initialCreation?.tags ?? [])
+    if (initialCreation) {
+      setTitle(initialCreation.title)
+      setTopic(initialCreation.topic)
+      setContent(initialCreation.content)
+      setStyle(initialCreation.style ?? '')
+      setRequirement(initialCreation.requirement ?? '')
+      setTags(initialCreation.tags ?? [])
+    } else if (isText || isImage) {
+      // No saved creation: restore any in-progress form cached from a previous
+      // visit so switching pages never loses the user's input.
+      const cached = loadStudioDraft(studio)
+      if (cached) {
+        setTitle(cached.title)
+        setTopic(cached.topic)
+        setContent(cached.content)
+        setStyle(cached.style)
+        setRequirement(cached.requirement)
+        setTags(cached.tags)
+      }
+    }
   }, [initialCreation, studio])
 
   // Load text backends (llm-text) for the model picker.
@@ -576,6 +593,15 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
     }, 800)
     return () => window.clearTimeout(timer)
   }, [creationId, title, topic, content, style, requirement, tags, studio, isVideo])
+
+  // Persist the in-progress form to localStorage so switching pages (which
+  // unmounts StudioPage) never loses the user's input — even before a draft
+  // has been saved and given an id.
+  useEffect(() => {
+    if (isVideo) return
+    if (!title.trim() && !topic.trim() && !content.trim()) return
+    saveStudioDraft(studio, { title, topic, content, style, requirement, tags })
+  }, [title, topic, content, style, requirement, tags, studio, isVideo])
 
   const save = async (status: CreationStatus = initialCreation?.status ?? 'draft') => {
     if (isVideo) {
@@ -630,6 +656,9 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
         {
           provider: currentTextBackend?.text?.provider ?? '',
           model: currentTextBackend?.text?.model ?? '',
+          baseUrl: currentTextBackend?.text?.baseUrl ?? '',
+          apiKey: currentTextBackend?.text?.apiKey ?? '',
+          backendId: currentTextBackend?.id ?? '',
           studio: studio as 'article' | 'headline' | 'marketing' | 'xiaohongshu',
           topic: topic.trim(),
           style,
@@ -738,7 +767,7 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
           </label>
           <label className="pa-field"><span>草稿标题</span><input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={80} placeholder="例如：春日品牌故事初稿" /></label>
           <label className="pa-field"><span>主题 / 关键词 <b aria-hidden="true">*</b></span><textarea value={topic} onChange={(event) => setTopic(event.target.value)} maxLength={300} placeholder="例如：以江南春日为主题，写一篇有画面感的品牌故事" /><small>{topic.length}/300</small></label>
-          <label className="pa-field"><span>内容风格</span><select value={style} onChange={(event) => setStyle(event.target.value)}><option value="cinematic">电影感叙事</option><option value="poetic">东方诗意</option><option value="clear">清晰专业</option><option value="lively">轻松活泼</option></select></label>
+          <label className="pa-field"><span>内容风格</span><select value={style} onChange={(event) => setStyle(event.target.value)}><option value="">不指定（自由发挥）</option><option value="cinematic">电影感叙事</option><option value="poetic">东方诗意</option><option value="clear">清晰专业</option><option value="lively">轻松活泼</option></select></label>
           <label className="pa-field"><span>补充要求</span><input value={requirement} onChange={(event) => setRequirement(event.target.value)} placeholder="目标受众、篇幅、结构或画面比例" /></label>
           <label className="pa-field"><span>标签</span><input value={tags.join(', ')} onChange={(event) => setTags(event.target.value.split(/[,，、\s]+/).map((t) => t.trim()).filter(Boolean))} placeholder="用逗号或空格分隔，如：品牌故事, 春日" /></label>
           <button type="submit" className="pa-primary-button pa-studio-submit" disabled={isVideo} aria-describedby={isVideo ? 'video-disabled-hint' : undefined}>
@@ -811,7 +840,7 @@ function CreationCard({ creation, onOpen, onStatus, onDelete, selected, onToggle
   )
 }
 
-function HistoryPage({ creations, onOpen, onStatus, onDelete, onCreate, onRefresh, onToast }: {
+function HistoryPage({ creations, onOpen, onStatus, onDelete, onCreate, onRefresh, onToast, onResumeTask }: {
   creations: CreationRecord[]
   onOpen: (creation: CreationRecord) => void
   onStatus: (id: string, status: CreationStatus) => void
@@ -819,7 +848,9 @@ function HistoryPage({ creations, onOpen, onStatus, onDelete, onCreate, onRefres
   onCreate: () => void
   onRefresh: () => Promise<void>
   onToast: (message: string, tone?: ToastState['tone']) => void
+  onResumeTask: (task: TaskRecord) => void
 }) {
+  const [tab, setTab] = useState<'drafts' | 'logs'>('drafts')
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<'active' | 'archived'>('active')
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -861,46 +892,57 @@ function HistoryPage({ creations, onOpen, onStatus, onDelete, onCreate, onRefres
 
   return (
     <div className="pa-page">
-      <PageIntro title="创作记录" description="搜索、继续编辑、归档和管理保存在当前浏览器中的真实草稿。" action="新建创作" onAction={onCreate} />
-      <div className="pa-record-toolbar">
-        <label className="pa-record-search"><MagnifyingGlass aria-hidden="true" size={17} /><span className="pa-visually-hidden">搜索创作记录</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索标题、主题或正文" /></label>
-        <div className="pa-segmented" aria-label="记录状态筛选">
-          <button type="button" data-active={filter === 'active'} onClick={() => setFilter('active')}>进行中</button>
-          <button type="button" data-active={filter === 'archived'} onClick={() => setFilter('archived')}>已归档</button>
-        </div>
+      <PageIntro title="创作记录" description="草稿与生成记录都在这里：继续编辑草稿，或查看每次生成的请求参数与返回日志。" action="新建创作" onAction={onCreate} />
+      <div className="pa-record-tabs">
+        <button type="button" className="pa-record-tab" data-active={tab === 'drafts'} onClick={() => setTab('drafts')}>草稿记录</button>
+        <button type="button" className="pa-record-tab" data-active={tab === 'logs'} onClick={() => setTab('logs')}>生成记录</button>
       </div>
-      {visible.length > 0 && (
-        <div className="pa-batch-bar">
-          <button type="button" className="pa-secondary-button" onClick={toggleSelectAll} disabled={busy}>
-            <CheckSquare aria-hidden="true" size={15} />{selected.size === visible.length ? '取消全选' : '全选'}
-          </button>
-          {selected.size > 0 && (
-            <>
-              <span className="pa-batch-bar__count">已选 {selected.size} 项</span>
-              {filter === 'archived' ? (
+
+      {tab === 'logs' ? (
+        <GenerationLogPage onResume={onResumeTask} onToast={onToast} />
+      ) : (
+        <>
+          <div className="pa-record-toolbar">
+            <label className="pa-record-search"><MagnifyingGlass aria-hidden="true" size={17} /><span className="pa-visually-hidden">搜索创作记录</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索标题、主题或正文" /></label>
+            <div className="pa-segmented" aria-label="记录状态筛选">
+              <button type="button" data-active={filter === 'active'} onClick={() => setFilter('active')}>进行中</button>
+              <button type="button" data-active={filter === 'archived'} onClick={() => setFilter('archived')}>已归档</button>
+            </div>
+          </div>
+          {visible.length > 0 && (
+            <div className="pa-batch-bar">
+              <button type="button" className="pa-secondary-button" onClick={toggleSelectAll} disabled={busy}>
+                <CheckSquare aria-hidden="true" size={15} />{selected.size === visible.length ? '取消全选' : '全选'}
+              </button>
+              {selected.size > 0 && (
                 <>
-                  <button type="button" className="pa-secondary-button" onClick={() => runBatch('restore')} disabled={busy}>批量恢复</button>
-                  <button type="button" className="pa-secondary-button pa-danger-button" onClick={() => runBatch('delete')} disabled={busy}>批量删除</button>
-                </>
-              ) : (
-                <>
-                  <button type="button" className="pa-secondary-button" onClick={() => runBatch('archive')} disabled={busy}>批量归档</button>
-                  <button type="button" className="pa-secondary-button" onClick={() => runBatch('status', 'queued')} disabled={busy}>批量加入待发布</button>
-                  <button type="button" className="pa-secondary-button pa-danger-button" onClick={() => runBatch('delete')} disabled={busy}>批量删除</button>
+                  <span className="pa-batch-bar__count">已选 {selected.size} 项</span>
+                  {filter === 'archived' ? (
+                    <>
+                      <button type="button" className="pa-secondary-button" onClick={() => runBatch('restore')} disabled={busy}>批量恢复</button>
+                      <button type="button" className="pa-secondary-button pa-danger-button" onClick={() => runBatch('delete')} disabled={busy}>批量删除</button>
+                    </>
+                  ) : (
+                    <>
+                      <button type="button" className="pa-secondary-button" onClick={() => runBatch('archive')} disabled={busy}>批量归档</button>
+                      <button type="button" className="pa-secondary-button" onClick={() => runBatch('status', 'queued')} disabled={busy}>批量加入待发布</button>
+                      <button type="button" className="pa-secondary-button pa-danger-button" onClick={() => runBatch('delete')} disabled={busy}>批量删除</button>
+                    </>
+                  )}
                 </>
               )}
-            </>
+            </div>
           )}
-        </div>
-      )}
-      {visible.length ? <div className="pa-creation-list">{visible.map((creation) => <CreationCard key={creation.id} creation={creation} onOpen={onOpen} onStatus={onStatus} onDelete={onDelete} selected={selected.has(creation.id)} onToggleSelect={toggleSelect} />)}</div> : (
-        <section className="pa-panel pa-large-empty"><div className="pa-large-empty__icon"><ClockCounterClockwise aria-hidden="true" size={27} weight="duotone" /></div><h2>{query ? '没有匹配的创作记录' : filter === 'archived' ? '暂时没有归档内容' : '暂无创作记录'}</h2><p>保存草稿后即可在这里继续编辑、加入待发布列表或归档。</p><button type="button" className="pa-secondary-button" onClick={onCreate}>开始创作</button></section>
+          {visible.length ? <div className="pa-creation-list">{visible.map((creation) => <CreationCard key={creation.id} creation={creation} onOpen={onOpen} onStatus={onStatus} onDelete={onDelete} selected={selected.has(creation.id)} onToggleSelect={toggleSelect} />)}</div> : (
+            <section className="pa-panel pa-large-empty"><div className="pa-large-empty__icon"><ClockCounterClockwise aria-hidden="true" size={27} weight="duotone" /></div><h2>{query ? '没有匹配的创作记录' : filter === 'archived' ? '暂时没有归档内容' : '暂无创作记录'}</h2><p>保存草稿后即可在这里继续编辑、加入待发布列表或归档。</p><button type="button" className="pa-secondary-button" onClick={onCreate}>开始创作</button></section>
+          )}
+        </>
       )}
     </div>
   )
 }
 
-function WorkspacePage({ page, creations, storageSource, onNavigate, onOpenStudio, onOpenCreation, onStatus, onDelete, onToast, onRefresh, theme, onThemeChange }: {
+function WorkspacePage({ page, creations, storageSource, onNavigate, onOpenStudio, onOpenCreation, onStatus, onDelete, onToast, onRefresh, theme, onThemeChange, onResumeTask }: {
   page: Exclude<PageId, 'home' | 'create'>
   creations: CreationRecord[]
   storageSource: 'host' | 'local' | 'loading'
@@ -913,10 +955,11 @@ function WorkspacePage({ page, creations, storageSource, onNavigate, onOpenStudi
   onRefresh: () => Promise<void>
   theme: string
   onThemeChange: (theme: string) => void
+  onResumeTask: (task: TaskRecord) => void
 }) {
   const meta = pageMeta[page]
 
-  if (page === 'history') return <HistoryPage creations={creations} onOpen={onOpenCreation} onStatus={onStatus} onDelete={onDelete} onCreate={() => onOpenStudio('article')} onRefresh={onRefresh} onToast={onToast} />
+  if (page === 'history') return <HistoryPage creations={creations} onOpen={onOpenCreation} onStatus={onStatus} onDelete={onDelete} onCreate={() => onOpenStudio('article')} onRefresh={onRefresh} onToast={onToast} onResumeTask={onResumeTask} />
   if (page === 'publish') return <PublishQueuePage creations={creations} onOpen={onOpenCreation} onToast={onToast} />
 
   if (page === 'analytics') {
@@ -1034,6 +1077,43 @@ export function PaipiangeRoot() {
     setMobileOpen(false)
   }
 
+  /** Resume a generation task: re-fill the matching studio form and open it. */
+  const resumeTask = (task: TaskRecord) => {
+    if (task.kind === 'text') {
+      const studio = (typeof task.input.studio === 'string' && ['article', 'headline', 'marketing', 'xiaohongshu'].includes(task.input.studio))
+        ? task.input.studio as 'article' | 'headline' | 'marketing' | 'xiaohongshu'
+        : 'article'
+      saveStudioDraft(studio, {
+        title: '',
+        topic: String(task.input.topic ?? ''),
+        content: String(task.result.text ?? ''),
+        style: String(task.input.style ?? 'cinematic'),
+        requirement: String(task.input.requirement ?? ''),
+        tags: [],
+      })
+      setSelectedCreation(null)
+      setActivePage('create')
+      setStudio(studio)
+      setMobileOpen(false)
+      showToast('已回填到创作画布，可继续修改', 'success')
+    } else {
+      // Image task: restore the prompt as the image topic.
+      saveStudioDraft('image', {
+        title: '',
+        topic: String(task.input.prompt ?? ''),
+        content: '',
+        style: 'cinematic',
+        requirement: '',
+        tags: [],
+      })
+      setSelectedCreation(null)
+      setActivePage('create')
+      setStudio('image')
+      setMobileOpen(false)
+      showToast('已回填到图片创作画布，可继续修改', 'success')
+    }
+  }
+
   const saveCreation = async (draft: CreationDraft): Promise<CreationRecord | null> => {
     try {
       const { record, source } = await persistCreation(draft)
@@ -1129,7 +1209,7 @@ export function PaipiangeRoot() {
           {activePage === 'home' && !studio && <HomePage inspirationIndex={inspirationIndex} activeCategory={activeCategory} creations={creations} onCategory={setActiveCategory} onShuffle={shuffleInspiration} onOpenStudio={openStudio} onOpenCreation={openCreation} onNavigate={navigate} onToast={showToast} />}
           {activePage === 'create' && !studio && <CreateHub onOpenStudio={openStudio} />}
           {studio && <StudioPage studio={studio} initialCreation={selectedCreation} onBack={() => { setStudio(null); setSelectedCreation(null) }} onSave={saveCreation} onToast={showToast} />}
-          {activePage !== 'home' && activePage !== 'create' && !studio && <WorkspacePage page={activePage} creations={creations} storageSource={storageSource} onNavigate={navigate} onOpenStudio={openStudio} onOpenCreation={openCreation} onStatus={setCreationStatus} onDelete={deleteCreation} onToast={showToast} onRefresh={refreshCreations} theme={theme} onThemeChange={changeTheme} />}
+          {activePage !== 'home' && activePage !== 'create' && !studio && <WorkspacePage page={activePage} creations={creations} storageSource={storageSource} onNavigate={navigate} onOpenStudio={openStudio} onOpenCreation={openCreation} onStatus={setCreationStatus} onDelete={deleteCreation} onToast={showToast} onRefresh={refreshCreations} theme={theme} onThemeChange={changeTheme} onResumeTask={resumeTask} />}
         </main>
       </div>
       {toast && <div className="pa-toast" data-tone={toast.tone} role="status" aria-live="polite"><CheckCircle aria-hidden="true" size={20} weight="fill" /><span>{toast.message}</span><button type="button" aria-label="关闭提示" onClick={() => setToast(null)}><X aria-hidden="true" size={16} /></button></div>}

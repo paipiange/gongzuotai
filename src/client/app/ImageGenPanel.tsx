@@ -1,7 +1,9 @@
-import { ImageSquare, Sparkle, ArrowClockwise, DownloadSimple, CheckCircle, UploadSimple } from '@phosphor-icons/react'
+import { ImageSquare, Sparkle, ArrowClockwise, DownloadSimple, CheckCircle, UploadSimple, CaretRight, ArrowSquareOut } from '@phosphor-icons/react'
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { generateImages, listBackends, setCreationCover, type Backend, type GeneratedImageResult } from './hostClient'
+import { generateImages, listBackends, setCreationCover, assetUrl, type Backend, type GeneratedImageResult } from './hostClient'
 import { buildImagePrompt, buildPromptSummary } from './promptBuilder'
+import { StylePicker } from './StylePicker'
+import { Lightbox, absoluteAssetUrl } from './Lightbox'
 import {
   stylePresets,
   layoutPresets,
@@ -14,8 +16,6 @@ import {
 interface Toast {
   (message: string, tone?: 'info' | 'success' | 'warning'): void
 }
-
-const styleGroups = Array.from(new Set(stylePresets.map((s) => s.group)))
 
 /**
  * 生图工作台：输入主题 → 选风格/排版/主题色 → 调 Host 生图 API → 展示结果。
@@ -40,6 +40,8 @@ export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creatio
   const [coverBusy, setCoverBusy] = useState(false)
   const [referenceImage, setReferenceImage] = useState<string | null>(null)
   const [denoise, setDenoise] = useState(0.7)
+  const [stylePickerOpen, setStylePickerOpen] = useState(false)
+  const [lightboxId, setLightboxId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -169,16 +171,21 @@ export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creatio
 
         <label className="pa-field">
           <span>视觉风格</span>
-          <select value={styleId} onChange={(event) => setStyleId(event.target.value)}>
-            <option value="">不指定（自由发挥）</option>
-            {styleGroups.map((group) => (
-              <optgroup key={group} label={group}>
-                {stylePresets.filter((s) => s.group === group).map((s) => (
-                  <option key={s.id} value={s.id}>{s.id} · {s.name}</option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
+          <button type="button" className="pa-style-trigger" onClick={() => setStylePickerOpen(true)}>
+            {style ? (
+              <>
+                <StylePreviewThumb id={style.id} />
+                <span className="pa-style-trigger__label">
+                  <b>{style.id}</b>
+                  <span>{style.name}</span>
+                </span>
+              </>
+            ) : (
+              <span className="pa-style-trigger__placeholder">不指定（自由发挥）</span>
+            )}
+            <CaretRight aria-hidden="true" size={16} className="pa-style-trigger__caret" />
+          </button>
+          {style && <small className="pa-style-trigger__clear" role="button" tabIndex={0} onClick={() => setStyleId('')} onKeyDown={(e) => e.key === 'Enter' && setStyleId('')}>清除选择</small>}
         </label>
 
         <label className="pa-field">
@@ -284,11 +291,17 @@ export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creatio
         </details>
       )}
 
+      {stylePickerOpen && (
+        <StylePicker value={styleId} onChange={setStyleId} onClose={() => setStylePickerOpen(false)} />
+      )}
+
       {results.length > 0 && (
         <div className="pa-imagegen-panel__results">
           {results.map((image) => (
             <figure key={image.id} className="pa-imagegen-panel__result">
-              <img src={`/api/paipiange.asset?id=${encodeURIComponent(image.id)}`} alt={`生成图 ${image.id}`} loading="lazy" />
+              <button type="button" className="pa-imagegen-panel__result-img" onClick={() => setLightboxId(image.id)} title="点击查看大图">
+                <img src={assetUrl(image.id)} alt={`生成图 ${image.id}`} loading="lazy" />
+              </button>
               <figcaption>
                 <span>{formatBytes(image.sizeBytes)}</span>
                 <div className="pa-imagegen-panel__result-actions">
@@ -304,13 +317,17 @@ export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creatio
                       {coverId === image.id ? '已设为封面' : '设为封面'}
                     </button>
                   )}
-                  <a className="pa-link-button" href={`/api/paipiange.asset?id=${encodeURIComponent(image.id)}`} download target="_blank" rel="noreferrer"><DownloadSimple aria-hidden="true" size={14} />下载</a>
+                  <button type="button" className="pa-link-button" onClick={() => setLightboxId(image.id)} title="查看大图">查看大图</button>
+                  <a className="pa-link-button" href={absoluteAssetUrl(image.id)} target="_blank" rel="noreferrer" title="在默认浏览器打开"><ArrowSquareOut aria-hidden="true" size={14} />浏览器打开</a>
+                  <a className="pa-link-button" href={assetUrl(image.id)} download target="_blank" rel="noreferrer"><DownloadSimple aria-hidden="true" size={14} />下载</a>
                 </div>
               </figcaption>
             </figure>
           ))}
         </div>
       )}
+
+      {lightboxId && <Lightbox assetId={lightboxId} onClose={() => setLightboxId(null)} />}
     </section>
   )
 }
@@ -319,4 +336,24 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
+const PREVIEW_GROUPS = new Set(['FA', 'FB', 'FC', 'FD', 'FE', 'FF', 'FG', 'FH', 'FI'])
+const PREVIEW_ROOT = 'https://raw.githubusercontent.com/yang0/handraw-style/master/images/individual'
+
+/** 触发器里展示当前选中风格的缩略图（仅 FA~FI 有预览图，其余显示占位）。 */
+function StylePreviewThumb({ id }: { id: string }) {
+  const [failed, setFailed] = useState(false)
+  const group = id.split('-')[0]
+  const hasPreview = PREVIEW_GROUPS.has(group)
+  const url = hasPreview ? `${PREVIEW_ROOT}/${group}/${id}.webp` : null
+
+  if (!url || failed) {
+    return (
+      <span className="pa-style-trigger__thumb pa-style-trigger__thumb--fallback">
+        <ImageSquare aria-hidden="true" size={18} />
+      </span>
+    )
+  }
+  return <img className="pa-style-trigger__thumb" src={url} alt={id} onError={() => setFailed(true)} />
 }

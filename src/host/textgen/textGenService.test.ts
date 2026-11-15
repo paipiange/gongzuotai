@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { generateText } from './textGenService'
+import { describe, expect, it, vi } from 'vitest'
+import { generateText, generateTextDirect } from './textGenService'
 import type { LlmService, StreamChunk } from './types'
 
 // 用一个内存假 llm 服务验证：prepareCall 的入参形状、text-delta 折叠、
@@ -100,5 +100,61 @@ describe('textGenService (Harness llm consumer)', () => {
 
     expect(result.text).toBe('第一段')
     expect(result.finishReason).toBe('aborted')
+  })
+})
+
+describe('generateTextDirect (OpenAI-compatible third-party API)', () => {
+  function sseResponse(chunks: string[]): Response {
+    const encoder = new TextEncoder()
+    const body = chunks.join('\n\n')
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode(body))
+        controller.close()
+      },
+    })
+    return new Response(stream, { status: 200, headers: { 'Content-Type': 'text/event-stream' } })
+  }
+
+  it('folds choices[].delta.content and extracts usage/finish_reason', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      sseResponse([
+        'data: {"choices":[{"delta":{"content":"你好"},"finish_reason":null}]}',
+        'data: {"choices":[{"delta":{"content":"世界"},"finish_reason":null}]}',
+        'data: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":5,"completion_tokens":2}}',
+        'data: [DONE]',
+      ]),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await generateTextDirect(
+      { baseUrl: 'https://api.example.com/v1', apiKey: 'sk-test', model: 'gpt-4o-mini' },
+      { provider: '', model: 'gpt-4o-mini', studio: 'article', topic: '测试' },
+    )
+
+    expect(result.text).toBe('你好世界')
+    expect(result.usage).toEqual({ inputTokens: 5, outputTokens: 2 })
+    expect(result.finishReason).toBe('stop')
+
+    // 校验请求 URL 与鉴权头
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.example.com/v1/chat/completions')
+    expect((init.headers as Record<string, string>).authorization).toBe('Bearer sk-test')
+
+    vi.unstubAllGlobals()
+  })
+
+  it('throws with the HTTP status on a non-2xx response', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('unauthorized', { status: 401 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(
+      generateTextDirect(
+        { baseUrl: 'https://api.example.com/v1', apiKey: 'bad', model: 'm' },
+        { provider: '', model: 'm', studio: 'article', topic: 't' },
+      ),
+    ).rejects.toThrow(/401/)
+
+    vi.unstubAllGlobals()
   })
 })

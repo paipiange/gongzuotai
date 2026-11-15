@@ -177,7 +177,11 @@ export class SettingsRepository {
   }
 
   private redactBackend(b: Backend): Backend {
-    return { ...b, llm: b.llm ? { baseUrl: b.llm.baseUrl, model: b.llm.model, apiKey: '' } : undefined }
+    return {
+      ...b,
+      llm: b.llm ? { baseUrl: b.llm.baseUrl, model: b.llm.model, apiKey: '' } : undefined,
+      text: b.text ? { ...b.text, apiKey: '' } : undefined,
+    }
   }
 
   private newBackendId(): string {

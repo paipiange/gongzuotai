@@ -1,9 +1,17 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { basename } from 'node:path'
-import Database from 'better-sqlite3'
+import { createRequire } from 'node:module'
+import type Database from 'better-sqlite3'
 import { getSchemaVersion, latestSchemaVersion, migrateDatabase } from './migrations'
 import { ensureStorageDirectories, resolvePrivatePath, resolveStoragePaths, type StoragePaths } from './paths'
+
+// better-sqlite3 is a CJS module with native bindings. Loading it through a
+// CJS `require` (via createRequire) is the most robust path: it bypasses any
+// ESM↔CJS default-import interop quirks in the bundler or the host's module
+// loader (which can otherwise surface as `Database is not a constructor`).
+const requireCjs = createRequire(import.meta.url)
+const DatabaseCtor = requireCjs('better-sqlite3') as typeof Database
 
 export interface StorageOptions {
   dataRoot?: string
@@ -22,7 +30,7 @@ export class PaipiangeDatabase {
     const paths = resolveStoragePaths(options.dataRoot)
     ensureStorageDirectories(paths)
     const existed = existsSync(paths.database)
-    const db = new Database(paths.database)
+    const db = new DatabaseCtor(paths.database)
 
     try {
       db.pragma('foreign_keys = ON')

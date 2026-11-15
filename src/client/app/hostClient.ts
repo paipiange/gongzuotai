@@ -53,7 +53,7 @@ export interface Backend {
   name: string
   kind: BackendKind
   llm?: { baseUrl: string; model: string; apiKey?: string }
-  text?: { provider: string; model: string }
+  text?: { provider?: string; baseUrl?: string; apiKey?: string; model: string }
   comfyui?: { server: string; checkpoint?: string; unet?: string; clip?: string; vae?: string }
   createdAt: string
   updatedAt: string
@@ -273,7 +273,7 @@ export async function createBackend(input: {
   name: string
   kind: BackendKind
   llm?: { baseUrl: string; apiKey: string; model: string }
-  text?: { provider: string; model: string }
+  text?: { provider?: string; baseUrl?: string; apiKey?: string; model: string }
   comfyui?: { server: string; checkpoint?: string; unet?: string; clip?: string; vae?: string }
 }): Promise<Backend> {
   const data = await apiFetch<{ backend: Backend }>('.backend', {
@@ -288,7 +288,7 @@ export async function updateBackend(
   patch: {
     name?: string
     llm?: { baseUrl: string; apiKey: string; model: string }
-    text?: { provider: string; model: string }
+    text?: { provider?: string; baseUrl?: string; apiKey?: string; model: string }
     comfyui?: { server: string; checkpoint?: string; unet?: string; clip?: string; vae?: string }
   },
 ): Promise<Backend> {
@@ -312,13 +312,35 @@ export interface BackendTestResult {
   latencyMs?: number
 }
 
-/** Test whether a backend (comfyui / llm-image) is reachable. */
+/** Test whether a backend (comfyui / llm-image / llm-text) is reachable. */
 export async function testBackend(input: {
-  kind: 'comfyui' | 'llm-image'
+  kind: 'comfyui' | 'llm-image' | 'llm-text'
   llm?: { baseUrl: string; apiKey: string; model: string }
   comfyui?: { server: string }
+  text?: { provider?: string; baseUrl?: string; apiKey?: string; model: string }
 }): Promise<BackendTestResult> {
   const data = await apiFetch<BackendTestResult>('.backend.test', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return data
+}
+
+export interface FetchModelsResult {
+  ok: boolean
+  models: string[]
+  message?: string
+}
+
+/** Fetch the list of models a backend supports (Harness provider or OpenAI-compatible /models). */
+export async function fetchBackendModels(input: {
+  kind: 'llm-text' | 'llm-image'
+  provider?: string
+  baseUrl?: string
+  apiKey?: string
+  backendId?: string
+}): Promise<FetchModelsResult> {
+  const data = await apiFetch<FetchModelsResult>('.models.fetch', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -347,12 +369,15 @@ export interface TextGenProgress {
  */
 export async function generateTextStream(
   input: {
-    provider: string
+    provider?: string
     model: string
     studio: TextStudio
     topic: string
     style?: string
     requirement?: string
+    baseUrl?: string
+    apiKey?: string
+    backendId?: string
   },
   onEvent: (event: TextGenProgress) => void,
   signal?: AbortSignal,
@@ -665,4 +690,39 @@ export async function downloadBackup(filename: string): Promise<Blob> {
     throw new HostError(body?.error ?? `下载失败 (HTTP ${response.status})`, response.status)
   }
   return response.blob()
+}
+
+// ---- Generation tasks (request params + result logs) ----
+
+export type TaskKind = 'text' | 'image'
+export type TaskStatus = 'running' | 'success' | 'failed'
+
+export interface TaskRecord {
+  id: string
+  clientRequestId: string | null
+  kind: TaskKind
+  status: TaskStatus
+  creationId: string | null
+  modelId: string | null
+  errorCode: string | null
+  errorMessage: string | null
+  input: Record<string, unknown>
+  result: Record<string, unknown>
+  startedAt: string | null
+  finishedAt: string | null
+  createdAt: string
+}
+
+export async function listTasks(input?: { kind?: TaskKind; status?: TaskStatus }): Promise<TaskRecord[]> {
+  const params = new URLSearchParams()
+  if (input?.kind) params.set('kind', input.kind)
+  if (input?.status) params.set('status', input.status)
+  const query = params.toString()
+  const data = await apiFetch<{ tasks: TaskRecord[] }>(`.tasks${query ? `?${query}` : ''}`)
+  return data.tasks
+}
+
+export async function getTask(id: string): Promise<TaskRecord> {
+  const data = await apiFetch<{ task: TaskRecord }>(`.task?id=${encodeURIComponent(id)}`)
+  return data.task
 }

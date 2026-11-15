@@ -4,6 +4,7 @@ import type { AssetRepository } from '../storage/assetRepository'
 import type { TemplateRepository } from '../storage/templateRepository'
 import type { InspirationRepository } from '../storage/inspirationRepository'
 import type { PublishRepository, PublishPlatform, PublishStatus } from '../storage/publishRepository'
+import type { TaskRepository } from '../storage/taskRepository'
 import type { ExportService, ExportFormat } from '../storage/exportService'
 import type { ImageGenService, ProviderId } from '../imagegen/ImageGenService'
 import type { ImageGenRequest } from '../imagegen/types'
@@ -33,6 +34,7 @@ export type ApiDeps = {
   inspirations: InspirationRepository
   publish: PublishRepository
   exports: ExportService
+  tasks: TaskRepository
   /** Builds a fresh image-gen service so a newly saved backend takes effect without a restart. */
   buildImageGen: () => ImageGenService
   /** Harness `llm` service (for AI inspiration suggestion). Optional. */
@@ -121,7 +123,7 @@ type ClientDraft = {
 }
 
 export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
-  const { creations, settings, assets, templates, inspirations, publish, exports, buildImageGen, llm } = deps
+  const { creations, settings, assets, templates, inspirations, publish, exports, tasks, buildImageGen, llm } = deps
 
   // ---- Creations list + create ----
 
@@ -274,6 +276,25 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
       } | null
       if (!body || !body.request?.prompt) return error('缺少 prompt')
       const imageGen = buildImageGen()
+      const task = tasks.start({
+        kind: 'image',
+        creationId: body.sourceCreationId ?? null,
+        modelId: body.backendId ?? body.provider ?? null,
+        input: {
+          prompt: body.request.prompt,
+          negativePrompt: body.request.negativePrompt,
+          count: body.request.count,
+          size: body.request.size,
+          seed: body.request.seed,
+          steps: body.request.steps,
+          cfg: body.request.cfg,
+          hasReferenceImage: !!(body.request.image),
+          denoise: body.request.denoise,
+          backendId: body.backendId,
+          provider: body.provider,
+          sourceCreationId: body.sourceCreationId,
+        },
+      })
       try {
         const images = body.backendId
           ? await imageGen.generateByBackend(body.backendId, body.request)
@@ -288,11 +309,45 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
           })
           return { id: asset.id, mimeType: asset.mimeType, relativePath: asset.relativePath, sizeBytes: asset.sizeBytes }
         })
+        tasks.markSuccess(task.id, {
+          count: saved.length,
+          images: saved.map((s) => ({ id: s.id, mimeType: s.mimeType, sizeBytes: s.sizeBytes })),
+        }, body.backendId ?? body.provider ?? null)
         return json({ images: saved }, 201)
       } catch (cause) {
         const message = cause instanceof Error ? cause.message : String(cause)
+        try {
+          tasks.markFailed(task.id, 'imagegen', message)
+        } catch {
+          // recording must not mask the real error
+        }
         return error(`生成失败: ${message}`, 502)
       }
+  })
+
+  // ---- Generation tasks (request params + result logs, success & failure) ----
+
+  register('/api/paipiange.tasks', ['GET'], async (request) => {
+      const url = new URL(request.url)
+      const kind = url.searchParams.get('kind')
+      const status = url.searchParams.get('status')
+      const limit = Number(url.searchParams.get('limit') ?? '100') || 100
+      const offset = Number(url.searchParams.get('offset') ?? '0') || 0
+      const rows = tasks.list(
+        kind === 'text' || kind === 'image' ? kind : undefined,
+        status === 'running' || status === 'success' || status === 'failed' ? status : undefined,
+        limit,
+        offset,
+      )
+      return json({ tasks: rows })
+  })
+
+  register('/api/paipiange.task', ['GET'], async (request) => {
+      const id = new URL(request.url).searchParams.get('id') ?? ''
+      if (!id) return error('缺少 id')
+      const task = tasks.getById(id)
+      if (!task) return error('任务不存在', 404)
+      return json({ task })
   })
 
   // ---- Multi-backend management (CRUD) ----
@@ -309,14 +364,15 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
           name?: string
           kind?: 'llm-text' | 'llm-image' | 'comfyui'
           llm?: { baseUrl: string; apiKey: string; model: string }
-          text?: { provider: string; model: string }
+          text?: { provider?: string; baseUrl?: string; apiKey?: string; model: string }
           comfyui?: { server: string; checkpoint?: string; unet?: string; clip?: string; vae?: string }
         } | null
         if (!body || !body.name?.trim() || !body.kind) return error('缺少 name 或 kind')
         if (body.kind === 'comfyui') {
           if (!body.comfyui?.server) return error('ComfyUI 配置缺少 server')
         } else if (body.kind === 'llm-text') {
-          if (!body.text?.provider || !body.text?.model) return error('文本后端缺少 provider/model')
+          if (!body.text?.model) return error('文本后端缺少 model')
+          if (!body.text?.provider && !body.text?.baseUrl) return error('文本后端缺少 provider 或 baseUrl')
         } else {
           if (!body.llm?.baseUrl || !body.llm?.apiKey || !body.llm?.model) return error('LLM 配置缺少 baseUrl/apiKey/model')
         }
@@ -338,7 +394,7 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
       const body = await request.json().catch(() => null) as {
         name?: string
         llm?: { baseUrl: string; apiKey: string; model: string }
-        text?: { provider: string; model: string }
+        text?: { provider?: string; baseUrl?: string; apiKey?: string; model: string }
         comfyui?: { server: string; checkpoint?: string; unet?: string; clip?: string; vae?: string }
       } | null
       if (!body) return error('请求体无效')
@@ -435,11 +491,36 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
   // ---- Backend connection test ----
 
   register('/api/paipiange.backend.test', ['POST'], async (request) => {
-      const body = await request.json().catch(() => null) as { kind?: string; llm?: { baseUrl: string; apiKey: string; model: string }; comfyui?: { server: string } } | null
+      const body = await request.json().catch(() => null) as { kind?: string; llm?: { baseUrl: string; apiKey: string; model: string }; comfyui?: { server: string }; text?: { provider: string; model: string } } | null
       if (!body) return error('请求体无效')
       const { default: testBackendConnection } = await import('../imagegen/connectionTest')
       try {
-        const result = await testBackendConnection(body as never)
+        const result = await testBackendConnection(body as never, llm)
+        return json(result)
+      } catch (cause) {
+        return error(cause instanceof Error ? cause.message : String(cause), 502)
+      }
+  })
+
+  // ---- Fetch supported models for a backend (form picker) ----
+
+  register('/api/paipiange.models.fetch', ['POST'], async (request) => {
+      const body = await request.json().catch(() => null) as { kind?: string; provider?: string; baseUrl?: string; apiKey?: string; backendId?: string } | null
+      if (!body || (body.kind !== 'llm-text' && body.kind !== 'llm-image')) return error('缺少 kind（llm-text / llm-image）')
+      const { default: fetchBackendModels } = await import('../imagegen/fetchModels')
+      try {
+        // When the client is editing a saved backend it only has the blanked
+        // apiKey (secrets never leave the host), so resolve the real key by id.
+        let apiKey = body.apiKey?.trim() || ''
+        if (!apiKey && body.backendId) {
+          const backend = settings.listBackendsWithSecrets().find((b) => b.id === body.backendId)
+          if (backend?.kind === 'llm-image' && backend.llm) apiKey = backend.llm.apiKey ?? ''
+          else if (backend?.kind === 'llm-text' && backend.text) apiKey = backend.text.apiKey ?? ''
+        }
+        const result = await fetchBackendModels(
+          { kind: body.kind, provider: body.provider, baseUrl: body.baseUrl, apiKey: apiKey || undefined },
+          llm,
+        )
         return json(result)
       } catch (cause) {
         return error(cause instanceof Error ? cause.message : String(cause), 502)

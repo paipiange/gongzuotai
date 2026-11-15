@@ -60,10 +60,12 @@ export class AssetRepository {
     const now = new Date().toISOString()
     const id = randomUUID()
     const extension = extensionFor(input.mimeType, input.name)
-    const directory = input.kind === 'image' ? 'images' : 'uploads'
+    // relativePath 必须与 StoragePaths.images/uploads 对齐（含 media/ 前缀），
+    // 否则写入目录与读取目录会错位导致 ENOENT。
+    const directory = input.kind === 'image' ? 'media/images' : 'media/uploads'
     const relativePath = join(directory, `${id}${extension}`)
     const absolutePath = resolvePrivatePath(this.paths.root, relativePath)
-    mkdirSync(this.paths[dimeDirectory(directory)], { recursive: true })
+    mkdirSync(resolvePrivatePath(this.paths.root, directory), { recursive: true })
     writeFileSync(absolutePath, input.data)
 
     const record: AssetRecord = {
@@ -138,10 +140,6 @@ export class AssetRepository {
   resolveAbsolutePath(asset: AssetRecord): string {
     return resolvePrivatePath(this.paths.root, asset.relativePath)
   }
-}
-
-function dimeDirectory(directory: string): 'images' | 'uploads' {
-  return directory === 'images' ? 'images' : 'uploads'
 }
 
 function mapAsset(row: AssetRow): AssetRecord {

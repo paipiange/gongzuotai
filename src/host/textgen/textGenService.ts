@@ -33,8 +33,11 @@ function styleHint(style?: string): string {
       return '文风清晰专业、逻辑严谨。'
     case 'lively':
       return '文风轻松活泼、有网感。'
-    default:
+    case 'cinematic':
       return '文风偏电影感叙事、有画面与情绪。'
+    default:
+      // 未指定风格时，不附加任何文风约束。
+      return ''
   }
 }
 
@@ -99,6 +102,118 @@ export async function generateText(
         break
     }
   }
+
+  return { text, usage, finishReason }
+}
+
+/** Config for a direct OpenAI-compatible text call (third-party API). */
+export interface DirectTextConfig {
+  baseUrl: string
+  apiKey: string
+  model: string
+}
+
+/**
+ * Runs a text generation against a third-party OpenAI-compatible endpoint
+ * (`POST {baseUrl}/chat/completions`) directly, bypassing the Harness `llm`
+ * service. Streams incremental deltas via `onDelta` and folds them into a
+ * complete result, mirroring `generateText` so the caller can switch backends
+ * transparently.
+ */
+export async function generateTextDirect(
+  config: DirectTextConfig,
+  request: TextGenRequest,
+  options: { signal?: AbortSignal; onDelta?: (delta: string) => void } = {},
+): Promise<TextGenResult> {
+  const base = config.baseUrl.trim().replace(/\/+$/, '')
+  const url = `${base}/chat/completions`
+  const started = Date.now()
+
+  let response: Response
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(config.apiKey ? { authorization: `Bearer ${config.apiKey}` } : {}),
+      },
+      body: JSON.stringify({
+        model: config.model,
+        messages: [
+          { role: 'system', content: systemPromptFor(request) },
+          { role: 'user', content: userPromptFor(request) },
+        ],
+        stream: true,
+      }),
+      signal: options.signal,
+    })
+  } catch (cause) {
+    if (options.signal?.aborted) throw new Error('已取消生成')
+    throw new Error(`无法连接文字 API：${cause instanceof Error ? cause.message : String(cause)}`)
+  }
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '')
+    throw new Error(`文字 API 返回 HTTP ${response.status}${detail ? `：${detail.slice(0, 200)}` : ''}`)
+  }
+  if (!response.body) throw new Error('文字 API 未返回响应流')
+
+  // Parse the SSE stream, folding `choices[].delta.content` into the result.
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let text = ''
+  let usage = { inputTokens: 0, outputTokens: 0 }
+  let finishReason = 'stop'
+
+  const handleLine = (line: string) => {
+    const trimmed = line.trim()
+    if (!trimmed.startsWith('data:')) return
+    const payload = trimmed.slice(5).trim()
+    if (payload === '[DONE]') return
+    let obj: Record<string, unknown>
+    try {
+      obj = JSON.parse(payload) as Record<string, unknown>
+    } catch {
+      return
+    }
+    const choices = obj.choices as Array<Record<string, unknown>> | undefined
+    if (Array.isArray(choices) && choices[0]) {
+      const delta = choices[0].delta as Record<string, unknown> | undefined
+      const content = delta?.content
+      if (typeof content === 'string' && content) {
+        text += content
+        options.onDelta?.(content)
+      }
+      const finish = choices[0].finish_reason
+      if (typeof finish === 'string' && finish) finishReason = finish
+    }
+    const u = obj.usage as { prompt_tokens?: number; completion_tokens?: number } | undefined
+    if (u) {
+      usage = {
+        inputTokens: u.prompt_tokens ?? usage.inputTokens,
+        outputTokens: u.completion_tokens ?? usage.outputTokens,
+      }
+    }
+  }
+
+  while (true) {
+    if (options.signal?.aborted) {
+      finishReason = 'aborted'
+      break
+    }
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    let idx = buffer.indexOf('\n')
+    while (idx >= 0) {
+      const line = buffer.slice(0, idx)
+      buffer = buffer.slice(idx + 1)
+      handleLine(line)
+      idx = buffer.indexOf('\n')
+    }
+  }
+  if (buffer.trim()) handleLine(buffer)
 
   return { text, usage, finishReason }
 }
