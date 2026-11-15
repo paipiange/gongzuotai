@@ -50,7 +50,10 @@ export default defineConfig([
       js: `window.__ModuleLoader__.load({ id: 'dsh-paipiange', factory: (require) => { var module = { exports: {} }; var exports = module.exports;`,
     },
     footer: {
-      js: `\nreturn module.exports;\n} });`,
+      // 直接返回干净的 { name, inject, apply } 对象，避免 rolldown 的
+      // __esModule / default 导出触发 cordis loader 的 unwrapExports interop，
+      // 导致 name/inject 字段被剥离（侧边栏不显示的根因）。
+      js: `\nreturn { name, inject, apply };\n} });`,
     },
   },
 ])
