@@ -109,6 +109,45 @@ export async function apply(ctx: Context, config: Config = {}) {
       }),
     )
 
+    // Text-gen provider discovery: list the routes the Harness `llm` service has
+    // registered so the client can offer a picker instead of a free-text field.
+    disposers.push(
+      webServer.register({
+        kind: 'exact',
+        path: '/api/paipiange.textgen.providers',
+        async handler(req, res) {
+          if (trust) {
+            const rejection = trust(req)
+            if (rejection !== undefined) {
+              await sendWebResponse(res, Response.json({ error: '未授权' }, { status: 401 }))
+              return
+            }
+          }
+          const llm = host.llm
+          if (!llm || typeof llm.listProviders !== 'function') {
+            await sendWebResponse(res, Response.json({ providers: [], models: {} }))
+            return
+          }
+          const providers = llm.listProviders().map((p) => p.provider)
+          // Best-effort model discovery per provider; ignore failures so a
+          // provider with a slow catalog does not block the picker.
+          const models: Record<string, string[]> = {}
+          if (typeof llm.listModels === 'function') {
+            await Promise.all(
+              providers.map(async (provider) => {
+                try {
+                  models[provider] = (await llm.listModels!(provider)).map((m) => m.id)
+                } catch {
+                  models[provider] = []
+                }
+              }),
+            )
+          }
+          await sendWebResponse(res, Response.json({ providers, models }))
+        },
+      }),
+    )
+
     // Text generation: consume the Harness `llm` service and stream deltas back
     // over SSE. This route is registered separately because it does not return a
     // single buffered Response — it owns the response for the stream's lifetime.
@@ -145,10 +184,29 @@ export async function apply(ctx: Context, config: Config = {}) {
             }
             // Fall back to the saved text-gen config when the client omits them.
             const defaults = settings.getTextGenConfig()
+            let provider = body.provider?.trim() || ''
+            let model = body.model?.trim() || ''
+            // If no explicit provider, prefer a saved one that still exists; if the
+            // saved default is stale (e.g. `deepseek-official` with no such route),
+            // fall back to the first registered route so generation can still run.
+            if (!provider) provider = defaults.provider
+            if (typeof llm.listProviders === 'function') {
+              const available = llm.listProviders().map((p) => p.provider)
+              if (!available.includes(provider)) {
+                provider = available[0] ?? provider
+                model = ''
+              }
+            }
+            if (!model) model = defaults.model
+            if (!provider) {
+              send('error', { message: 'Harness 尚未配置任何可用的文本模型 Provider' })
+              send('done', '')
+              return
+            }
             const resolved: TextGenRequest = {
               ...body,
-              provider: body.provider?.trim() || defaults.provider,
-              model: body.model?.trim() || defaults.model,
+              provider,
+              model,
             }
             const result = await generateText(llm, resolved, {
               signal: request.signal,

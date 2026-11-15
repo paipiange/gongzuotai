@@ -61,7 +61,7 @@ export async function generateText(
   request: TextGenRequest,
   options: { signal?: AbortSignal; onDelta?: (delta: string) => void } = {},
 ): Promise<TextGenResult> {
-  const prepared = llm.prepareCall(
+  const prepared = await llm.prepareCall(
     {
       provider: request.provider,
       model: request.model,

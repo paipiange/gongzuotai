@@ -328,6 +328,11 @@ export interface TextGenConfig {
   model: string
 }
 
+export interface TextGenProviders {
+  providers: string[]
+  models: Record<string, string[]>
+}
+
 export async function getTextGenConfig(): Promise<TextGenConfig> {
   const data = await apiFetch<{ config: TextGenConfig }>('.textgen.config')
   return data.config
@@ -339,6 +344,11 @@ export async function saveTextGenConfig(config: TextGenConfig): Promise<TextGenC
     body: JSON.stringify(config),
   })
   return data.config
+}
+
+export async function listTextGenProviders(): Promise<TextGenProviders> {
+  const data = await apiFetch<TextGenProviders>('.textgen.providers')
+  return data
 }
 
 // ---- Templates ----

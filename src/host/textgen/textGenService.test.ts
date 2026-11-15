@@ -9,11 +9,14 @@ function fakeLlm(chunks: StreamChunk[], capture: { config?: unknown } = {}): Llm
   return {
     prepareCall(config) {
       capture.config = config
-      return {
-        async *stream(): AsyncIterable<StreamChunk> {
+      return Promise.resolve({
+        stream: async function* (): AsyncIterable<StreamChunk> {
           for (const chunk of chunks) yield chunk
         },
-      }
+      })
+    },
+    listProviders() {
+      return []
     },
   }
 }
@@ -75,14 +78,17 @@ describe('textGenService (Harness llm consumer)', () => {
     const controller = new AbortController()
     const llm: LlmService = {
       prepareCall(_config, signal) {
-        return {
+        return Promise.resolve({
           async *stream(): AsyncIterable<StreamChunk> {
             yield delta('第一段')
             controller.abort()
             // This delta is emitted after abort; generateText should stop folding.
             yield delta('第二段')
           },
-        }
+        })
+      },
+      listProviders() {
+        return []
       },
     }
 

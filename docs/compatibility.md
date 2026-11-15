@@ -28,13 +28,30 @@
   `src/host/api/webServerAdapter.ts` 桥接为 Web `Request`/`Response`，
   单测覆盖 JSON、二进制与 64 MiB 体积上限。
 
-## 仍需实机验证（需真实 Harness 运行实例）
+## LLM 服务契约（实机核验，2026-11-15）
 
-- `lib/client.js` 在目标 Harness 安装实例上的实际加载与热重载行为。
+核验自 `@deepseek-ai/dsh-llm` / `@deepseek-ai/dsh-llm-pi-ai` 官方文档与实机
+profile（`~/.dsh/profiles/desktop/cordis.patch.yml`）：
+
+- 服务名为 `LlmService`，上下文键 `ctx.llm`。
+- **消费入口**（插件生成文本用）：`ctx.llm.prepareCall(config, signal?)` 是
+  **异步**，返回 `Promise<PreparedLlmCall>`，其 `.stream()` 产出
+  `AsyncIterable<StreamChunk>`（text-delta / reasoning-delta / usage / finish / …）。
+  另有 `ctx.llm.stream(options)` 直接流式。
+- **Provider route 命名**：`llm-pi-ai` 的 `providers` 配置 dict 的 **key 即 route 名**
+  （实机为 `aaa42w`、`huatu717333`）。调用时 `options.provider` 传该 key，
+  `options.model` 传该 route catalog 里的模型 id。
+- **发现接口**：`ctx.llm.listProviders(): LlmProviderInfo[]`（已注册 route）、
+  `ctx.llm.listModels(provider): Promise<LlmModelInfo[]>`（某 route 通告的模型）。
+- **关键教训**：不要硬编码 `provider: 'deepseek-official'` —— 该 route 只在
+  安装了 `dsh-llm-deepseek` 且配置了账号时才存在。实机只有 `llm-pi-ai` 的
+  自定义 route。插件已改为：生成时若默认 provider 不在 `listProviders()` 结果
+  里，自动回退到第一个可用 route，避免 `UNKNOWN_MODEL`/未注册 route 报错。
+
+## 仍需实机验证（需真实 Harness GUI 桌面会话）
+
+- `lib/client.js` 在 Harness GUI 上的实际加载、文本生成流式渲染与截图回归。
 - `ctx.connection.requestRejection(request)` 在目标 Host 版本的真实签名
   与认证流程（当前按官方文档形状接入，实机需确认）。
 - tarball 安装、卸载、重启及 profile 组合行为。
-
-在完成以上核验前，不开放任何私有 Host API 到公网，也不声明插件已通过
-Harness 实机安装验收。
 
