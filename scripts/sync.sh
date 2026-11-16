@@ -19,6 +19,23 @@ log()  { printf '\n\033[1;36m[sync]\033[0m %s\n' "$*"; }
 fail() { printf '\n\033[1;31m[sync][FAIL]\033[0m %s\n' "$*" >&2; exit 1; }
 ok()   { printf '\033[1;32m[sync][OK]\033[0m %s\n' "$*"; }
 
+# 清理目标 lib/ 下已不在本地 lib/ 的旧构建产物（tsdown 每次换 hash 文件名会堆积）
+clean_stale() {
+  local dst="$1"
+  local base
+  for f in "$dst"/*; do
+    [ -f "$f" ] || continue
+    base="$(basename "$f")"
+    case "$base" in
+      *.js|*.d.ts)
+        if [ ! -e "$PROJECT_ROOT/lib/$base" ]; then
+          rm -f "$f" && log "   清理旧产物: $base"
+        fi
+        ;;
+    esac
+  done
+}
+
 log "项目根目录: $PROJECT_ROOT"
 log "实机目标:   $TARGET"
 
@@ -32,6 +49,7 @@ log "2/5 构建插件 pnpm build:plugin ..."
 
 log "3/5 同步 lib 产物到顶层 ..."
 cp -f "$PROJECT_ROOT"/lib/* "$TARGET/lib/" || fail "复制 lib 产物失败"
+clean_stale "$TARGET/lib"
 
 log "4/5 同步 lib 产物到 .pnpm 副本（dsh 实际加载位置）..."
 # dsh 通过 package.json 的 file:...tgz 依赖安装插件，真实加载位置在 .pnpm
@@ -42,6 +60,7 @@ if [ -n "$PNPM_COPIES" ]; then
   for pkg in $PNPM_COPIES; do
     cp -f "$PROJECT_ROOT"/lib/* "$pkg/lib/" || fail "复制 lib 到 $pkg 失败"
     cp -f "$PROJECT_ROOT/package.json" "$pkg/package.json" || fail "复制 package.json 到 $pkg 失败"
+    clean_stale "$pkg/lib"
     ok "   已同步 .pnpm 副本: $pkg"
   done
 else

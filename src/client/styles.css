@@ -4131,29 +4131,6 @@
   color: var(--pa-quiet);
   font-size: 13px;
 }
-.pa-root .pa-graphic-preview__text {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 8% 6%;
-  pointer-events: none;
-}
-.pa-root .pa-graphic-preview__title {
-  font-size: 18px;
-  font-weight: 700;
-  color: #5b3a2e;
-  text-align: center;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
-}
-.pa-root .pa-graphic-preview__subtitle {
-  margin-top: 6px;
-  font-size: 13px;
-  color: #7a4d39;
-  text-align: center;
-}
 .pa-root .pa-graphic-error {
   margin: 8px 0 0;
   color: var(--pa-danger, #e06b6b);

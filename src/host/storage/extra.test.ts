@@ -94,6 +94,25 @@ describe('templates, inspirations, publish and export', () => {
     storage.close()
   })
 
+  it('exports arbitrary binary entries (exportZip) with a sanitized file name', async () => {
+    const storage = await openTemporaryStorage()
+    const service = new ExportService(storage.paths)
+    const entries = [
+      { name: 'page-01.png', data: new TextEncoder().encode('fake-png-1') },
+      { name: 'page-02.png', data: new TextEncoder().encode('fake-png-2') },
+    ]
+
+    const result = service.exportZip('公众号 分镜/导出', entries)
+    expect(result.format).toBe('zip')
+    expect(result.fileName).toBe('公众号-分镜-导出.zip')
+    const bytes = readFileSync(service.resolveAbsolute(result.relativePath))
+    expect(bytes[0]).toBe(0x50)
+    expect(bytes[1]).toBe(0x4b)
+    expect(result.sizeBytes).toBe(bytes.byteLength)
+
+    storage.close()
+  })
+
   it('exports platform-adapted plain text (title cap + hashtags + markdown strip)', async () => {
     const storage = await openTemporaryStorage()
     const service = new ExportService(storage.paths)
