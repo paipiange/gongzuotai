@@ -206,6 +206,20 @@ export async function downloadBackup(filename: string): Promise<Blob> {
   return response.blob()
 }
 
+/** Restore a backup snapshot over the live database. Returns the pre-restore safety snapshot name. */
+export async function restoreBackup(filename: string): Promise<{ filename: string; preRestore: string; restartRequired: boolean }> {
+  const data = await apiFetch<{ filename: string; preRestore: string; restartRequired: boolean }>('.backup.restore', {
+    method: 'POST',
+    body: JSON.stringify({ filename }),
+  })
+  return data
+}
+
+/** Ask the host to restart the dsh desktop app (e.g. after restoring a backup). */
+export async function restartApp(): Promise<void> {
+  await apiFetch<{ ok: boolean }>('.app.restart', { method: 'POST' })
+}
+
 // ---- Generation tasks (request params + result logs) ----
 
 export async function listTasks(input?: { kind?: TaskKind; status?: TaskStatus }): Promise<TaskRecord[]> {

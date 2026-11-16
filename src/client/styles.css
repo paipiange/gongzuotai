@@ -929,6 +929,15 @@
   color: var(--pa-text);
 }
 
+.pa-root .pa-link-button.pa-danger-link {
+  color: var(--pa-danger);
+}
+
+.pa-root .pa-link-button.pa-danger-link:hover {
+  color: var(--pa-danger);
+  opacity: 0.8;
+}
+
 .pa-root .pa-template-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));

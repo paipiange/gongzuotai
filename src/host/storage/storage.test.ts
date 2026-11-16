@@ -123,6 +123,38 @@ describe('Host SQLite storage', () => {
     storage.close()
   })
 
+  it('restores a backup over the live database and keeps a pre-restore snapshot', async () => {
+    const storage = await openTemporaryStorage()
+    const repository = new CreationRepository(storage.db)
+
+    // 备份时的状态：1 条数据
+    repository.create({ type: 'article', title: '恢复前数据' })
+    const backup = await storage.createBackup()
+
+    // 备份后新增一条，恢复后应消失
+    repository.create({ type: 'article', title: '备份后新增的数据' })
+    expect(repository.list({ includeDeleted: true })).toHaveLength(2)
+
+    const result = await storage.restoreBackup(backup.filename)
+    expect(result.restartRequired).toBe(true)
+    expect(result.filename).toBe(backup.filename)
+    expect(result.preRestore).toContain('pre-restore-')
+    expect(existsSync(join(storage.paths.backups, result.preRestore))).toBe(true)
+
+    // 恢复后重开数据库，应只有备份时的 1 条
+    const reopened = new Database(storage.paths.database, { readonly: true })
+    const count = reopened.prepare('SELECT COUNT(*) AS count FROM creations').get() as { count: number }
+    expect(count.count).toBe(1)
+    reopened.close()
+  })
+
+  it('rejects an invalid or missing backup filename for restore', async () => {
+    const storage = await openTemporaryStorage()
+    await expect(storage.restoreBackup('../evil.sqlite')).rejects.toThrow('无效的备份文件名')
+    await expect(storage.restoreBackup('nope.sqlite')).rejects.toThrow('备份不存在')
+    storage.close()
+  })
+
   it('rejects absolute paths and traversal outside the private data root', () => {
     const root = join(tmpdir(), 'paipiange-path-test')
     expect(() => resolvePrivatePath(root, '../outside.txt')).toThrow()

@@ -1,7 +1,8 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { spawn } from 'node:child_process'
 import { PaipiangeDatabase } from './storage/database'
 import { CreationRepository } from './storage/creationRepository'
 import { SettingsRepository } from './storage/SettingsRepository'
@@ -33,7 +34,16 @@ export const inject = ['webServer', 'connection', 'llm']
 export interface Config {
   /** Base data directory. The plugin creates a private `paipiange` folder inside it. */
   dataRoot?: string
+  /** Absolute path to a PowerShell script that restarts the dsh desktop app. */
+  restartScript?: string
 }
+
+/**
+ * Default restart script path (developer machine). Used by the "restore backup"
+ * flow to relaunch dsh so the restored database takes effect. Override via
+ * `config.restartScript` when deploying to another machine.
+ */
+const DEFAULT_RESTART_SCRIPT = 'D:/code/zmt/工作台/scripts/restart-dsh.ps1'
 
 /** The official Harness web-server route shape (`kind: 'exact'`). */
 interface WebServerService {
@@ -218,6 +228,73 @@ export async function apply(ctx: Context, config: Config = {}) {
           } catch {
             await sendWebResponse(res, Response.json({ error: '备份不存在' }, { status: 404 }))
           }
+        },
+      }),
+    )
+
+    // Restore a backup snapshot over the live database (replaces current data).
+    disposers.push(
+      webServer.register({
+        kind: 'exact',
+        path: '/api/paipiange.backup.restore',
+        async handler(req, res) {
+          if (trust) {
+            const rejection = trust(req)
+            if (rejection !== undefined) {
+              await sendWebResponse(res, Response.json({ error: '未授权' }, { status: 401 }))
+              return
+            }
+          }
+          if (req.method !== 'POST') {
+            await sendWebResponse(res, Response.json({ error: '方法不允许' }, { status: 405 }))
+            return
+          }
+          try {
+            const request = await toWebRequest(req)
+            const body = await request.json().catch(() => null) as { filename?: string } | null
+            const result = await storage.restoreBackup(body?.filename?.trim() ?? '')
+            await sendWebResponse(res, Response.json({ ok: true, ...result }))
+          } catch (error) {
+            await sendWebResponse(res, Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 }))
+          }
+        },
+      }),
+    )
+
+    // Restart the dsh desktop app (used after a backup restore so the restored
+    // database takes effect). Spawns a detached PowerShell that tears down the
+    // browser process and relaunches via the desktop shortcut.
+    disposers.push(
+      webServer.register({
+        kind: 'exact',
+        path: '/api/paipiange.app.restart',
+        async handler(req, res) {
+          if (trust) {
+            const rejection = trust(req)
+            if (rejection !== undefined) {
+              await sendWebResponse(res, Response.json({ error: '未授权' }, { status: 401 }))
+              return
+            }
+          }
+          if (req.method !== 'POST') {
+            await sendWebResponse(res, Response.json({ error: '方法不允许' }, { status: 405 }))
+            return
+          }
+          const script = config.restartScript ?? DEFAULT_RESTART_SCRIPT
+          if (!existsSync(script)) {
+            await sendWebResponse(res, Response.json({ error: `重启脚本不存在：${script}` }, { status: 500 }))
+            return
+          }
+          await sendWebResponse(res, Response.json({ ok: true }))
+          // Defer so the response flushes before the process is torn down.
+          setTimeout(() => {
+            const child = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script], {
+              detached: true,
+              stdio: 'ignore',
+              windowsHide: true,
+            })
+            child.unref()
+          }, 300)
         },
       }),
     )

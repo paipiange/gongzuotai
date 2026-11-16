@@ -1,5 +1,9 @@
+import { readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { defineConfig } from 'tsdown'
+
+// 注入版本号：让 client 端「检查更新」读 package.json 版本，避免两处硬编码漂移。
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string }
 
 function rawPlugin() {
   return {
@@ -46,6 +50,9 @@ export default defineConfig([
     external: clientExternals,
     // 把 @phosphor-icons/react 打进 bundle（不在 Harness seed 模块表，运行时 require 不到）
     noExternal: ['@phosphor-icons/react'],
+    define: {
+      __APP_VERSION__: JSON.stringify(pkg.version),
+    },
     banner: {
       js: `window.__ModuleLoader__.load({ id: 'dsh-paipiange', factory: (require) => { var module = { exports: {} }; var exports = module.exports;`,
     },
