@@ -162,6 +162,20 @@ export class ExportService {
   }
 
   /**
+   * Export arbitrary binary entries (e.g. generated storyboard page images) as
+   * a single ZIP bundle, written to the private `exports` directory.
+   */
+  exportZip(title: string, entries: Array<{ name: string; data: Uint8Array }>): ExportResult {
+    const id = randomUUID()
+    const baseName = sanitizeFileName(title)
+    mkdirSync(this.paths.exports, { recursive: true })
+    const zipData = buildZip(entries)
+    const fileName = `${baseName}.zip`
+    writeFileSync(join(this.paths.exports, fileName), zipData)
+    return { id, format: 'zip', fileName, relativePath: join('exports', fileName).replace(/\\/g, '/'), sizeBytes: zipData.byteLength }
+  }
+
+  /**
    * Platform-adapted export: produces copy-paste-ready plain text tailored to a
    * target social platform. Unlike the generic markdown/html/zip formats, this
    * applies platform conventions (title length caps, hashtag synthesis, plain

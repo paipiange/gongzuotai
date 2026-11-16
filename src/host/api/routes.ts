@@ -859,4 +859,32 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
         },
       })
   })
+
+  // ---- Graphic storyboard pages ZIP export ----
+
+  register('/api/paipiange.graphic.export', ['POST'], async (request) => {
+      const body = await request.json().catch(() => null) as { assetIds?: unknown; title?: string } | null
+      if (!body || !Array.isArray(body.assetIds) || !body.assetIds.length) return error('缺少 assetIds')
+      const { readFileSync } = await import('node:fs')
+      const entries: Array<{ name: string; data: Uint8Array }> = []
+      for (let i = 0; i < body.assetIds.length; i++) {
+        const asset = assets.getById(String(body.assetIds[i]))
+        if (!asset) continue
+        const buffer = readFileSync(assets.resolveAbsolutePath(asset))
+        const mime = asset.mimeType?.toLowerCase() ?? ''
+        const ext = mime.includes('png') ? '.png' : mime.includes('jpeg') || mime.includes('jpg') ? '.jpg' : mime.includes('webp') ? '.webp' : '.bin'
+        entries.push({ name: `page-${String(i + 1).padStart(2, '0')}${ext}`, data: new Uint8Array(buffer) })
+      }
+      if (!entries.length) return error('没有可导出的已生成图片')
+      const result = exports.exportZip(String(body.title ?? '公众号分镜'), entries)
+      const absolute = exports.resolveAbsolute(result.relativePath)
+      const buffer = readFileSync(absolute)
+      return new Response(new Uint8Array(buffer), {
+        headers: {
+          'Content-Type': 'application/zip',
+          'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(result.fileName)}`,
+          'Cache-Control': 'no-store',
+        },
+      })
+  })
 }

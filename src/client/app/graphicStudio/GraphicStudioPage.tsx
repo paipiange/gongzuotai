@@ -1,8 +1,8 @@
 /**
  * 公众号图文创作工作台（多页分镜）。
  *
- * 流程：粘贴素材 → 文本模型拆页（事实提取 + 分镜）→ 分镜页卡 → 逐页生底图
- * （图片模型只画插画，不写文字）→ 文字图层叠加预览。
+ * 流程：粘贴素材 → 文本模型拆页（事实提取 + 分镜）→ 分镜页卡 → 逐页生成
+ * 带文字的竖图（图片模型直接把标题/副标题渲染进图）。
  *
  * 复用现有能力：generateStoryboard（文本拆页）、generateImages（生底图）、
  * listBackends（文字/图片后端）、风格预设（stylePresets 里「奶油粉」等）。
@@ -15,6 +15,7 @@ import {
   generateImages,
   listBackends,
   assetUrl,
+  exportGraphicZip,
   type Backend,
   type StoryboardResult,
   type StoryboardPage,
@@ -42,8 +43,18 @@ const STYLE_PROMPT = [
   'Primary palette: #FFF6F1 (cream), #F6A4B5 (pink), #7A4D39 (chestnut), #F4C46E (soft gold), #F3DDCE (warm beige).',
 ].join(' ')
 
-/** 图片模型只画插画，不写任何文字（对应 Prompt 5 的 CRITICAL 约束）。 */
+/** 图片模型直接在图中渲染标题/副标题文字（对应 Prompt 5 的 on-image text 约束）。 */
 function buildPagePrompt(page: StoryboardPage, total: number): string {
+  const textLines: string[] = []
+  if (page.title) textLines.push(`Main headline (exact text): ${page.title}`)
+  if (page.subtitle) textLines.push(`Subheading (exact text): ${page.subtitle}`)
+  const textBlock = textLines.length
+    ? [
+        'ON-IMAGE TEXT — render the following text EXACTLY, in clean Simplified Chinese, directly inside the illustration:',
+        ...textLines,
+        'Typography: legible hand-lettered style matching the scrapbook aesthetic; centered or well-placed in reserved negative space; no typos, no missing strokes, no cut-off or overlapping characters; keep the character face unobstructed.',
+      ].join('\n')
+    : 'No on-image text required for this page.'
   return [
     `Create exactly ONE standalone, full-resolution vertical illustration for a social post page. Never compose a multi-page collage, 2x2, 4-panel, grid, or contact sheet.`,
     `Page ${page.page_no} of ${total}.`,
@@ -52,7 +63,7 @@ function buildPagePrompt(page: StoryboardPage, total: number): string {
     `Main character: ${CHARACTER_PROMPT}.`,
     `Visual style: ${STYLE_PROMPT}.`,
     `Canvas aspect ratio: 4:5.`,
-    `CRITICAL: Do NOT render ANY Chinese or English headings, product labels, prices, digits, or paragraphs. Those will be composed later as native editable text layers. Leave blank cream-colored safe zones for the text. Keep the character face unobstructed. This is one picture only.`,
+    textBlock,
   ].join('\n')
 }
 
@@ -187,6 +198,27 @@ export function GraphicStudioPage({ onBack, onToast }: { onBack: () => void; onT
     }
   }
 
+  const exportZip = async () => {
+    const ids = pages.filter((p) => p.assetId).map((p) => p.assetId as string)
+    if (!ids.length) {
+      onToast('请先生成至少一页底图', 'warning')
+      return
+    }
+    try {
+      const name = (topic.trim() || storyboard?.topic || '公众号分镜').slice(0, 40)
+      const blob = await exportGraphicZip({ assetIds: ids, title: name })
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `${name}.zip`
+      anchor.click()
+      URL.revokeObjectURL(url)
+      onToast(`已导出 ${ids.length} 页图片为 ZIP`, 'success')
+    } catch (cause) {
+      onToast(cause instanceof Error ? cause.message : '导出失败', 'warning')
+    }
+  }
+
   const removePage = (index: number) => {
     setPages((prev) => prev.filter((_, i) => i !== index))
     setActiveIndex((cur) => (cur >= index ? Math.max(0, cur - 1) : cur))
@@ -199,7 +231,7 @@ export function GraphicStudioPage({ onBack, onToast }: { onBack: () => void; onT
     <div className="pa-page pa-studio-page">
       <div className="pa-studio-heading">
         <button type="button" className="pa-icon-button" aria-label="返回" onClick={onBack}><ArrowLeft aria-hidden="true" size={19} /></button>
-        <div><span className="pa-overline">GRAPHIC STUDIO</span><h1>公众号创作</h1><p>粘贴素材 → 文本模型拆页 → 逐页生成插画底图（文字由程序叠加，图片模型不写数字）。</p></div>
+        <div><span className="pa-overline">GRAPHIC STUDIO</span><h1>公众号创作</h1><p>粘贴素材 → 文本模型拆页 → 逐页生成带文字的竖图（图片模型直接渲染标题与文案）。</p></div>
       </div>
 
       <div className="pa-graphic-layout">
@@ -286,13 +318,6 @@ export function GraphicStudioPage({ onBack, onToast }: { onBack: () => void; onT
                 ) : (
                   <div className="pa-graphic-preview__placeholder"><ImageSquare aria-hidden="true" size={40} weight="duotone" /><span>{active.busy ? '生成中…' : '尚未生成底图'}</span></div>
                 )}
-                {/* 文字层叠加（程序排字，MVP 直接覆盖标题/副标题） */}
-                {active.assetId && (
-                  <div className="pa-graphic-preview__text">
-                    {active.page.title && <div className="pa-graphic-preview__title">{active.page.title}</div>}
-                    {active.page.subtitle && <div className="pa-graphic-preview__subtitle">{active.page.subtitle}</div>}
-                  </div>
-                )}
               </div>
               {active.error && <p className="pa-graphic-error">{active.error}</p>}
               <div className="pa-graphic-preview__meta">
@@ -321,6 +346,9 @@ export function GraphicStudioPage({ onBack, onToast }: { onBack: () => void; onT
         <div className="pa-graphic-toolbar">
           <button type="button" className="pa-primary-button" onClick={generateAll} disabled={pages.some((p) => p.busy)}>
             <Sparkle aria-hidden="true" size={16} weight="fill" />批量生图（跳过已生成）
+          </button>
+          <button type="button" className="pa-secondary-button" onClick={exportZip} disabled={doneCount === 0}>
+            <DownloadSimple aria-hidden="true" size={16} />导出 ZIP
           </button>
           {warnings.length > 0 && (
             <div className="pa-graphic-warnings">

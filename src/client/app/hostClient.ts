@@ -688,6 +688,20 @@ export async function exportPlatformText(creationId: string, platform: PublishPl
   return blob.text()
 }
 
+/** Export generated graphic storyboard page images as a single ZIP bundle. */
+export async function exportGraphicZip(input: { assetIds: string[]; title?: string }): Promise<Blob> {
+  const response = await fetch(`${BASE}.graphic.export`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!response.ok) {
+    const body = await response.json().catch(() => null) as { error?: string } | null
+    throw new HostError(body?.error ?? `导出失败 (HTTP ${response.status})`, response.status)
+  }
+  return response.blob()
+}
+
 // ---- Assets ----
 
 export async function listAssets(input?: { kind?: 'image' | 'file' | 'prompt' | 'document'; creationId?: string; tags?: string[] }): Promise<AssetRecord[]> {
