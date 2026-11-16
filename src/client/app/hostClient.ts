@@ -852,6 +852,28 @@ export async function batchDeleteAssets(ids: string[]): Promise<{ done: number; 
   return data
 }
 
+/** Storage stats: soft-deleted + orphan assets (counts and bytes). */
+export interface AssetStorageStats {
+  deletedCount: number
+  deletedBytes: number
+  orphanCount: number
+  orphanBytes: number
+}
+
+export async function getAssetStorage(): Promise<AssetStorageStats> {
+  return apiFetch<AssetStorageStats>('.assets.storage', { method: 'GET' })
+}
+
+/** Permanently delete every soft-deleted asset (file + row). */
+export async function emptyTrashAssets(): Promise<{ count: number; freedBytes: number }> {
+  return apiFetch<{ count: number; freedBytes: number }>('.assets.emptytrash', { method: 'POST' })
+}
+
+/** Permanently delete all orphan image assets. */
+export async function purgeOrphanAssets(): Promise<{ count: number; freedBytes: number }> {
+  return apiFetch<{ count: number; freedBytes: number }>('.assets.purgeorphans', { method: 'POST' })
+}
+
 /** Replace an asset's tag list. */
 export async function setAssetTags(id: string, tags: string[]): Promise<void> {
   await apiFetch<{ ok: boolean }>(`.asset.tags?id=${encodeURIComponent(id)}`, {

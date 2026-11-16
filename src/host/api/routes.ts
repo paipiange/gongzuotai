@@ -516,6 +516,42 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
       return json({ done, total: body.ids.length })
   })
 
+  // ---- Asset permanent delete (removes the file from disk too) ----
+
+  register('/api/paipiange.asset.purge', ['POST'], async (request) => {
+      const id = new URL(request.url).searchParams.get('id') ?? ''
+      if (!id) return error('缺少 id')
+      const ok = assets.hardDelete(id)
+      return ok ? json({ ok: true }) : error('素材不存在', 404)
+  })
+
+  // ---- Asset storage stats + cleanup (empty trash / purge orphans) ----
+
+  register('/api/paipiange.assets.storage', ['GET'], async () => {
+      const deleted = assets.countDeleted()
+      const orphans = assets.listOrphans()
+      return json({
+        deletedCount: deleted.count,
+        deletedBytes: deleted.freedBytes,
+        orphanCount: orphans.ids.length,
+        orphanBytes: orphans.freedBytes,
+      })
+  })
+
+  register('/api/paipiange.assets.emptytrash', ['POST'], async () => {
+      const result = assets.purgeDeleted()
+      return json({ ok: true, count: result.count, freedBytes: result.freedBytes })
+  })
+
+  register('/api/paipiange.assets.purgeorphans', ['POST'], async () => {
+      const orphans = assets.listOrphans()
+      let count = 0
+      for (const id of orphans.ids) {
+        if (assets.hardDelete(id)) count += 1
+      }
+      return json({ ok: true, count, freedBytes: orphans.freedBytes })
+  })
+
   // ---- Backend connection test ----
 
   register('/api/paipiange.backend.test', ['POST'], async (request) => {

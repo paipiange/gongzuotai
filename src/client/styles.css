@@ -3316,6 +3316,34 @@
   padding: 14px 20px;
   border-top: 1px solid var(--pa-border-soft);
 }
+.pa-root .pa-muted {
+  margin: 0;
+  color: var(--pa-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.pa-root .pa-storage-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.pa-root .pa-storage-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  background: var(--pa-bg-soft);
+  border: 1px solid var(--pa-border-soft);
+  border-radius: var(--pa-radius-md);
+}
+.pa-root .pa-storage-stat__label {
+  font-size: 13px;
+  font-weight: 600;
+}
+.pa-root .pa-storage-stat__value {
+  font-size: 18px;
+  font-weight: 700;
+}
 .pa-root .pa-task-detail__meta {
   display: flex;
   align-items: center;

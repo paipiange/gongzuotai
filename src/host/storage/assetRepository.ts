@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type Database from 'better-sqlite3'
 import type { StoragePaths } from './paths'
@@ -127,6 +127,88 @@ export class AssetRepository {
       'UPDATE assets SET deleted_at = @now WHERE id = @id AND deleted_at IS NULL',
     ).run({ id, now: new Date().toISOString() })
     return result.changes === 1
+  }
+
+  /**
+   * Permanently delete an asset: removes the binary file from disk and the row
+   * from the `assets` table (regardless of soft-delete state). Returns false if
+   * the asset does not exist.
+   */
+  hardDelete(id: string): boolean {
+    const asset = this.getById(id)
+    if (!asset) return false
+    const absolute = resolvePrivatePath(this.paths.root, asset.relativePath)
+    try {
+      if (existsSync(absolute)) unlinkSync(absolute)
+    } catch {
+      // File may be missing or momentarily locked; the DB row is still removed.
+    }
+    return this.db.prepare('DELETE FROM assets WHERE id = ?').run(id).changes === 1
+  }
+
+  /**
+   * Empty the trash: permanently delete every soft-deleted asset (file + row).
+   * Returns the number of rows removed and the bytes freed.
+   */
+  purgeDeleted(): { count: number; freedBytes: number } {
+    const rows = this.db.prepare(
+      'SELECT id, size_bytes FROM assets WHERE deleted_at IS NOT NULL',
+    ).all() as Array<{ id: string; size_bytes: number }>
+    let count = 0
+    let freedBytes = 0
+    for (const row of rows) {
+      if (this.hardDelete(row.id)) {
+        count += 1
+        freedBytes += row.size_bytes
+      }
+    }
+    return { count, freedBytes }
+  }
+
+  /** Count soft-deleted assets and their total bytes (does not delete). */
+  countDeleted(): { count: number; freedBytes: number } {
+    const rows = this.db.prepare(
+      'SELECT size_bytes FROM assets WHERE deleted_at IS NOT NULL',
+    ).all() as Array<{ size_bytes: number }>
+    return {
+      count: rows.length,
+      freedBytes: rows.reduce((sum, row) => sum + row.size_bytes, 0),
+    }
+  }
+
+  /**
+   * Find orphan image assets: non-deleted images that are not referenced by any
+   * creation cover nor by the graphic studio session pages. These are typically
+   * left behind when a generation finishes after the user navigated away.
+   */
+  listOrphans(): { ids: string[]; freedBytes: number } {
+    const referenced = new Set<string>()
+    const coverRows = this.db.prepare(
+      'SELECT cover_asset_id FROM creations WHERE cover_asset_id IS NOT NULL',
+    ).all() as Array<{ cover_asset_id: string }>
+    for (const row of coverRows) referenced.add(row.cover_asset_id)
+
+    const sessionRows = this.db.prepare(
+      'SELECT pages_json FROM graphic_sessions WHERE pages_json IS NOT NULL',
+    ).all() as Array<{ pages_json: string }>
+    for (const row of sessionRows) {
+      for (const match of row.pages_json.matchAll(/"assetId"\s*:\s*"([0-9a-f-]{36})"/g)) {
+        if (match[1]) referenced.add(match[1])
+      }
+    }
+
+    const imageRows = this.db.prepare(
+      "SELECT id, size_bytes FROM assets WHERE kind = 'image' AND deleted_at IS NULL",
+    ).all() as Array<{ id: string; size_bytes: number }>
+    const ids: string[] = []
+    let freedBytes = 0
+    for (const row of imageRows) {
+      if (!referenced.has(row.id)) {
+        ids.push(row.id)
+        freedBytes += row.size_bytes
+      }
+    }
+    return { ids, freedBytes }
   }
 
   /** Replace an asset's tag list. Returns true if the asset exists. */

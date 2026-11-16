@@ -9,6 +9,7 @@ import {
   CopySimple,
   DownloadSimple,
   FolderOpen,
+  HardDrives,
   Lightbulb,
   PaperPlaneTilt,
   TrashSimple,
@@ -28,18 +29,22 @@ import {
   assetUrl,
   batchDeleteAssets,
   deleteAsset,
+  emptyTrashAssets,
   exportForPlatform,
   exportPlatformText,
+  getAssetStorage,
   listAssets,
   listInspirations,
   listPublishItems,
   listTemplates,
+  purgeOrphanAssets,
   setAssetTags,
   setPublishStatus,
   suggestInspirations,
   fetchAihot,
   uploadAsset,
   type AssetRecord,
+  type AssetStorageStats,
   type AihotItem,
   type InspirationRecord,
   type PublishItem,
@@ -71,6 +76,18 @@ function formatLocalTime(value: string): string {
   return date.toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
+function formatBytes(bytes: number): string {
+  if (!bytes || bytes < 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB']
+  let value = bytes
+  let unit = 0
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit += 1
+  }
+  return `${value.toFixed(value >= 100 ? 0 : 1)} ${units[unit]}`
+}
+
 function PageIntro({ title, description }: { title: string; description: string }) {
   return (
     <div className="pa-page-intro">
@@ -90,6 +107,9 @@ export function AssetsPage({ onToast }: { onToast: (message: string, tone?: Toas
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [editingTagsId, setEditingTagsId] = useState<string | null>(null)
   const [tagsDraft, setTagsDraft] = useState('')
+  const [storageOpen, setStorageOpen] = useState(false)
+  const [storageStats, setStorageStats] = useState<AssetStorageStats | null>(null)
+  const [storageBusy, setStorageBusy] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const refresh = async () => {
@@ -179,6 +199,48 @@ export function AssetsPage({ onToast }: { onToast: (message: string, tone?: Toas
     }
   }
 
+  const openStorage = async () => {
+    setStorageOpen(true)
+    setStorageStats(null)
+    try {
+      setStorageStats(await getAssetStorage())
+    } catch (cause) {
+      onToast(cause instanceof Error ? cause.message : '读取存储统计失败', 'warning')
+    }
+  }
+
+  const emptyTrash = async () => {
+    if (!storageStats?.deletedCount) return
+    if (!window.confirm(`确定清空回收站吗？将永久删除 ${storageStats.deletedCount} 个已删除素材（${formatBytes(storageStats.deletedBytes)}），不可恢复。`)) return
+    setStorageBusy(true)
+    try {
+      const result = await emptyTrashAssets()
+      onToast(`已清空回收站，释放 ${formatBytes(result.freedBytes)}`, 'success')
+      setStorageStats(await getAssetStorage())
+      void refresh()
+    } catch (cause) {
+      onToast(cause instanceof Error ? cause.message : '清空回收站失败', 'warning')
+    } finally {
+      setStorageBusy(false)
+    }
+  }
+
+  const purgeOrphans = async () => {
+    if (!storageStats?.orphanCount) return
+    if (!window.confirm(`确定清理 ${storageStats.orphanCount} 张孤儿图片（${formatBytes(storageStats.orphanBytes)}）吗？这些图片未被任何创作或公众号分镜引用，清理后不可恢复。`)) return
+    setStorageBusy(true)
+    try {
+      const result = await purgeOrphanAssets()
+      onToast(`已清理 ${result.count} 张孤儿图片，释放 ${formatBytes(result.freedBytes)}`, 'success')
+      setStorageStats(await getAssetStorage())
+      void refresh()
+    } catch (cause) {
+      onToast(cause instanceof Error ? cause.message : '清理孤儿图片失败', 'warning')
+    } finally {
+      setStorageBusy(false)
+    }
+  }
+
   return (
     <div className="pa-page">
       <PageIntro title="素材库" description="统一管理图片、文字、提示词与文件。" />
@@ -192,6 +254,9 @@ export function AssetsPage({ onToast }: { onToast: (message: string, tone?: Toas
         </div>
         <button type="button" className="pa-secondary-button" onClick={() => fileInputRef.current?.click()}>
           <UploadSimple aria-hidden="true" size={17} />导入素材
+        </button>
+        <button type="button" className="pa-secondary-button" onClick={() => void openStorage()}>
+          <HardDrives aria-hidden="true" size={17} />存储清理
         </button>
         <input ref={fileInputRef} type="file" hidden onChange={onPick} />
       </div>
@@ -262,6 +327,40 @@ export function AssetsPage({ onToast }: { onToast: (message: string, tone?: Toas
           <p>{source === 'host' ? '点击“导入素材”上传图片、文稿或提示词，文件会保存到本地 Host 媒体目录。' : 'Host 服务未连接，暂无法读取素材库。'}</p>
           <button type="button" className="pa-secondary-button" onClick={() => fileInputRef.current?.click()}>导入素材</button>
         </section>
+      )}
+
+      {storageOpen && (
+        <div className="pa-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setStorageOpen(false) }}>
+          <div className="pa-modal">
+            <div className="pa-modal__head">
+              <h3>存储清理</h3>
+              <button type="button" className="pa-icon-button" aria-label="关闭" onClick={() => setStorageOpen(false)}><X aria-hidden="true" size={17} /></button>
+            </div>
+            <div className="pa-modal__body">
+              {!storageStats ? (
+                <p className="pa-muted">正在读取存储统计…</p>
+              ) : (
+                <div className="pa-storage-stats">
+                  <div className="pa-storage-stat">
+                    <span className="pa-storage-stat__label">回收站（已删除素材）</span>
+                    <span className="pa-storage-stat__value">{storageStats.deletedCount} 项 · {formatBytes(storageStats.deletedBytes)}</span>
+                    <p className="pa-muted">删除的素材会先进回收站，清空后才会真正释放磁盘空间。</p>
+                  </div>
+                  <div className="pa-storage-stat">
+                    <span className="pa-storage-stat__label">孤儿图片（未被引用）</span>
+                    <span className="pa-storage-stat__value">{storageStats.orphanCount} 张 · {formatBytes(storageStats.orphanBytes)}</span>
+                    <p className="pa-muted">生图过程中离开页面可能留下未被任何创作/分镜引用的图片。</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="pa-modal__footer">
+              <button type="button" className="pa-secondary-button" disabled={!storageStats || storageBusy} onClick={() => setStorageOpen(false)}>关闭</button>
+              <button type="button" className="pa-secondary-button pa-danger-button" disabled={!storageStats?.orphanCount || storageBusy} onClick={() => void purgeOrphans()}>清理孤儿图片</button>
+              <button type="button" className="pa-secondary-button pa-danger-button" disabled={!storageStats?.deletedCount || storageBusy} onClick={() => void emptyTrash()}>清空回收站</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
