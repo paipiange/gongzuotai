@@ -8,7 +8,7 @@
  * listBackends（文字/图片后端）、风格预设（stylePresets 里「奶油粉」等）。
  */
 
-import { ArrowLeft, Sparkle, ImageSquare, TrashSimple, ArrowSquareOut, DownloadSimple } from '@phosphor-icons/react'
+import { ArrowLeft, Sparkle, ImageSquare, TrashSimple, ArrowSquareOut, DownloadSimple, X } from '@phosphor-icons/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   generateStoryboard,
@@ -26,6 +26,7 @@ import {
 import { absoluteAssetUrl } from '../Lightbox'
 import { GroupedModelPicker, backendToGroup, decodePick, type ModelGroup } from '../GroupedModelPicker'
 import { buildPageTaskMap, extractAssetId } from './graphicRecover'
+import { extractImageFilesFromClipboard, readImageAsDataUrl } from '../pasteImages'
 
 interface Toast {
   (message: string, tone?: 'info' | 'success' | 'warning'): void
@@ -101,6 +102,7 @@ export function GraphicStudioPage({ onBack, onToast }: { onBack: () => void; onT
   const [pages, setPages] = useState<PageRecord[]>([])
   const [activeIndex, setActiveIndex] = useState(0)
   const [warnings, setWarnings] = useState<string[]>([])
+  const [referenceImages, setReferenceImages] = useState<string[]>([])
   const [sessionId, setSessionId] = useState('')
   const [loaded, setLoaded] = useState(false)
   const pagesRef = useRef<PageRecord[]>(pages)
@@ -245,6 +247,25 @@ export function GraphicStudioPage({ onBack, onToast }: { onBack: () => void; onT
   const textModelId = textPickDecoded?.model ?? ''
   const imageModelId = imagePickDecoded?.model ?? ''
 
+  const handlePasteReference = async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = extractImageFilesFromClipboard(event.clipboardData)
+    if (files.length === 0) return
+    const hasText = Array.from(event.clipboardData?.items ?? []).some((item) => item.kind === 'string')
+    if (!hasText) event.preventDefault()
+    for (const file of files) {
+      try {
+        const dataUrl = await readImageAsDataUrl(file)
+        setReferenceImages((prev) => [...prev, dataUrl])
+      } catch (cause) {
+        onToast(cause instanceof Error ? cause.message : '图片读取失败', 'warning')
+      }
+    }
+  }
+
+  const removeReference = (index: number) => {
+    setReferenceImages((prev) => prev.filter((_, i) => i !== index))
+  }
+
   const handleBreakdown = async () => {
     if (!sourceText.trim()) {
       onToast('请先粘贴素材文本', 'warning')
@@ -293,7 +314,7 @@ export function GraphicStudioPage({ onBack, onToast }: { onBack: () => void; onT
     try {
       const images = await generateImages({
         backendId: imageBackend.id,
-        request: { prompt, count: 1, size: 1024, ...(imageModelId ? { model: imageModelId } : {}) },
+        request: { prompt, count: 1, size: 1024, ...(imageModelId ? { model: imageModelId } : {}), ...(referenceImages.length ? { images: referenceImages } : {}) },
         pageIndex: index,
         sessionId,
       })
@@ -363,8 +384,19 @@ export function GraphicStudioPage({ onBack, onToast }: { onBack: () => void; onT
           </label>
           <label className="pa-field">
             <span>素材文本（粘贴清单/原文）</span>
-            <textarea value={sourceText} onChange={(e) => setSourceText(e.target.value)} placeholder="粘贴要拆解的内容，例如消费清单、商品列表、原文段落…" />
+            <textarea value={sourceText} onChange={(e) => setSourceText(e.target.value)} onPaste={handlePasteReference} placeholder="粘贴要拆解的内容，例如消费清单、商品列表、原文段落…也可 Ctrl+V 粘贴参考图" />
           </label>
+          {referenceImages.length > 0 && (
+            <div className="pa-graphic-ref-list">
+              {referenceImages.map((img, index) => (
+                <div key={index} className="pa-graphic-ref-item">
+                  <img src={img} alt={`参考图 ${index + 1}`} className="pa-graphic-ref-preview" />
+                  <button type="button" className="pa-icon-button pa-graphic-ref-remove" aria-label={`移除参考图 ${index + 1}`} title="移除" onClick={() => removeReference(index)}><X aria-hidden="true" size={14} /></button>
+                </div>
+              ))}
+            </div>
+          )}
+          {referenceImages.length > 0 && <small>参考图将作为每页生图的图生图参考（延续图中风格/元素）。</small>}
           <label className="pa-field">
             <span>页数</span>
             <select value={pageCount} onChange={(e) => setPageCount(Number(e.target.value))}>

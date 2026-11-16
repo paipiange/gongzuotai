@@ -4042,6 +4042,44 @@
   line-height: 1.6;
   text-align: center;
 }
+.pa-root .pa-graphic-ref-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+.pa-root .pa-graphic-ref-item {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--pa-border-soft);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+}
+.pa-root .pa-graphic-ref-preview {
+  display: block;
+  width: 100%;
+  height: 88px;
+  object-fit: cover;
+  background: rgba(0, 0, 0, 0.2);
+}
+.pa-root .pa-graphic-ref-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.pa-root .pa-graphic-ref-remove:hover {
+  background: rgba(0, 0, 0, 0.85);
+}
 .pa-root .pa-graphic-page-list {
   display: flex;
   flex-direction: column;
