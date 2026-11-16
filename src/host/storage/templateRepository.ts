@@ -16,7 +16,7 @@ export interface TemplateRecord {
 }
 
 export interface CreateTemplateInput {
-  category: string
+  category?: string
   name: string
   description?: string
   coverAssetId?: string | null
@@ -47,7 +47,7 @@ export class TemplateRepository {
     const now = new Date().toISOString()
     const record: TemplateRecord = {
       id: randomUUID(),
-      category: input.category.trim() || '通用',
+      category: input.category?.trim() || '通用',
       name: input.name.trim(),
       description: input.description?.trim() ?? '',
       coverAssetId: input.coverAssetId ?? null,

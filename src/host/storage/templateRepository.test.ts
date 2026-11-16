@@ -47,6 +47,16 @@ describe('TemplateRepository', () => {
     storage.close()
   })
 
+  it('tolerates a missing category (undefined) and falls back to 通用', async () => {
+    const storage = await openTemporaryStorage()
+    const repo = new TemplateRepository(storage.db)
+
+    const created = repo.create({ name: '无分类模板', promptTemplate: 'p' })
+    expect(created.category).toBe('通用')
+    expect(repo.getById(created.id)!.category).toBe('通用')
+    storage.close()
+  })
+
   it('rejects an empty name', async () => {
     const storage = await openTemporaryStorage()
     const repo = new TemplateRepository(storage.db)

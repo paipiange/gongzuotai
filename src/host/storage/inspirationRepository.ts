@@ -17,7 +17,7 @@ export interface CreateInspirationInput {
   title: string
   description: string
   promptTemplate: string
-  category: string
+  category?: string
   tags?: string[]
   coverAssetId?: string | null
   isBuiltin?: boolean
@@ -46,7 +46,7 @@ export class InspirationRepository {
       title: input.title.trim(),
       description: input.description.trim(),
       promptTemplate: input.promptTemplate,
-      category: input.category.trim() || '通用',
+      category: input.category?.trim() || '通用',
       tags: input.tags ?? [],
       coverAssetId: input.coverAssetId ?? null,
       isBuiltin: input.isBuiltin ?? false,
