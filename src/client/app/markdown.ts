@@ -9,16 +9,35 @@ function escapeHtml(value: string): string {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+/**
+ * 只放行安全的链接协议（http/https/mailto）与相对/锚点链接，
+ * 拦截 `javascript:`、`data:`、`vbscript:` 等可用于 XSS 的危险协议。
+ */
+function sanitizeUrl(raw: string): string {
+  const url = raw.trim()
+  if (/^[a-z][a-z0-9+.-]*:/i.test(url) && !/^(https?|mailto):/i.test(url)) return '#'
+  return url
 }
 
 function renderInline(value: string): string {
-  return escapeHtml(value)
+  const escaped = escapeHtml(value)
+  return escaped
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/__([^_]+)__/g, '<strong>$1</strong>')
     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
     .replace(/_([^_]+)_/g, '<em>$1</em>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_all, text: string, url: string) => {
+      // url 已先经 escapeHtml，反转义 &amp; 后再校验协议，避免 javascript: 绕过；
+      // 校验通过后再转义一次，确保引号等无法逃出 href 属性。
+      const decoded = url.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+      const safe = escapeHtml(sanitizeUrl(decoded))
+      return `<a href="${safe}" target="_blank" rel="noreferrer">${text}</a>`
+    })
 }
 
 /**

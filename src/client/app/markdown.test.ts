@@ -22,6 +22,25 @@ describe('renderMarkdown', () => {
     expect(html).toContain('<li>一</li>')
     expect(html).toContain('<hr />')
   })
+
+  it('neutralizes javascript: and other unsafe URL schemes in links', () => {
+    const js = renderMarkdown('[点我](javascript:alert(1))')
+    expect(js).not.toContain('javascript:')
+    expect(js).toContain('<a href="#')
+
+    const data = renderMarkdown('[x](data:text/html;base64,xxx)')
+    expect(data).not.toContain('data:')
+
+    const vb = renderMarkdown('[x](vbscript:msgbox(1))')
+    expect(vb).not.toContain('vbscript:')
+  })
+
+  it('escapes quotes so URLs cannot break out of the href attribute', () => {
+    const html = renderMarkdown('[x](" onmouseover="alert(1))')
+    expect(html).toContain('&quot;')
+    // 引号被转义后无法形成独立的 onmouseover 属性
+    expect(html).not.toContain('onmouseover="alert')
+  })
 })
 
 describe('applyMarkdownAction', () => {
