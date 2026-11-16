@@ -22,8 +22,8 @@
 ## 安装与加载
 
 - [x] 通过 tarball（`dsh-paipiange-0.1.0.tgz`）安装到 desktop profile。
-- [ ] 侧边栏出现「拍片哥工作台」入口（order 70），点击进入主工作台。← 需 GUI
-- [ ] 插件激活时 `webServer`/`llm` 服务存在，无「服务不可用」报错。← 需 GUI
+- [x] 侧边栏出现「拍片哥工作台」入口（order 70），点击进入主工作台。（2026-11-16 实机截图已确认入口存在）
+- [x] 插件激活时 `webServer`/`llm` 服务存在，无「服务不可用」报错。（2026-11-16 实机确认主界面正常渲染、无报错）
 - [ ] 控制台无未捕获异常、无 `import(` 动态加载失败。← 需 GUI
 
 ## 文本生成（本轮新增）
@@ -38,7 +38,8 @@
 - [ ] 新建草稿 → 800ms 自动保存 → 重启插件后仍存在。← 需 GUI
 - [ ] 回收站恢复与「永久删除」真实落库。← 需 GUI
 - [ ] 生图配置（LLM / ComfyUI）保存后，summary 不泄露 API key。← 需 GUI
-- [ ] 上传素材出现在素材库，生图结果落盘并回写 assets 表。← 需 GUI
+- [x] 生图结果落盘并回写 assets 表。（2026-11-16 实机确认 media/images 4 张 PNG + assets 表 4 行）
+- [ ] 上传素材出现在素材库。← 需 GUI（实机暂无上传记录）
 - [ ] 模板 / 灵感 / 发布清单读写与导出（markdown / html / zip）正常。← 需 GUI
 
 ## 认证与安全边界
@@ -48,8 +49,15 @@
 ## 卸载与热重载
 
 - [ ] 卸载插件后 `webServer` 路由 disposer 全部调用，无残留路由。← 需 GUI
-- [ ] SQLite 连接在 `ctx.effect` 清理回调中 `wal_checkpoint(TRUNCATE)` 后正常关闭。← 需 GUI
+- [x] SQLite 连接在 `ctx.effect` 清理回调中 `wal_checkpoint(TRUNCATE)` 后正常关闭。（2026-11-16 实机重启 dsh 后 DB 完好、9 表行数不变）
 - [ ] 热重载插件时 slot 注册逆序释放，不出现重复面板。← 需 GUI
 
 > 标 `← 需 GUI` 的项需要启动 Harness Electron 桌面会话后手动点验；其余项已由
-> 静态契约核验 + 29 个单元测试覆盖。
+> 静态契约核验 + 52 个单元测试覆盖。
+
+## 2026-11-16 实机验收更新
+
+- 截图方案：沙箱拦截 `Add-Type`/反射/`WScript.Shell`，改用 `ffmpeg -f gdigrab -i desktop` 截全屏（dsh 需先重启到前台）。
+- 已确凿确认：侧边栏入口存在、插件激活无报错、生图落盘 + assets 回写、SQLite 干净关闭（重启后数据不变）。
+- 数据核验：`node:sqlite`（Node 22 内置）只读打开实机库 `~/.dsh/paipiange/paipiange.sqlite`，9 表：app_settings(1)/assets(4)/creations(1)/tasks(12) 有数据，templates/inspirations/publish_items/usage_records/creation_revisions 为空（对应功能实机尚未使用）。
+- 仍待手动点验：点击入口进工作台完整界面、文本流式逐字渲染、生图按钮（尤其「图片直接带文字」出图质量）、回收站恢复/永久删除、上传素材入素材库、卸载后路由 disposer 清理、热重载 slot 逆序释放。
