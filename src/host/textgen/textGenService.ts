@@ -1,5 +1,14 @@
 import type { LlmService, StreamChunk } from './types'
 
+/** Upper bound for a single text-generation round-trip before giving up. */
+const TEXT_GEN_TIMEOUT_MS = 180_000
+
+/** Combine the caller's abort signal with a hard timeout. */
+function withTimeout(signal: AbortSignal | undefined, ms: number): AbortSignal {
+  const timeout = AbortSignal.timeout(ms)
+  return signal ? AbortSignal.any([signal, timeout]) : timeout
+}
+
 /** Client-facing request body for the text-gen endpoint. */
 export interface TextGenRequest {
   provider: string
@@ -186,7 +195,7 @@ export async function generateTextWithPromptDirect(
         ],
         stream: false,
       }),
-      signal: options.signal,
+      signal: withTimeout(options.signal, TEXT_GEN_TIMEOUT_MS),
     })
   } catch (cause) {
     if (options.signal?.aborted) throw new Error('已取消')
@@ -252,7 +261,7 @@ export async function generateTextDirect(
         ],
         stream: true,
       }),
-      signal: options.signal,
+      signal: withTimeout(options.signal, TEXT_GEN_TIMEOUT_MS),
     })
   } catch (cause) {
     if (options.signal?.aborted) throw new Error('已取消生成')

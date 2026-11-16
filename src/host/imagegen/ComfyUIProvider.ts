@@ -18,6 +18,7 @@ export class ComfyUIProvider implements ImageGenProvider {
   }
 
   async generate(request: ImageGenRequest, signal?: AbortSignal): Promise<GeneratedImage[]> {
+    const timeoutSignal = this.withTimeout(signal)
     const seed = request.seed ?? Math.floor(Math.random() * 0xffffffff)
 
     // When reference image(s) are supplied, upload them to ComfyUI and build an
@@ -25,15 +26,21 @@ export class ComfyUIProvider implements ImageGenProvider {
     // first reference is used as the base; extra references are uploaded but not
     // yet wired into the workflow (reserved for future multi-reference support).
     const referenceImages = request.images?.length ? request.images : (request.image ? [request.image] : [])
-    const uploadedName = referenceImages.length ? await this.uploadImage(referenceImages[0], signal) : undefined
+    const uploadedName = referenceImages.length ? await this.uploadImage(referenceImages[0], timeoutSignal) : undefined
     const workflow = buildWorkflow(this.config, request, seed, uploadedName)
 
-    const promptId = await this.submit(workflow, signal)
-    const outputs = await this.poll(promptId, signal)
-    const images = await this.fetchOutputs(outputs, signal)
+    const promptId = await this.submit(workflow, timeoutSignal)
+    const outputs = await this.poll(promptId, timeoutSignal)
+    const images = await this.fetchOutputs(outputs, timeoutSignal)
 
     if (images.length === 0) throw new Error('ComfyUI 未产出图片')
     return images.map((data) => ({ data, mimeType: 'image/png', meta: { seed, promptId } }))
+  }
+
+  /** Combine the caller's abort signal with a hard upper bound (10 min, matches the poll deadline). */
+  private withTimeout(signal?: AbortSignal): AbortSignal {
+    const timeout = AbortSignal.timeout(600_000)
+    return signal ? AbortSignal.any([signal, timeout]) : timeout
   }
 
   /** Upload a data-URL reference image to ComfyUI's input directory. */

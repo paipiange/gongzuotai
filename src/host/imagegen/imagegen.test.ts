@@ -113,6 +113,18 @@ describe('OpenAICompatImageProvider', () => {
     const body = calls[0].body as FormData
     expect(body.get('size')).toBe('1024x1280')
   })
+
+  it('aborts generation when the caller signal is already aborted', async () => {
+    globalThis.fetch = vi.fn(async (_input: unknown, init?: RequestInit) => {
+      if (init?.signal?.aborted) throw new DOMException('aborted', 'AbortError')
+      return new Response(JSON.stringify({ data: [{ b64_json: 'YQ==' }] }), { status: 200 })
+    }) as unknown as typeof fetch
+
+    const controller = new AbortController()
+    controller.abort()
+    const provider = new OpenAICompatImageProvider({ baseUrl: 'https://x/v1', apiKey: 'k', model: 'm' })
+    await expect(provider.generate({ prompt: 'p' }, controller.signal)).rejects.toThrow()
+  })
 })
 
 describe('ComfyUIProvider', () => {

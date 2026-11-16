@@ -333,9 +333,18 @@ export function GraphicStudioPage({ onBack, onToast }: { onBack: () => void; onT
       onToast('请先在「设置中心 → 后端管理」添加一个图片后端', 'warning')
       return
     }
-    for (let i = 0; i < pages.length; i++) {
-      if (!pages[i].assetId) await generatePage(i)
+    const pending = pages.map((_, i) => i).filter((i) => !pages[i].assetId && !pages[i].busy)
+    if (!pending.length) return
+    // 限流并发：3 个 worker 依次领取待生成页，避免串行 N×30s，也避免并发过高被网关限流。
+    const CONCURRENCY = 3
+    let cursor = 0
+    const worker = async () => {
+      while (cursor < pending.length) {
+        const index = pending[cursor++]
+        await generatePage(index)
+      }
     }
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, pending.length) }, () => worker()))
   }
 
   const exportZip = async () => {

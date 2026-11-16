@@ -1,5 +1,8 @@
 import type { GeneratedImage, ImageGenProvider, ImageGenRequest, LlmImageConfig } from './types'
 
+/** Upper bound for a single image-generation round-trip before giving up. */
+const IMAGE_GEN_TIMEOUT_MS = 180_000
+
 /**
  * OpenAI-compatible images endpoint (e.g. OpenAI /dalle, or any gateway that
  * speaks the `/v1/images/generations` contract). Configured by the user with
@@ -15,19 +18,26 @@ export class OpenAICompatImageProvider implements ImageGenProvider {
   constructor(private readonly config: LlmImageConfig) {}
 
   async generate(request: ImageGenRequest, signal?: AbortSignal): Promise<GeneratedImage[]> {
+    const timeoutSignal = this.withTimeout(signal)
     const count = Math.max(1, Math.min(request.count ?? 1, 4))
     const base = this.config.baseUrl.replace(/\/+$/, '')
     const references = request.images?.length ? request.images : request.image ? [request.image] : []
 
     const response = references.length
-      ? await this.generateEdit(base, references, request, count, signal)
-      : await this.generateFromPrompt(base, request, count, signal)
+      ? await this.generateEdit(base, references, request, count, timeoutSignal)
+      : await this.generateFromPrompt(base, request, count, timeoutSignal)
 
     if (!response.ok) {
       const body = await response.text().catch(() => '')
       throw new Error(`Image API error ${response.status}: ${body.slice(0, 200)}`)
     }
-    return this.parseImages(response, signal)
+    return this.parseImages(response, timeoutSignal)
+  }
+
+  /** Combine the caller's abort signal with a hard timeout so a hung gateway cannot stall forever. */
+  private withTimeout(signal?: AbortSignal): AbortSignal {
+    const timeout = AbortSignal.timeout(IMAGE_GEN_TIMEOUT_MS)
+    return signal ? AbortSignal.any([signal, timeout]) : timeout
   }
 
   private async generateFromPrompt(base: string, request: ImageGenRequest, count: number, signal?: AbortSignal): Promise<Response> {
