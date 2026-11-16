@@ -18,14 +18,25 @@ export interface ImageGenRequest {
   /** ComfyUI: classifier-free guidance scale. */
   cfg?: number
   /**
+   * Model override for LLM backends. When set, uses this model instead of the
+   * backend's default `model` (lets a backend expose a group of models).
+   */
+  model?: string
+  /**
    * Reference image for editing/repainting (img2img). Encoded as a data URL
    * (`data:image/png;base64,...`). Only the ComfyUI backend (Qwen-Image-Edit)
    * consumes it today; LLM providers ignore it.
    */
   image?: string
   /**
-   * Repaint strength (0–1) applied when `image` is present. Higher = more
-   * deviation from the reference. Default 0.7 when an image is supplied.
+   * Multiple reference images (img2img). Encoded as data URLs. ComfyUI's
+   * Qwen-Image-Edit is a single-image editor, so the first image is used as the
+   * base while the rest are ignored for now (kept for future multi-ref support).
+   */
+  images?: string[]
+  /**
+   * Repaint strength (0–1) applied when a reference image is present. Higher =
+   * more deviation from the reference. Default 0.7 when an image is supplied.
    */
   denoise?: number
 }
@@ -90,6 +101,8 @@ export interface LlmBackendConfig {
   baseUrl: string
   apiKey: string
   model: string
+  /** Optional extra models under this backend (a "group" of models). */
+  models?: string[]
 }
 
 /**
@@ -106,6 +119,8 @@ export interface LlmTextBackendConfig {
   /** API key for direct mode (secret, host-only). */
   apiKey?: string
   model: string
+  /** Optional extra models under this backend (a "group" of models). */
+  models?: string[]
 }
 
 export interface Backend {

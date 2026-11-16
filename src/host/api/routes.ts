@@ -288,7 +288,9 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
           seed: body.request.seed,
           steps: body.request.steps,
           cfg: body.request.cfg,
-          hasReferenceImage: !!(body.request.image),
+          model: body.request.model,
+          hasReferenceImage: !!(body.request.image || body.request.images?.length),
+          referenceImageCount: body.request.images?.length ?? (body.request.image ? 1 : 0),
           denoise: body.request.denoise,
           backendId: body.backendId,
           provider: body.provider,
@@ -363,8 +365,8 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
         const body = await request.json().catch(() => null) as {
           name?: string
           kind?: 'llm-text' | 'llm-image' | 'comfyui'
-          llm?: { baseUrl: string; apiKey: string; model: string }
-          text?: { provider?: string; baseUrl?: string; apiKey?: string; model: string }
+          llm?: { baseUrl: string; apiKey: string; model: string; models?: string[] }
+          text?: { provider?: string; baseUrl?: string; apiKey?: string; model: string; models?: string[] }
           comfyui?: { server: string; checkpoint?: string; unet?: string; clip?: string; vae?: string }
         } | null
         if (!body || !body.name?.trim() || !body.kind) return error('缺少 name 或 kind')
@@ -393,17 +395,33 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
       // PATCH
       const body = await request.json().catch(() => null) as {
         name?: string
-        llm?: { baseUrl: string; apiKey: string; model: string }
-        text?: { provider?: string; baseUrl?: string; apiKey?: string; model: string }
+        llm?: { baseUrl: string; apiKey: string; model: string; models?: string[] }
+        text?: { provider?: string; baseUrl?: string; apiKey?: string; model: string; models?: string[] }
         comfyui?: { server: string; checkpoint?: string; unet?: string; clip?: string; vae?: string }
       } | null
       if (!body) return error('请求体无效')
-      const updated = settings.updateBackend(id, {
-        ...(body.name?.trim() ? { name: body.name.trim() } : {}),
-        ...(body.llm ? { llm: body.llm } : {}),
-        ...(body.text ? { text: body.text } : {}),
-        ...(body.comfyui ? { comfyui: body.comfyui } : {}),
-      })
+      // The client never holds secrets: on edit the apiKey arrives blank. When
+      // blank, preserve the host-side key instead of overwriting it with ''.
+      const existing = settings.listBackendsWithSecrets().find((b) => b.id === id)
+      const patch: {
+        name?: string
+        llm?: { baseUrl: string; apiKey: string; model: string; models?: string[] }
+        text?: { provider?: string; baseUrl?: string; apiKey?: string; model: string; models?: string[] }
+        comfyui?: { server: string; checkpoint?: string; unet?: string; clip?: string; vae?: string }
+      } = {}
+      if (body.name?.trim()) patch.name = body.name.trim()
+      if (body.llm) {
+        patch.llm = {
+          ...body.llm,
+          apiKey: body.llm.apiKey?.trim() || existing?.llm?.apiKey || '',
+        }
+      }
+      if (body.text) {
+        const mergedApiKey = body.text.apiKey?.trim() || existing?.text?.apiKey || ''
+        patch.text = { ...body.text, apiKey: mergedApiKey || undefined }
+      }
+      if (body.comfyui) patch.comfyui = body.comfyui
+      const updated = settings.updateBackend(id, patch)
       return updated ? json({ backend: updated }) : error('后端不存在', 404)
   })
 
@@ -673,6 +691,89 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
         return json({ inspirations: saved }, 201)
       } catch (cause) {
         return error(cause instanceof Error ? cause.message : String(cause), 502)
+      }
+  })
+
+  // ---- Storyboard breakdown (multi-page graphic) ----
+
+  register('/api/paipiange.storyboard', ['POST'], async (request) => {
+      const body = await request.json().catch(() => null) as {
+        sourceText?: string
+        extractedImageText?: string
+        topic?: string
+        pageCount?: number
+        platform?: string
+        provider?: string
+        model?: string
+        baseUrl?: string
+        apiKey?: string
+        backendId?: string
+      } | null
+      if (!body) return error('请求体无效')
+      const pageCount = Math.min(Math.max(Math.floor(body.pageCount ?? 4), 1), 12)
+      const input = {
+        sourceText: body.sourceText ?? '',
+        extractedImageText: body.extractedImageText ?? '',
+        topic: body.topic ?? '',
+        pageCount,
+        platform: body.platform ?? '公众号',
+      }
+      const { generateStoryboard, parseStoryboard, storyboardPrompts } = await import('../textgen/storyboardService')
+      const { generateTextWithPromptDirect } = await import('../textgen/textGenService')
+
+      // Resolve backend config (secrets) when a saved text backend is referenced.
+      let directBaseUrl = body.baseUrl?.trim().replace(/\/+$/, '') || ''
+      let directApiKey = body.apiKey?.trim() ?? ''
+      let directModel = body.model?.trim() ?? ''
+      if (body.backendId) {
+        const backend = settings.listBackendsWithSecrets().find((b) => b.id === body.backendId)
+        if (backend?.kind === 'llm-text' && backend.text) {
+          directBaseUrl = backend.text.baseUrl?.trim().replace(/\/+$/, '') || ''
+          directApiKey = backend.text.apiKey ?? ''
+          if (!directModel) directModel = backend.text.model
+        }
+      }
+
+      try {
+        if (directBaseUrl) {
+          if (!directModel) return error('直连文字后端缺少模型名')
+          const { system, user } = storyboardPrompts(input)
+          const result = await generateTextWithPromptDirect(
+            { baseUrl: directBaseUrl, apiKey: directApiKey, model: directModel },
+            { system, user },
+          )
+          const parsed = parseStoryboard(result.text)
+          if (!parsed) return error('模型未返回有效的分镜 JSON，请重试或更换文字模型', 502)
+          return json({ storyboard: parsed })
+        }
+
+        if (!llm || typeof llm.prepareCall !== 'function') return error('Harness 文本模型服务未就绪', 503)
+        const defaults = settings.getTextGenConfig()
+        const provider = body.provider?.trim() || defaults.provider
+        const model = directModel || defaults.model
+        if (!provider) return error('尚未配置任何可用的文本模型 Provider')
+        const storyboard = await generateStoryboard(llm, { ...input, provider, model })
+        return json({ storyboard })
+      } catch (cause) {
+        return error(cause instanceof Error ? cause.message : String(cause), 502)
+      }
+  })
+
+  // ---- aihot news proxy ----
+
+  register('/api/paipiange.inspiration.aihot', ['GET'], async (request) => {
+      const params = new URL(request.url).searchParams
+      const { fetchAihotItems } = await import('../textgen/aihot')
+      const mode = params.get('mode') === 'all' ? 'all' : 'selected'
+      const category = params.get('category')?.trim() || undefined
+      const window = params.get('window')?.trim() || '24h'
+      const limitRaw = Number(params.get('limit') ?? '')
+      const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(Math.floor(limitRaw), 50) : 20
+      try {
+        const items = await fetchAihotItems({ mode, category, window, limit })
+        return json({ items })
+      } catch (cause) {
+        return error(cause instanceof Error ? cause.message : '拉取 aihot 失败', 502)
       }
   })
 

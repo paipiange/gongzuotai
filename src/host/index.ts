@@ -315,7 +315,8 @@ export async function apply(ctx: Context, config: Config = {}) {
               if (backend?.kind === 'llm-text' && backend.text) {
                 directBaseUrl = backend.text.baseUrl?.trim().replace(/\/+$/, '') || ''
                 directApiKey = backend.text.apiKey ?? ''
-                directModel = backend.text.model || directModel
+                // Prefer the client-chosen model; fall back to the backend default.
+                if (!directModel) directModel = backend.text.model
               }
             }
 

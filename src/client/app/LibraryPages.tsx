@@ -18,6 +18,9 @@ import {
   Stack,
   CheckSquare,
   Sparkle,
+  ArrowSquareOut,
+  TrendUp,
+  ArrowClockwise,
 } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
 import type { CreationRecord } from './workspaceStore'
@@ -34,8 +37,10 @@ import {
   setAssetTags,
   setPublishStatus,
   suggestInspirations,
+  fetchAihot,
   uploadAsset,
   type AssetRecord,
+  type AihotItem,
   type InspirationRecord,
   type PublishItem,
   type PublishPlatform,
@@ -446,6 +451,23 @@ export function InspirationPage({ onOpenStudio, onToast, creations }: {
   const [source, setSource] = useState<'host' | 'local' | 'loading'>('loading')
   const [suggesting, setSuggesting] = useState(false)
 
+  // aihot 热榜状态
+  const [tab, setTab] = useState<'pool' | 'aihot'>('pool')
+  const [aihotItems, setAihotItems] = useState<AihotItem[]>([])
+  const [aihotLoading, setAihotLoading] = useState(false)
+  const [aihotError, setAihotError] = useState('')
+  const [aihotCategory, setAihotCategory] = useState<string>('')
+
+  const AIHOT_CATEGORIES: { value: string; label: string }[] = [
+    { value: '', label: '全部' },
+    { value: 'ai-models', label: 'AI 模型' },
+    { value: 'ai-products', label: 'AI 产品' },
+    { value: 'industry', label: '行业动态' },
+    { value: 'paper', label: '论文' },
+    { value: 'tip', label: '教程' },
+    { value: 'opinion', label: '观点' },
+  ]
+
   const refresh = async () => {
     try {
       const rows = await listInspirations()
@@ -474,45 +496,160 @@ export function InspirationPage({ onOpenStudio, onToast, creations }: {
     }
   }
 
+  const loadAihot = async (category?: string) => {
+    setAihotLoading(true)
+    setAihotError('')
+    try {
+      const rows = await fetchAihot({ category: category || undefined, window: '24h', limit: 30 })
+      setAihotItems(rows)
+    } catch (cause) {
+      setAihotError(cause instanceof Error ? cause.message : '拉取 aihot 失败')
+    } finally {
+      setAihotLoading(false)
+    }
+  }
+
+  // 首次切到 aihot tab 时拉取
+  useEffect(() => {
+    if (tab === 'aihot' && aihotItems.length === 0 && !aihotLoading && !aihotError) {
+      void loadAihot(aihotCategory)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab])
+
+  const handleAihotCategory = (value: string) => {
+    setAihotCategory(value)
+    void loadAihot(value || undefined)
+  }
+
   if (source === 'loading') {
     return <div className="pa-page"><section className="pa-panel pa-large-empty"><p>正在读取灵感中心…</p></section></div>
   }
 
   return (
     <div className="pa-page">
-      <PageIntro title="灵感中心" description="从主题池快速进入创作。" />
+      <PageIntro title="灵感中心" description="从主题池与 AI 热榜快速进入创作。" />
 
       <div className="pa-record-toolbar">
-        <button type="button" className="pa-primary-button" onClick={handleSuggest} disabled={suggesting}>
-          <Sparkle aria-hidden="true" size={16} />{suggesting ? '推荐中…' : 'AI 推荐选题'}
-        </button>
+        <div className="pa-inspiration-tabs" role="tablist">
+          <button type="button" role="tab" aria-selected={tab === 'pool'} className="pa-inspiration-tab" data-active={tab === 'pool'} onClick={() => setTab('pool')}>我的灵感池</button>
+          <button type="button" role="tab" aria-selected={tab === 'aihot'} className="pa-inspiration-tab" data-active={tab === 'aihot'} onClick={() => setTab('aihot')}>
+            <TrendUp aria-hidden="true" size={15} />AI 热榜
+          </button>
+        </div>
+        {tab === 'pool' && (
+          <button type="button" className="pa-primary-button" onClick={handleSuggest} disabled={suggesting}>
+            <Sparkle aria-hidden="true" size={16} />{suggesting ? '推荐中…' : 'AI 推荐选题'}
+          </button>
+        )}
+        {tab === 'aihot' && (
+          <button type="button" className="pa-secondary-button" onClick={() => loadAihot(aihotCategory || undefined)} disabled={aihotLoading}>
+            <ArrowClockwise aria-hidden="true" size={16} />
+            {aihotLoading ? '刷新中…' : '刷新'}
+          </button>
+        )}
       </div>
 
-      {items.length ? (
-        <div className="pa-publish-grid">
-          {items.map((item) => (
-            <article key={item.id} className="pa-panel pa-publish-card">
-              <div className="pa-publish-card__top">
-                <span className="pa-status-badge" data-status="draft">{item.category}</span>
-                <small>{formatLocalTime(item.createdAt)}</small>
-              </div>
-              <h2>{item.title}</h2>
-              <p>{item.description}</p>
-              {item.tags.length ? <p className="pa-inspiration-tags">{item.tags.map((t) => `#${t}`).join(' ')}</p> : null}
-              <div>
-                <button type="button" className="pa-secondary-button" onClick={() => onOpenStudio('article')}>以此为灵感创作</button>
-              </div>
-            </article>
-          ))}
-        </div>
+      {tab === 'pool' ? (
+        <>
+          {items.length ? (
+            <div className="pa-publish-grid">
+              {items.map((item) => (
+                <article key={item.id} className="pa-panel pa-publish-card">
+                  <div className="pa-publish-card__top">
+                    <span className="pa-status-badge" data-status="draft">{item.category}</span>
+                    <small>{formatLocalTime(item.createdAt)}</small>
+                  </div>
+                  <h2>{item.title}</h2>
+                  <p>{item.description}</p>
+                  {item.tags.length ? <p className="pa-inspiration-tags">{item.tags.map((t) => `#${t}`).join(' ')}</p> : null}
+                  <div>
+                    <button type="button" className="pa-secondary-button" onClick={() => onOpenStudio('article')}>以此为灵感创作</button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <section className="pa-panel pa-large-empty">
+              <div className="pa-large-empty__icon"><Lightbulb aria-hidden="true" size={27} weight="duotone" /></div>
+              <h2>灵感中心暂无内容</h2>
+              <p>{source === 'host' ? '点击上方“AI 推荐选题”，或灵感会随着你的创作积累而沉淀到这里。' : 'Host 服务未连接，暂无法读取灵感中心。'}</p>
+            </section>
+          )}
+        </>
       ) : (
-        <section className="pa-panel pa-large-empty">
-          <div className="pa-large-empty__icon"><Lightbulb aria-hidden="true" size={27} weight="duotone" /></div>
-          <h2>灵感中心暂无内容</h2>
-          <p>{source === 'host' ? '点击上方“AI 推荐选题”，或灵感会随着你的创作积累而沉淀到这里。' : 'Host 服务未连接，暂无法读取灵感中心。'}</p>
-        </section>
+        <AihotPanel
+          items={aihotItems}
+          loading={aihotLoading}
+          error={aihotError}
+          category={aihotCategory}
+          categories={AIHOT_CATEGORIES}
+          onCategory={handleAihotCategory}
+          onOpenStudio={() => onOpenStudio('article')}
+        />
       )}
     </div>
+  )
+}
+
+function AihotPanel({ items, loading, error, category, categories, onCategory, onOpenStudio }: {
+  items: AihotItem[]
+  loading: boolean
+  error: string
+  category: string
+  categories: { value: string; label: string }[]
+  onCategory: (value: string) => void
+  onOpenStudio: () => void
+}) {
+  return (
+    <section className="pa-panel pa-aihot">
+      <div className="pa-aihot__head">
+        <p className="pa-aihot__desc">AI 领域实时热榜（来自 aihot.news，每 6 小时更新）。点击标题可查看原文，或以此为灵感直接进入创作。</p>
+        <div className="pa-aihot__categories">
+          {categories.map((c) => (
+            <button key={c.value} type="button" className="pa-aihot__category" data-active={category === c.value} onClick={() => onCategory(c.value)}>{c.label}</button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="pa-large-empty"><p>正在拉取 AI 热榜…</p></div>
+      ) : error ? (
+        <div className="pa-large-empty">
+          <p className="pa-aihot__error">{error}</p>
+          <p>请检查网络后点击「刷新」重试。</p>
+        </div>
+      ) : items.length === 0 ? (
+        <div className="pa-large-empty">
+          <div className="pa-large-empty__icon"><TrendUp aria-hidden="true" size={27} weight="duotone" /></div>
+          <h2>暂无热榜内容</h2>
+          <p>当前筛选条件下没有条目，试试切换分类或稍后刷新。</p>
+        </div>
+      ) : (
+        <ul className="pa-aihot__list">
+          {items.map((item, index) => (
+            <li key={item.id} className="pa-aihot__item">
+              <div className="pa-aihot__rank" data-top={index < 3}>{index + 1}</div>
+              <div className="pa-aihot__body">
+                <div className="pa-aihot__meta">
+                  <span className="pa-status-badge" data-status="draft">{item.category}</span>
+                  <span className="pa-aihot__source">{item.source}</span>
+                  {item.score > 0 && <span className="pa-aihot__score">热度 {item.score}</span>}
+                </div>
+                <h3 className="pa-aihot__title">
+                  <a href={item.link} target="_blank" rel="noreferrer">{item.title}</a>
+                </h3>
+                {item.summary && <p className="pa-aihot__summary">{item.summary}</p>}
+                <div className="pa-aihot__actions">
+                  <a className="pa-link-button" href={item.originalLink ?? item.link} target="_blank" rel="noreferrer"><ArrowSquareOut aria-hidden="true" size={14} />查看原文</a>
+                  <button type="button" className="pa-secondary-button" onClick={onOpenStudio}>以此为灵感创作</button>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }
 

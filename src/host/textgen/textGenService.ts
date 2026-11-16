@@ -106,11 +106,118 @@ export async function generateText(
   return { text, usage, finishReason }
 }
 
+/**
+ * Run a text completion with an explicit system + user prompt (bypassing the
+ * studio-based `systemPromptFor` mapping). Used by structured tasks such as
+ * storyboard breakdown that need a custom instruction, not an article prompt.
+ */
+export async function generateTextWithPrompt(
+  llm: LlmService,
+  input: { provider: string; model: string; system: string; user: string },
+  options: { signal?: AbortSignal } = {},
+): Promise<TextGenResult> {
+  const prepared = await llm.prepareCall(
+    {
+      provider: input.provider,
+      model: input.model,
+      system: input.system,
+      messages: [{ role: 'user', content: input.user }],
+    },
+    options.signal,
+  )
+  return foldStream(prepared.stream(), options.signal)
+}
+
+/** Fold a stream of chunks into a complete TextGenResult (shared by all paths). */
+async function foldStream(stream: AsyncIterable<StreamChunk>, signal?: AbortSignal): Promise<TextGenResult> {
+  let text = ''
+  let usage = { inputTokens: 0, outputTokens: 0 }
+  let finishReason = 'stop'
+  for await (const chunk of stream) {
+    if (signal?.aborted) {
+      finishReason = 'aborted'
+      break
+    }
+    switch (chunk.type) {
+      case 'text-delta':
+        text += chunk.text
+        break
+      case 'usage':
+        usage = { inputTokens: chunk.usage.inputTokens, outputTokens: chunk.usage.outputTokens }
+        break
+      case 'finish':
+        finishReason = chunk.reason
+        break
+      default:
+        break
+    }
+  }
+  return { text, usage, finishReason }
+}
+
 /** Config for a direct OpenAI-compatible text call (third-party API). */
 export interface DirectTextConfig {
   baseUrl: string
   apiKey: string
   model: string
+}
+
+/** Direct-mode variant of `generateTextWithPrompt` for third-party endpoints. */
+export async function generateTextWithPromptDirect(
+  config: DirectTextConfig,
+  input: { system: string; user: string },
+  options: { signal?: AbortSignal } = {},
+): Promise<TextGenResult> {
+  const base = config.baseUrl.trim().replace(/\/+$/, '')
+  const url = `${base}/chat/completions`
+  let response: Response
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(config.apiKey ? { authorization: `Bearer ${config.apiKey}` } : {}),
+      },
+      body: JSON.stringify({
+        model: config.model,
+        messages: [
+          { role: 'system', content: input.system },
+          { role: 'user', content: input.user },
+        ],
+        stream: false,
+      }),
+      signal: options.signal,
+    })
+  } catch (cause) {
+    if (options.signal?.aborted) throw new Error('已取消')
+    throw new Error(`无法连接文字 API：${cause instanceof Error ? cause.message : String(cause)}`)
+  }
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '')
+    throw new Error(`文字 API 返回 HTTP ${response.status}${detail ? `：${detail.slice(0, 200)}` : ''}`)
+  }
+  // 有些网关在 baseUrl 配错时返回 200 + HTML 页面而非 JSON；这里捕获
+  // JSON 解析失败并给出可读的错误，避免把底层的 "Unexpected token '<'" 透传。
+  let data: {
+    choices?: Array<{ message?: { content?: string }; finish_reason?: string }>
+    usage?: { prompt_tokens?: number; completion_tokens?: number }
+  }
+  try {
+    data = (await response.json()) as typeof data
+  } catch {
+    const ct = response.headers.get('content-type') ?? ''
+    throw new Error(`文字 API 未返回 JSON（Content-Type: ${ct || '未知'}）。请检查 Base URL 是否指向 OpenAI 兼容的 /v1 端点，而非网关首页。`)
+  }
+  const message = data.choices?.[0]?.message
+  const text = typeof message?.content === 'string' ? message.content : ''
+  return {
+    text,
+    usage: {
+      inputTokens: data.usage?.prompt_tokens ?? 0,
+      outputTokens: data.usage?.completion_tokens ?? 0,
+    },
+    finishReason: data.choices?.[0]?.finish_reason ?? 'stop',
+  }
 }
 
 /**

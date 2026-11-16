@@ -54,6 +54,7 @@ import {
 import { BackendManager } from './BackendManager'
 import { BackupSettings } from './BackupSettings'
 import { ImageGenPanel } from './ImageGenPanel'
+import { GraphicStudioPage } from './graphicStudio/GraphicStudioPage'
 import { AssetsPage, InspirationPage, PublishQueuePage } from './LibraryPages'
 import { AnalyticsPage } from './AnalyticsPage'
 import { MarkdownEditor } from './MarkdownEditor'
@@ -77,6 +78,7 @@ const studioLabels: Record<StudioId, string> = {
   headline: '爆款标题工作台',
   marketing: '营销文案工作台',
   xiaohongshu: '小红书笔记工作台',
+  graphic: '公众号创作',
 }
 
 const statusLabels: Record<CreationStatus, string> = {
@@ -524,6 +526,7 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
   const [generating, setGenerating] = useState(false)
   const [textBackends, setTextBackends] = useState<Backend[]>([])
   const [textBackendId, setTextBackendId] = useState('')
+  const [textModelId, setTextModelId] = useState('')
   const abortRef = useRef<AbortController | null>(null)
   const isVideo = studio === 'video'
   const isImage = studio === 'image'
@@ -570,6 +573,18 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
   }, [])
 
   const currentTextBackend = textBackends.find((b) => b.id === textBackendId)
+
+  // Models available for the selected text backend (default + group extras).
+  const textBackendModels = useMemo(() => {
+    const set = new Set<string>()
+    if (currentTextBackend?.text?.model) set.add(currentTextBackend.text.model)
+    for (const m of currentTextBackend?.text?.models ?? []) set.add(m)
+    return [...set]
+  }, [currentTextBackend])
+
+  useEffect(() => {
+    setTextModelId((prev) => (textBackendModels.includes(prev) ? prev : currentTextBackend?.text?.model ?? ''))
+  }, [textBackendId, textBackendModels, currentTextBackend?.text?.model])
 
   // Debounced auto-save: once a draft has an id, persist edits silently so the
   // user never loses work. Skips video (never persisted) and avoids the toast
@@ -655,7 +670,7 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
       await generateTextStream(
         {
           provider: currentTextBackend?.text?.provider ?? '',
-          model: currentTextBackend?.text?.model ?? '',
+          model: textModelId || (currentTextBackend?.text?.model ?? ''),
           baseUrl: currentTextBackend?.text?.baseUrl ?? '',
           apiKey: currentTextBackend?.text?.apiKey ?? '',
           backendId: currentTextBackend?.id ?? '',
@@ -740,14 +755,15 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
       </div>
       {isImage ? (
         <div className="pa-studio-image">
-          <form className="pa-panel pa-studio-form pa-studio-form--compact" onSubmit={(event) => { event.preventDefault(); void save('draft') }}>
+          {/* 图片创作（草稿标题 + 保存草稿）已暂时注释，仅保留 AI 生图部分 */}
+          {/* <form className="pa-panel pa-studio-form pa-studio-form--compact" onSubmit={(event) => { event.preventDefault(); void save('draft') }}>
             <SectionHeading title="图片创作" />
             <label className="pa-field"><span>草稿标题</span><input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={80} placeholder="例如：春日猫片封面" /></label>
             <div className="pa-studio-save-row">
               <button type="submit" className="pa-secondary-button" disabled={isVideo}><FloppyDisk aria-hidden="true" size={17} />保存草稿</button>
               {creationId && <span className="pa-form-notice">已关联草稿，生成图可一键设为封面。</span>}
             </div>
-          </form>
+          </form> */}
           <ImageGenPanel onToast={onToast} creationId={creationId} />
         </div>
       ) : (
@@ -765,6 +781,16 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
             </select>
             {textBackends.length === 0 && <small>未配置文字后端，将使用 Harness 默认模型。可在「设置中心 → 后端管理」添加。</small>}
           </label>
+          {textBackendModels.length > 1 && (
+            <label className="pa-field">
+              <span>模型</span>
+              <select value={textModelId} onChange={(event) => setTextModelId(event.target.value)}>
+                {textBackendModels.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="pa-field"><span>草稿标题</span><input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={80} placeholder="例如：春日品牌故事初稿" /></label>
           <label className="pa-field"><span>主题 / 关键词 <b aria-hidden="true">*</b></span><textarea value={topic} onChange={(event) => setTopic(event.target.value)} maxLength={300} placeholder="例如：以江南春日为主题，写一篇有画面感的品牌故事" /><small>{topic.length}/300</small></label>
           <label className="pa-field"><span>内容风格</span><select value={style} onChange={(event) => setStyle(event.target.value)}><option value="">不指定（自由发挥）</option><option value="cinematic">电影感叙事</option><option value="poetic">东方诗意</option><option value="clear">清晰专业</option><option value="lively">轻松活泼</option></select></label>
@@ -1057,6 +1083,14 @@ export function PaipiangeRoot() {
   }, [activePage, studio])
 
   const navigate = (page: PageId) => {
+    if (page === 'graphic') {
+      // 公众号创作是独立工作台，直接打开 graphic studio。
+      setActivePage('create')
+      setStudio('graphic')
+      setSelectedCreation(null)
+      setMobileOpen(false)
+      return
+    }
     setActivePage(page)
     setStudio(null)
     setSelectedCreation(null)
@@ -1195,7 +1229,7 @@ export function PaipiangeRoot() {
   return (
     <div className="pa-root" data-theme={theme}>
       <a className="pa-skip-link" href="#pa-main-content">跳到主要内容</a>
-      <Sidebar activePage={activePage} collapsed={collapsed} mobileOpen={mobileOpen} recentCreations={creations.filter((item) => item.status !== 'archived')} onNavigate={navigate} onOpenCreation={openCreation} onCollapse={() => setCollapsed((value) => !value)} onCloseMobile={() => setMobileOpen(false)} />
+      <Sidebar activePage={studio === 'graphic' ? 'graphic' : activePage} collapsed={collapsed} mobileOpen={mobileOpen} recentCreations={creations.filter((item) => item.status !== 'archived')} onNavigate={navigate} onOpenCreation={openCreation} onCollapse={() => setCollapsed((value) => !value)} onCloseMobile={() => setMobileOpen(false)} />
       <div className="pa-main-shell">
         <Topbar activePage={activePage} studio={studio} onBack={goBack} onHome={() => navigate('home')} onOpenMobile={() => setMobileOpen(true)} onSearch={search} onToast={showToast} />
         {storageSource === 'local' && (
@@ -1208,7 +1242,8 @@ export function PaipiangeRoot() {
         <main id="pa-main-content" className="pa-content" ref={mainRef} tabIndex={-1}>
           {activePage === 'home' && !studio && <HomePage inspirationIndex={inspirationIndex} activeCategory={activeCategory} creations={creations} onCategory={setActiveCategory} onShuffle={shuffleInspiration} onOpenStudio={openStudio} onOpenCreation={openCreation} onNavigate={navigate} onToast={showToast} />}
           {activePage === 'create' && !studio && <CreateHub onOpenStudio={openStudio} />}
-          {studio && <StudioPage studio={studio} initialCreation={selectedCreation} onBack={() => { setStudio(null); setSelectedCreation(null) }} onSave={saveCreation} onToast={showToast} />}
+          {studio === 'graphic' && <GraphicStudioPage onBack={() => { setStudio(null); setSelectedCreation(null) }} onToast={showToast} />}
+          {studio && studio !== 'graphic' && <StudioPage studio={studio} initialCreation={selectedCreation} onBack={() => { setStudio(null); setSelectedCreation(null) }} onSave={saveCreation} onToast={showToast} />}
           {activePage !== 'home' && activePage !== 'create' && !studio && <WorkspacePage page={activePage} creations={creations} storageSource={storageSource} onNavigate={navigate} onOpenStudio={openStudio} onOpenCreation={openCreation} onStatus={setCreationStatus} onDelete={deleteCreation} onToast={showToast} onRefresh={refreshCreations} theme={theme} onThemeChange={changeTheme} onResumeTask={resumeTask} />}
         </main>
       </div>

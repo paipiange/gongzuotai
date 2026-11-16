@@ -1,15 +1,17 @@
-import { ImageSquare, Sparkle, ArrowClockwise, DownloadSimple, CheckCircle, UploadSimple, CaretRight, ArrowSquareOut } from '@phosphor-icons/react'
+import { ImageSquare, Sparkle, ArrowClockwise, DownloadSimple, CheckCircle, UploadSimple, CaretRight, ArrowSquareOut, X } from '@phosphor-icons/react'
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { generateImages, listBackends, setCreationCover, assetUrl, type Backend, type GeneratedImageResult } from './hostClient'
 import { buildImagePrompt, buildPromptSummary } from './promptBuilder'
 import { StylePicker } from './StylePicker'
+import { LayoutPicker } from './LayoutPicker'
+import { ColorPicker } from './ColorPicker'
 import { Lightbox, absoluteAssetUrl } from './Lightbox'
+import { GroupedModelPicker, backendToGroup, decodePick, type ModelGroup } from './GroupedModelPicker'
 import {
   stylePresets,
   layoutPresets,
   colorPresets,
   type StylePreset,
-  type LayoutPreset,
   type ColorPreset,
 } from './stylePresets'
 
@@ -32,15 +34,17 @@ export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creatio
   const [size, setSize] = useState(1024)
   const [count, setCount] = useState(1)
   const [backends, setBackends] = useState<Backend[]>([])
-  const [backendId, setBackendId] = useState('')
+  const [modelPick, setModelPick] = useState('')
   const [busy, setBusy] = useState(false)
   const [results, setResults] = useState<GeneratedImageResult[]>([])
   const [lastPrompt, setLastPrompt] = useState('')
   const [coverId, setCoverId] = useState<string | null>(null)
   const [coverBusy, setCoverBusy] = useState(false)
-  const [referenceImage, setReferenceImage] = useState<string | null>(null)
+  const [referenceImages, setReferenceImages] = useState<string[]>([])
   const [denoise, setDenoise] = useState(0.7)
   const [stylePickerOpen, setStylePickerOpen] = useState(false)
+  const [layoutPickerOpen, setLayoutPickerOpen] = useState(false)
+  const [colorPickerOpen, setColorPickerOpen] = useState(false)
   const [lightboxId, setLightboxId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -50,7 +54,12 @@ export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creatio
       if (cancelled) return
       const imageBackends = list.filter((b) => b.kind === 'llm-image' || b.kind === 'comfyui')
       setBackends(imageBackends)
-      if (imageBackends.length) setBackendId((prev) => (imageBackends.some((b) => b.id === prev) ? prev : imageBackends[0].id))
+      if (imageBackends.length) setModelPick((prev) => {
+        const gid = decodePick(prev)?.groupId
+        if (imageBackends.some((b) => b.id === gid)) return prev
+        const first = backendToGroup(imageBackends[0])
+        return first.models[0] ? `${first.id}::${first.models[0]}` : ''
+      })
     }).catch(() => {
       if (!cancelled) setBackends([])
     })
@@ -59,14 +68,19 @@ export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creatio
     }
   }, [])
 
-  const currentBackend = backends.find((b) => b.id === backendId)
+  const decoded = decodePick(modelPick)
+  const currentBackend = backends.find((b) => b.id === decoded?.groupId)
+  const modelId = decoded?.model ?? ''
   const isComfyui = currentBackend?.kind === 'comfyui'
+
+  // 分组结构（每个后端一组，组内为该后端支持的模型）。
+  const modelGroups = useMemo<ModelGroup[]>(() => backends.map(backendToGroup), [backends])
 
   const style = useMemo(() => stylePresets.find((s) => s.id === styleId), [styleId])
   const layout = useMemo(() => layoutPresets.find((l) => l.id === layoutId), [layoutId])
   const color = useMemo(() => colorPresets.find((c) => c.id === colorId), [colorId])
 
-  const canGenerate = topic.trim().length > 0 && backends.length > 0 && !!backendId
+  const canGenerate = topic.trim().length > 0 && backends.length > 0 && !!currentBackend
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -74,7 +88,7 @@ export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creatio
       onToast('请先填写画面主题', 'warning')
       return
     }
-    if (!backendId) {
+    if (!currentBackend) {
       onToast('请先在「设置中心 → 后端管理」添加一个图片后端', 'warning')
       return
     }
@@ -85,12 +99,13 @@ export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creatio
     setCoverId(null)
     try {
       const images = await generateImages({
-        backendId,
+        backendId: currentBackend.id,
         request: {
           prompt,
           count,
           size,
-          ...(referenceImage && isComfyui ? { image: referenceImage, denoise } : {}),
+          ...(modelId ? { model: modelId } : {}),
+          ...(referenceImages.length ? { images: referenceImages, denoise } : {}),
         },
         sourceCreationId: creationId,
       })
@@ -104,23 +119,31 @@ export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creatio
   }
 
   const handleReferenceUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-    if (!file.type.startsWith('image/')) {
-      onToast('请选择图片文件', 'warning')
-      return
+    const files = Array.from(event.target.files ?? [])
+    if (files.length === 0) return
+    const next: string[] = []
+    for (const file of files) {
+      if (!file.type.startsWith('image/')) {
+        onToast('请选择图片文件', 'warning')
+        continue
+      }
+      if (file.size > 16 * 1024 * 1024) {
+        onToast('参考图不能超过 16MB', 'warning')
+        continue
+      }
+      const reader = new FileReader()
+      reader.onload = () => {
+        const dataUrl = typeof reader.result === 'string' ? reader.result : null
+        if (dataUrl) setReferenceImages((prev) => [...prev, dataUrl])
+      }
+      reader.readAsDataURL(file)
     }
-    if (file.size > 16 * 1024 * 1024) {
-      onToast('参考图不能超过 16MB', 'warning')
-      return
-    }
-    const reader = new FileReader()
-    reader.onload = () => {
-      setReferenceImage(typeof reader.result === 'string' ? reader.result : null)
-    }
-    reader.readAsDataURL(file)
-    // Allow re-selecting the same file.
+    // Allow re-selecting the same files.
     event.target.value = ''
+  }
+
+  const removeReference = (index: number) => {
+    setReferenceImages((prev) => prev.filter((_, i) => i !== index))
   }
 
   const applyAsCover = async (imageId: string) => {
@@ -148,7 +171,7 @@ export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creatio
     setResults([])
     setLastPrompt('')
     setCoverId(null)
-    setReferenceImage(null)
+    setReferenceImages([])
     setDenoise(0.7)
   }
 
@@ -190,34 +213,40 @@ export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creatio
 
         <label className="pa-field">
           <span>排版（小红书/公众号置顶）</span>
-          <select value={layoutId} onChange={(event) => setLayoutId(event.target.value)}>
-            <option value="">不指定</option>
-            <optgroup label="小红书社媒卡">
-              {layoutPresets.filter((l) => l.platform === 'xiaohongshu').map((l) => (
-                <option key={l.id} value={l.id}>{l.id} · {l.name}</option>
-              ))}
-            </optgroup>
-            <optgroup label="公众号信息图">
-              {layoutPresets.filter((l) => l.platform === 'wechat').map((l) => (
-                <option key={l.id} value={l.id}>{l.id} · {l.name}</option>
-              ))}
-            </optgroup>
-            <optgroup label="其他排版（分镜 / 电商 / IP）">
-              {layoutPresets.filter((l) => l.platform === 'general').map((l) => (
-                <option key={l.id} value={l.id}>{l.id} · {l.name}</option>
-              ))}
-            </optgroup>
-          </select>
+          <button type="button" className="pa-style-trigger" onClick={() => setLayoutPickerOpen(true)}>
+            {layout ? (
+              <>
+                <LayoutPreviewThumb layoutId={layout.id} category={layout.category} />
+                <span className="pa-style-trigger__label">
+                  <b>{layout.id}</b>
+                  <span>{layout.name}</span>
+                </span>
+              </>
+            ) : (
+              <span className="pa-style-trigger__placeholder">不指定（自由发挥）</span>
+            )}
+            <CaretRight aria-hidden="true" size={16} className="pa-style-trigger__caret" />
+          </button>
+          {layout && <small className="pa-style-trigger__clear" role="button" tabIndex={0} onClick={() => setLayoutId('')} onKeyDown={(e) => e.key === 'Enter' && setLayoutId('')}>清除选择</small>}
         </label>
 
         <label className="pa-field">
           <span>主题色</span>
-          <select value={colorId} onChange={(event) => setColorId(event.target.value)}>
-            <option value="">不指定</option>
-            {colorPresets.map((c) => (
-              <option key={c.id} value={c.id}>{c.id} · {c.name}</option>
-            ))}
-          </select>
+          <button type="button" className="pa-style-trigger" onClick={() => setColorPickerOpen(true)}>
+            {color ? (
+              <>
+                <ColorPreviewThumb colorId={color.id} />
+                <span className="pa-style-trigger__label">
+                  <b>{color.id}</b>
+                  <span>{color.name}</span>
+                </span>
+              </>
+            ) : (
+              <span className="pa-style-trigger__placeholder">不指定（自由发挥）</span>
+            )}
+            <CaretRight aria-hidden="true" size={16} className="pa-style-trigger__caret" />
+          </button>
+          {color && <small className="pa-style-trigger__clear" role="button" tabIndex={0} onClick={() => setColorId('')} onKeyDown={(e) => e.key === 'Enter' && setColorId('')}>清除选择</small>}
         </label>
 
         <label className="pa-field">
@@ -239,39 +268,50 @@ export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creatio
           </select>
         </label>
 
-        {isComfyui && (
-          <div className="pa-imagegen-panel__repaint">
-            <label className="pa-field">
-              <span>参考图（重绘底图，可选）</span>
-              <div className="pa-imagegen-panel__upload">
-                <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={handleReferenceUpload} className="pa-visually-hidden" />
-                <button type="button" className="pa-secondary-button" onClick={() => fileInputRef.current?.click()}>
-                  <UploadSimple aria-hidden="true" size={16} />{referenceImage ? '更换参考图' : '上传参考图'}
-                </button>
-                {referenceImage && (
-                  <button type="button" className="pa-icon-button" aria-label="清除参考图" title="清除参考图" onClick={() => setReferenceImage(null)}><ArrowClockwise aria-hidden="true" size={16} /></button>
-                )}
+        <div className="pa-imagegen-panel__repaint">
+          <label className="pa-field">
+            <span>参考图（可选，可多张）</span>
+            <div className="pa-imagegen-panel__upload">
+              <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple onChange={handleReferenceUpload} className="pa-visually-hidden" />
+              <button type="button" className="pa-secondary-button" onClick={() => fileInputRef.current?.click()}>
+                <UploadSimple aria-hidden="true" size={16} />{referenceImages.length ? '继续添加参考图' : '上传参考图'}
+              </button>
+              {referenceImages.length > 0 && (
+                <button type="button" className="pa-icon-button" aria-label="清除全部参考图" title="清除全部参考图" onClick={() => setReferenceImages([])}><ArrowClockwise aria-hidden="true" size={16} /></button>
+              )}
+            </div>
+            {referenceImages.length > 0 && (
+              <div className="pa-imagegen-panel__ref-list">
+                {referenceImages.map((img, index) => (
+                  <div key={index} className="pa-imagegen-panel__ref-item">
+                    <img src={img} alt={`参考图 ${index + 1}`} className="pa-imagegen-panel__ref-preview" />
+                    <button type="button" className="pa-icon-button pa-imagegen-panel__ref-remove" aria-label={`移除参考图 ${index + 1}`} title="移除" onClick={() => removeReference(index)}><X aria-hidden="true" size={14} /></button>
+                  </div>
+                ))}
               </div>
-              {referenceImage && <img src={referenceImage} alt="参考图预览" className="pa-imagegen-panel__ref-preview" />}
-            </label>
-            {referenceImage && (
-              <label className="pa-field">
-                <span>重绘强度 <b>{denoise.toFixed(1)}</b></span>
-                <input type="range" min={0.1} max={1} step={0.05} value={denoise} onChange={(event) => setDenoise(Number(event.target.value))} />
-                <small>越小越接近原图，越大改动越多</small>
-              </label>
             )}
-          </div>
-        )}
+            {!isComfyui && referenceImages.length > 0 && (
+              <small>当前图片 API 后端暂不支持参考图参与生图，参考图仅作留存。</small>
+            )}
+          </label>
+          {isComfyui && referenceImages.length > 0 && (
+            <label className="pa-field">
+              <span>重绘强度 <b>{denoise.toFixed(1)}</b></span>
+              <input type="range" min={0.1} max={1} step={0.05} value={denoise} onChange={(event) => setDenoise(Number(event.target.value))} />
+              <small>越小越接近原图，越大改动越多</small>
+            </label>
+          )}
+        </div>
 
         <label className="pa-field pa-field--full">
-          <span>后端</span>
-          <select value={backendId} onChange={(event) => setBackendId(event.target.value)}>
-            {backends.length === 0 && <option value="">（无可用后端，请到设置中心添加）</option>}
-            {backends.map((b) => (
-              <option key={b.id} value={b.id}>{b.name}{b.kind === 'comfyui' ? '（本机 ComfyUI）' : '（图片 API）'}</option>
-            ))}
-          </select>
+          <span>模型</span>
+          <GroupedModelPicker
+            groups={modelGroups}
+            value={modelPick}
+            onChange={setModelPick}
+            placeholder="选择图片模型"
+            emptyHint="暂无可用后端，请到设置中心添加"
+          />
         </label>
 
         <div className="pa-imagegen-panel__actions">
@@ -293,6 +333,14 @@ export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creatio
 
       {stylePickerOpen && (
         <StylePicker value={styleId} onChange={setStyleId} onClose={() => setStylePickerOpen(false)} />
+      )}
+
+      {layoutPickerOpen && (
+        <LayoutPicker value={layoutId} onChange={setLayoutId} onClose={() => setLayoutPickerOpen(false)} />
+      )}
+
+      {colorPickerOpen && (
+        <ColorPicker value={colorId} onChange={setColorId} onClose={() => setColorPickerOpen(false)} />
       )}
 
       {results.length > 0 && (
@@ -356,4 +404,46 @@ function StylePreviewThumb({ id }: { id: string }) {
     )
   }
   return <img className="pa-style-trigger__thumb" src={url} alt={id} onError={() => setFailed(true)} />
+}
+
+const LAYOUT_ROOT = 'https://raw.githubusercontent.com/yang0/handraw-style/master/images/layouts'
+const LAYOUT_DIR: Record<string, string> = {
+  'social-card': 'social-cards',
+  infographic: 'infographics',
+  'comic-storyboard': 'comic-storyboards',
+  ecommerce: 'ecommerce',
+  'ip-character': 'ip-characters',
+}
+
+/** 触发器里展示当前选中排版的缩略图（失败时显示占位）。 */
+function LayoutPreviewThumb({ layoutId, category }: { layoutId: string; category: string }) {
+  const [failed, setFailed] = useState(false)
+  const dir = LAYOUT_DIR[category]
+  const url = dir ? `${LAYOUT_ROOT}/${dir}/${layoutId}.webp` : null
+
+  if (!url || failed) {
+    return (
+      <span className="pa-style-trigger__thumb pa-style-trigger__thumb--fallback">
+        <ImageSquare aria-hidden="true" size={18} />
+      </span>
+    )
+  }
+  return <img className="pa-style-trigger__thumb" src={url} alt={layoutId} onError={() => setFailed(true)} />
+}
+
+const COLOR_ROOT = 'https://raw.githubusercontent.com/yang0/handraw-style/master/images/colors'
+
+/** 触发器里展示当前选中主题色的色卡缩略图（失败时显示占位）。 */
+function ColorPreviewThumb({ colorId }: { colorId: string }) {
+  const [failed, setFailed] = useState(false)
+  const url = `${COLOR_ROOT}/${colorId}.webp`
+
+  if (failed) {
+    return (
+      <span className="pa-style-trigger__thumb pa-style-trigger__thumb--fallback">
+        <ImageSquare aria-hidden="true" size={18} />
+      </span>
+    )
+  }
+  return <img className="pa-style-trigger__thumb" src={url} alt={colorId} onError={() => setFailed(true)} />
 }

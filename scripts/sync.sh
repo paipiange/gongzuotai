@@ -12,7 +12,8 @@
 set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TARGET="${DSH_TARGET:-$HOME/.dsh/profiles/desktop/node_modules/dsh-paipiange}"
+PROFILE_NM="${DSH_PROFILE_NM:-$HOME/.dsh/profiles/desktop/node_modules}"
+TARGET="${DSH_TARGET:-$PROFILE_NM/dsh-paipiange}"
 
 log()  { printf '\n\033[1;36m[sync]\033[0m %s\n' "$*"; }
 fail() { printf '\n\033[1;31m[sync][FAIL]\033[0m %s\n' "$*" >&2; exit 1; }
@@ -23,16 +24,31 @@ log "实机目标:   $TARGET"
 
 [ -d "$TARGET/lib" ] || fail "未找到实机目标目录 $TARGET/lib，请先完整跑一次 scripts/deploy.sh 完成首次部署。"
 
-log "1/4 类型检查 pnpm typecheck ..."
+log "1/5 类型检查 pnpm typecheck ..."
 ( cd "$PROJECT_ROOT" && pnpm typecheck ) || fail "类型检查未通过，已中止"
 
-log "2/4 构建插件 pnpm build:plugin ..."
+log "2/5 构建插件 pnpm build:plugin ..."
 ( cd "$PROJECT_ROOT" && pnpm build:plugin ) || fail "构建失败，已中止"
 
-log "3/4 同步 lib 产物 ..."
+log "3/5 同步 lib 产物到顶层 ..."
 cp -f "$PROJECT_ROOT"/lib/* "$TARGET/lib/" || fail "复制 lib 产物失败"
 
-log "4/4 同步 package.json ..."
+log "4/5 同步 lib 产物到 .pnpm 副本（dsh 实际加载位置）..."
+# dsh 通过 package.json 的 file:...tgz 依赖安装插件，真实加载位置在 .pnpm
+# 的硬链接副本里。顶层 node_modules/dsh-paipiange 是 deploy.sh 解压的游离目录，
+# 并非 dsh 的 require 解析目标。必须同时覆盖 .pnpm 副本，否则路由不生效。
+PNPM_COPIES=$(find "$PROFILE_NM/.pnpm" -maxdepth 3 -type d -name "dsh-paipiange" 2>/dev/null)
+if [ -n "$PNPM_COPIES" ]; then
+  for pkg in $PNPM_COPIES; do
+    cp -f "$PROJECT_ROOT"/lib/* "$pkg/lib/" || fail "复制 lib 到 $pkg 失败"
+    cp -f "$PROJECT_ROOT/package.json" "$pkg/package.json" || fail "复制 package.json 到 $pkg 失败"
+    ok "   已同步 .pnpm 副本: $pkg"
+  done
+else
+  log "   未发现 .pnpm 副本（可能 pnpm 未安装该插件，跳过）"
+fi
+
+log "5/5 同步 package.json ..."
 cp -f "$PROJECT_ROOT/package.json" "$TARGET/package.json" || fail "复制 package.json 失败"
 
 log ""

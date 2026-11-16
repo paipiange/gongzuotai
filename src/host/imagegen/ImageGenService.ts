@@ -32,6 +32,7 @@ export type ProviderId = 'llm' | 'comfyui'
 export class ImageGenService {
   private readonly providers = new Map<ProviderId, ImageGenProvider>()
   private readonly backends = new Map<string, ImageGenProvider>()
+  private readonly backendConfigs = new Map<string, Backend>()
 
   constructor(config: ImageGenServiceConfig = {}) {
     if (config.llm) {
@@ -41,6 +42,7 @@ export class ImageGenService {
       this.providers.set('comfyui', new ComfyUIProvider(config.comfyui))
     }
     for (const backend of config.backends ?? []) {
+      this.backendConfigs.set(backend.id, backend)
       const impl = this.buildProvider(backend)
       if (impl) this.backends.set(backend.id, impl)
     }
@@ -81,8 +83,28 @@ export class ImageGenService {
     request: ImageGenRequest,
     signal?: AbortSignal,
   ): Promise<GeneratedImage[]> {
-    const impl = this.backends.get(backendId)
+    let impl: ImageGenProvider | null = this.backends.get(backendId) ?? null
+    if (!impl) throw new Error(`生图后端未配置: ${backendId}`)
+    // A model override (from the request) rebuilds the LLM provider with the
+    // chosen model, letting a backend expose a group of models. ComfyUI ignores
+    // the override since its model is fixed by its config.
+    if (request.model && request.model !== this.backendModel(backendId)) {
+      impl = this.buildProviderWithModel(backendId, request.model)
+    }
     if (!impl) throw new Error(`生图后端未配置: ${backendId}`)
     return impl.generate(request, signal)
+  }
+
+  /** Return the default model of a managed backend, if it has one. */
+  private backendModel(backendId: string): string | undefined {
+    const backend = this.backendConfigs.get(backendId)
+    return backend?.llm?.model
+  }
+
+  /** Rebuild an llm-image provider with a different model (same baseUrl/apiKey). */
+  private buildProviderWithModel(backendId: string, model: string): ImageGenProvider | null {
+    const backend = this.backendConfigs.get(backendId)
+    if (backend?.kind !== 'llm-image' || !backend.llm?.baseUrl || !backend.llm?.apiKey) return null
+    return new OpenAICompatImageProvider({ baseUrl: backend.llm.baseUrl, apiKey: backend.llm.apiKey, model })
   }
 }

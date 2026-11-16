@@ -8,7 +8,7 @@
  * storage or surface a clear message — never fabricate a success.
  */
 
-export type StudioId = 'article' | 'image' | 'headline' | 'marketing' | 'xiaohongshu'
+export type StudioId = 'article' | 'image' | 'headline' | 'marketing' | 'xiaohongshu' | 'graphic'
 
 export type CreationStatus = 'draft' | 'queued' | 'archived'
 
@@ -52,8 +52,8 @@ export interface Backend {
   id: string
   name: string
   kind: BackendKind
-  llm?: { baseUrl: string; model: string; apiKey?: string }
-  text?: { provider?: string; baseUrl?: string; apiKey?: string; model: string }
+  llm?: { baseUrl: string; model: string; apiKey?: string; models?: string[] }
+  text?: { provider?: string; baseUrl?: string; apiKey?: string; model: string; models?: string[] }
   comfyui?: { server: string; checkpoint?: string; unet?: string; clip?: string; vae?: string }
   createdAt: string
   updatedAt: string
@@ -248,8 +248,12 @@ export async function generateImages(input: {
     seed?: number
     steps?: number
     cfg?: number
+    /** Model override (backend group). */
+    model?: string
     /** Reference image for repainting (data URL), ComfyUI only. */
     image?: string
+    /** Multiple reference images (data URLs). ComfyUI uses the first as base. */
+    images?: string[]
     /** Repaint strength 0–1 when image is present. */
     denoise?: number
   }
@@ -272,8 +276,8 @@ export async function listBackends(): Promise<Backend[]> {
 export async function createBackend(input: {
   name: string
   kind: BackendKind
-  llm?: { baseUrl: string; apiKey: string; model: string }
-  text?: { provider?: string; baseUrl?: string; apiKey?: string; model: string }
+  llm?: { baseUrl: string; apiKey: string; model: string; models?: string[] }
+  text?: { provider?: string; baseUrl?: string; apiKey?: string; model: string; models?: string[] }
   comfyui?: { server: string; checkpoint?: string; unet?: string; clip?: string; vae?: string }
 }): Promise<Backend> {
   const data = await apiFetch<{ backend: Backend }>('.backend', {
@@ -287,8 +291,8 @@ export async function updateBackend(
   id: string,
   patch: {
     name?: string
-    llm?: { baseUrl: string; apiKey: string; model: string }
-    text?: { provider?: string; baseUrl?: string; apiKey?: string; model: string }
+    llm?: { baseUrl: string; apiKey: string; model: string; models?: string[] }
+    text?: { provider?: string; baseUrl?: string; apiKey?: string; model: string; models?: string[] }
     comfyui?: { server: string; checkpoint?: string; unet?: string; clip?: string; vae?: string }
   },
 ): Promise<Backend> {
@@ -537,6 +541,83 @@ export async function createInspiration(input: { title: string; description?: st
     body: JSON.stringify(input),
   })
   return data.inspiration
+}
+
+/** aihot 热门资讯条目。 */
+export interface AihotItem {
+  id: string
+  title: string
+  originalTitle?: string
+  summary: string
+  source: string
+  category: string
+  score: number
+  publishedAt: string
+  link: string
+  originalLink?: string
+  reason?: string
+}
+
+/** 拉取 aihot.news 的热门 AI 资讯，作为灵感来源。 */
+export async function fetchAihot(input?: { mode?: 'selected' | 'all'; category?: string; window?: string; limit?: number }): Promise<AihotItem[]> {
+  const params = new URLSearchParams()
+  if (input?.mode) params.set('mode', input.mode)
+  if (input?.category) params.set('category', input.category)
+  if (input?.window) params.set('window', input.window)
+  if (input?.limit) params.set('limit', String(input.limit))
+  const query = params.toString()
+  const data = await apiFetch<{ items: AihotItem[] }>(`.inspiration.aihot${query ? `?${query}` : ''}`)
+  return data.items
+}
+
+/** 图文分镜拆页输入（对应后端 storyboard 路由）。 */
+export interface StoryboardFact {
+  id: string
+  label: string
+  raw_amount: string
+  amount_yuan: number | null
+  unit: string
+  source_fragment: string
+  needs_review: boolean
+}
+
+export interface StoryboardPage {
+  page_no: number
+  page_type: string
+  title: string
+  subtitle: string
+  layout_id: string
+  facts_used: string[]
+  visual_brief: string
+  disclaimer: string
+}
+
+export interface StoryboardResult {
+  topic: string
+  facts: StoryboardFact[]
+  pages: StoryboardPage[]
+  computed: { sum_yuan: number | null; target_yuan: number | null; difference_yuan: number | null }
+  warnings: string[]
+}
+
+/** 调用文本模型把素材拆成多页图文分镜。 */
+export async function generateStoryboard(input: {
+  sourceText?: string
+  extractedImageText?: string
+  topic?: string
+  pageCount?: number
+  platform?: string
+  provider?: string
+  model?: string
+  baseUrl?: string
+  apiKey?: string
+  backendId?: string
+}): Promise<StoryboardResult> {
+  const data = await apiFetch<{ storyboard: StoryboardResult }>('.storyboard', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return data.storyboard
 }
 
 /** Ask the Host's text model for content-topic suggestions and save them to the pool. */

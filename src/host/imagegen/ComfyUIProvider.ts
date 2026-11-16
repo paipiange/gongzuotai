@@ -20,9 +20,12 @@ export class ComfyUIProvider implements ImageGenProvider {
   async generate(request: ImageGenRequest, signal?: AbortSignal): Promise<GeneratedImage[]> {
     const seed = request.seed ?? Math.floor(Math.random() * 0xffffffff)
 
-    // When a reference image is supplied, upload it to ComfyUI and build an
-    // img2img (repaint) workflow; otherwise fall back to the plain txt2img path.
-    const uploadedName = request.image ? await this.uploadImage(request.image, signal) : undefined
+    // When reference image(s) are supplied, upload them to ComfyUI and build an
+    // img2img (repaint) workflow. Qwen-Image-Edit is a single-image editor, so the
+    // first reference is used as the base; extra references are uploaded but not
+    // yet wired into the workflow (reserved for future multi-reference support).
+    const referenceImages = request.images?.length ? request.images : (request.image ? [request.image] : [])
+    const uploadedName = referenceImages.length ? await this.uploadImage(referenceImages[0], signal) : undefined
     const workflow = buildWorkflow(this.config, request, seed, uploadedName)
 
     const promptId = await this.submit(workflow, signal)

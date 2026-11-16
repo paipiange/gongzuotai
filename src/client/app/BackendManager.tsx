@@ -46,6 +46,9 @@ interface BackendForm {
   clip: string
   vae: string
   checkpoint: string
+  // extra models stored under this backend (a "group" of models)
+  llmModels: string[]
+  textModels: string[]
 }
 
 const EMPTY_FORM: BackendForm = {
@@ -63,6 +66,8 @@ const EMPTY_FORM: BackendForm = {
   clip: '',
   vae: '',
   checkpoint: '',
+  llmModels: [],
+  textModels: [],
 }
 
 /** Build a connection-test input from the current (possibly unsaved) form state. */
@@ -148,12 +153,22 @@ export function BackendManager({ onToast }: { onToast: Toast }) {
     void reload()
   }, [])
 
+  /** Reset the transient, form-scoped state shared across create/edit sessions. */
+  const resetFormScopedState = () => {
+    setModelOptions([])
+    setModelFilter('')
+    setFormTestResult(null)
+    setShowApiKey(false)
+  }
+
   const startCreate = () => {
+    resetFormScopedState()
     setEditingId(null)
     setEditing({ ...EMPTY_FORM })
   }
 
   const startEdit = (backend: Backend) => {
+    resetFormScopedState()
     setEditingId(backend.id)
     setEditing({
       name: backend.name,
@@ -170,6 +185,8 @@ export function BackendManager({ onToast }: { onToast: Toast }) {
       clip: backend.comfyui?.clip ?? '',
       vae: backend.comfyui?.vae ?? '',
       checkpoint: backend.comfyui?.checkpoint ?? '',
+      llmModels: backend.llm?.models ?? [],
+      textModels: backend.text?.models ?? [],
     })
   }
 
@@ -177,6 +194,8 @@ export function BackendManager({ onToast }: { onToast: Toast }) {
     setEditing(null)
     setEditingId(null)
     setFormTestResult(null)
+    setModelOptions([])
+    setModelFilter('')
   }
 
   /** Test the connection using the values currently entered in the form. */
@@ -246,6 +265,34 @@ export function BackendManager({ onToast }: { onToast: Toast }) {
     ? modelOptions.filter((m) => m.toLowerCase().includes(modelFilter.trim().toLowerCase()))
     : modelOptions
 
+  /** Toggle a model in the backend's stored model group (and default it as the primary model). */
+  const toggleModel = (target: 'llm-image' | 'llm-text', model: string) => {
+    if (!editing) return
+    const list = target === 'llm-image' ? editing.llmModels : editing.textModels
+    const has = list.includes(model)
+    const next = has ? list.filter((m) => m !== model) : [...list, model]
+    if (target === 'llm-image') {
+      setEditing({ ...editing, llmModels: next, model: editing.model.trim() || model })
+    } else {
+      setEditing({ ...editing, textModels: next, textModel: editing.textModel.trim() || model })
+    }
+  }
+
+  /** Select all currently filtered model options into the backend's model group. */
+  const selectAllModels = (target: 'llm-image' | 'llm-text') => {
+    if (!editing) return
+    const candidates = filteredModelOptions
+    if (candidates.length === 0) return
+    const existing = target === 'llm-image' ? editing.llmModels : editing.textModels
+    const merged = Array.from(new Set([...existing, ...candidates]))
+    const firstModel = merged[0] ?? ''
+    if (target === 'llm-image') {
+      setEditing({ ...editing, llmModels: merged, model: editing.model.trim() || firstModel })
+    } else {
+      setEditing({ ...editing, textModels: merged, textModel: editing.textModel.trim() || firstModel })
+    }
+  }
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
     if (!editing) return
@@ -255,8 +302,14 @@ export function BackendManager({ onToast }: { onToast: Toast }) {
     }
     const kind = editing.kind
     if (kind === 'llm-image') {
-      if (!editing.baseUrl.trim() || !editing.apiKey.trim() || !editing.model.trim()) {
-        onToast('请填写图片 API 的 Base URL、API Key 与模型名', 'warning')
+      if (!editing.baseUrl.trim() || !editing.model.trim()) {
+        onToast('请填写图片 API 的 Base URL 与模型名', 'warning')
+        return
+      }
+      // On edit the apiKey arrives blank (host redacts it); only require it when
+      // creating a brand-new backend. The host keeps the real key and re-fills it.
+      if (!editingId && !editing.apiKey.trim()) {
+        onToast('请填写图片 API 的 API Key', 'warning')
         return
       }
     } else if (kind === 'llm-text') {
@@ -285,7 +338,7 @@ export function BackendManager({ onToast }: { onToast: Toast }) {
         name: editing.name.trim(),
         kind,
         ...(kind === 'llm-image'
-          ? { llm: { baseUrl: editing.baseUrl.trim().replace(/\/+$/, ''), apiKey: editing.apiKey.trim(), model: editing.model.trim() } }
+          ? { llm: { baseUrl: editing.baseUrl.trim().replace(/\/+$/, ''), apiKey: editing.apiKey.trim(), model: editing.model.trim(), ...(editing.llmModels.length ? { models: editing.llmModels } : {}) } }
           : {}),
         ...(kind === 'llm-text'
           ? {
@@ -294,6 +347,7 @@ export function BackendManager({ onToast }: { onToast: Toast }) {
                 baseUrl: editing.textBaseUrl.trim().replace(/\/+$/, '') || undefined,
                 apiKey: editing.textApiKey.trim() || undefined,
                 model: editing.textModel.trim(),
+                ...(editing.textModels.length ? { models: editing.textModels } : {}),
               },
             }
           : {}),
@@ -457,12 +511,14 @@ export function BackendManager({ onToast }: { onToast: Toast }) {
       </div>
 
       {editing && (
-        <form className="pa-backend-form" onSubmit={handleSubmit}>
-          <div className="pa-backend-form__head">
+        <div className="pa-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) cancelEdit() }}>
+          <form className="pa-modal pa-backend-form" onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}>
+          <div className="pa-modal__head">
             <h3>{editingId ? '编辑后端' : '新增后端'}</h3>
             <button type="button" className="pa-icon-button" onClick={cancelEdit}><X aria-hidden="true" size={18} /></button>
           </div>
 
+          <div className="pa-modal__body">
           <label className="pa-field pa-field--full">
             <span>名称 <b aria-hidden="true">*</b></span>
             <input type="text" placeholder="例如：本机 ComfyUI / GPT 图片" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
@@ -504,7 +560,10 @@ export function BackendManager({ onToast }: { onToast: Toast }) {
                   options={filteredModelOptions}
                   filter={modelFilter}
                   onFilterChange={setModelFilter}
-                  onPick={(m) => setEditing({ ...editing, model: m })}
+                  selected={editing.llmModels}
+                  onToggle={(m) => toggleModel('llm-image', m)}
+                  onPickPrimary={(m) => setEditing({ ...editing, model: m })}
+                  onSelectAll={() => selectAllModels('llm-image')}
                   loading={fetchingModels}
                 />
               </label>
@@ -544,7 +603,10 @@ export function BackendManager({ onToast }: { onToast: Toast }) {
                   options={filteredModelOptions}
                   filter={modelFilter}
                   onFilterChange={setModelFilter}
-                  onPick={(m) => setEditing({ ...editing, textModel: m })}
+                  selected={editing.textModels}
+                  onToggle={(m) => toggleModel('llm-text', m)}
+                  onPickPrimary={(m) => setEditing({ ...editing, textModel: m })}
+                  onSelectAll={() => selectAllModels('llm-text')}
                   loading={fetchingModels}
                 />
               </label>
@@ -597,49 +659,79 @@ export function BackendManager({ onToast }: { onToast: Toast }) {
               </div>
             )}
           </div>
+          </div>
 
-          <div className="pa-imagegen-settings__actions">
+          <div className="pa-modal__footer">
             <button type="submit" className="pa-primary-button" disabled={saving}><FloppyDisk aria-hidden="true" size={17} /> {saving ? '保存中…' : '保存'}</button>
             <button type="button" className="pa-secondary-button" onClick={cancelEdit}>取消</button>
           </div>
         </form>
+        </div>
       )}
     </section>
   )
 }
 
-/** 模型候选列表：拉取后展示，点选填充到模型输入框，支持关键字过滤。 */
+/** 模型候选列表：拉取后展示，可勾选多个存入后端分组，支持关键字过滤与全选。 */
 function ModelSuggestions(props: {
   options: string[]
   filter: string
   onFilterChange: (value: string) => void
-  onPick: (model: string) => void
+  selected: string[]
+  onToggle: (model: string) => void
+  onPickPrimary: (model: string) => void
+  onSelectAll: () => void
   loading: boolean
 }) {
-  const { options, filter, onFilterChange, onPick, loading } = props
+  const { options, filter, onFilterChange, selected, onToggle, onPickPrimary, onSelectAll, loading } = props
   if (loading) {
     return <div className="pa-model-suggest__loading">正在拉取模型列表…</div>
   }
-  if (options.length === 0) return null
+  if (options.length === 0 && selected.length === 0) return null
+  const allSelected = options.length > 0 && options.every((m) => selected.includes(m))
   return (
     <div className="pa-model-suggest">
-      <input
-        type="text"
-        className="pa-model-suggest__filter"
-        placeholder="搜索模型名…"
-        value={filter}
-        onChange={(e) => onFilterChange(e.target.value)}
-      />
-      <ul className="pa-model-suggest__list">
-        {options.slice(0, 50).map((model) => (
-          <li key={model}>
-            <button type="button" className="pa-model-suggest__item" onClick={() => onPick(model)} title={`使用 ${model}`}>
-              {model}
+      {selected.length > 0 && (
+        <div className="pa-model-suggest__selected">
+          <span className="pa-model-suggest__selected-label">已选模型（{selected.length}）：</span>
+          {selected.map((model) => (
+            <button key={model} type="button" className="pa-model-chip" onClick={() => onToggle(model)} title={`移除 ${model}`}>
+              {model} <span aria-hidden="true">✕</span>
             </button>
-          </li>
-        ))}
-        {options.length === 0 && <li className="pa-model-suggest__empty">无匹配模型</li>}
-      </ul>
+          ))}
+        </div>
+      )}
+      {options.length > 0 && (
+        <>
+          <div className="pa-model-suggest__toolbar">
+            <input
+              type="text"
+              className="pa-model-suggest__filter"
+              placeholder="搜索模型名…"
+              value={filter}
+              onChange={(e) => onFilterChange(e.target.value)}
+            />
+            <button type="button" className="pa-model-suggest__select-all" onClick={onSelectAll}>
+              {allSelected ? '全选 ✓' : '全选'}
+            </button>
+          </div>
+          <ul className="pa-model-suggest__list">
+            {options.slice(0, 100).map((model) => {
+              const checked = selected.includes(model)
+              return (
+                <li key={model}>
+                  <button type="button" className="pa-model-suggest__item" onClick={() => onToggle(model)}>
+                    <span className="pa-model-suggest__check" data-checked={checked}>{checked ? '✓' : ''}</span>
+                    <span className="pa-model-suggest__name">{model}</span>
+                    <span className="pa-model-suggest__set" role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); onPickPrimary(model) }} onKeyDown={(e) => e.key === 'Enter' && (e.stopPropagation(), onPickPrimary(model))}>设为主模型</span>
+                  </button>
+                </li>
+              )
+            })}
+            {options.length === 0 && <li className="pa-model-suggest__empty">无匹配模型</li>}
+          </ul>
+        </>
+      )}
     </div>
   )
 }
