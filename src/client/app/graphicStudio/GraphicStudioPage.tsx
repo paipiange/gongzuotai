@@ -22,10 +22,10 @@ import {
   type Backend,
   type StoryboardResult,
   type StoryboardPage,
-  type TaskRecord,
 } from '../hostClient'
 import { absoluteAssetUrl } from '../Lightbox'
 import { GroupedModelPicker, backendToGroup, decodePick, type ModelGroup } from '../GroupedModelPicker'
+import { buildPageTaskMap, extractAssetId } from './graphicRecover'
 
 interface Toast {
   (message: string, tone?: 'info' | 'success' | 'warning'): void
@@ -86,30 +86,6 @@ interface PageRecord {
   assetId?: string
   busy?: boolean
   error?: string
-}
-
-/** 按 pageIndex 聚合生图任务，每页取最新（createdAt 最大）的任务。 */
-function buildPageTaskMap(tasks: TaskRecord[], sessionId: string): Map<number, TaskRecord> {
-  const byPage = new Map<number, TaskRecord>()
-  for (const task of tasks) {
-    if (task.input.sessionId !== sessionId) continue
-    const index = typeof task.input.pageIndex === 'number' ? task.input.pageIndex : -1
-    if (index < 0) continue
-    const existing = byPage.get(index)
-    if (!existing || task.createdAt > existing.createdAt) byPage.set(index, task)
-  }
-  return byPage
-}
-
-/** 从任务 result 里取第一张图的 asset id。 */
-function extractAssetId(task: TaskRecord): string | undefined {
-  const images = Array.isArray(task.result.images) ? task.result.images : []
-  for (const img of images) {
-    if (img && typeof img === 'object' && typeof (img as { id?: unknown }).id === 'string') {
-      return (img as { id: string }).id
-    }
-  }
-  return undefined
 }
 
 export function GraphicStudioPage({ onBack, onToast }: { onBack: () => void; onToast: Toast }) {
