@@ -258,6 +258,10 @@ export async function generateImages(input: {
     denoise?: number
   }
   sourceCreationId?: string
+  /** 公众号分镜：第几页（用于后台任务恢复时回填到对应页）。 */
+  pageIndex?: number
+  /** 公众号分镜：本次拆页的 run id（用于匹配进行中/已完成的生图任务）。 */
+  sessionId?: string
 }): Promise<GeneratedImageResult[]> {
   const data = await apiFetch<{ images: GeneratedImageResult[] }>('.imagegen.generate', {
     method: 'POST',
@@ -700,6 +704,99 @@ export async function exportGraphicZip(input: { assetIds: string[]; title?: stri
     throw new HostError(body?.error ?? `导出失败 (HTTP ${response.status})`, response.status)
   }
   return response.blob()
+}
+
+// ---- Graphic studio session persistence ----
+
+/** 单页会话草稿（page + 已生成 assetId + 错误信息）。 */
+export interface GraphicSessionPage {
+  page: StoryboardPage
+  assetId?: string
+  error?: string
+}
+
+/** 公众号创作工作台的当前会话（后端 SQLite 持久化，跨会话/重启可恢复）。 */
+export interface GraphicSession {
+  sourceText: string
+  topic: string
+  pageCount: number
+  textPick: string
+  imagePick: string
+  storyboard: StoryboardResult | null
+  pages: GraphicSessionPage[]
+  sessionId: string
+}
+
+interface RawGraphicSession {
+  sourceText: string
+  topic: string
+  pageCount: number
+  textPick: string
+  imagePick: string
+  storyboardJson: string | null
+  pagesJson: string
+  sessionId: string
+}
+
+function parseStoryboardJson(raw: string | null): StoryboardResult | null {
+  if (!raw) return null
+  try {
+    const value = JSON.parse(raw) as unknown
+    return value && typeof value === 'object' && Array.isArray((value as StoryboardResult).pages)
+      ? (value as StoryboardResult)
+      : null
+  } catch {
+    return null
+  }
+}
+
+function parsePagesJson(raw: string): GraphicSessionPage[] {
+  try {
+    const value = JSON.parse(raw) as unknown
+    if (!Array.isArray(value)) return []
+    return value.filter((p): p is GraphicSessionPage => !!p && typeof p === 'object' && !!(p as GraphicSessionPage).page)
+  } catch {
+    return []
+  }
+}
+
+/** 读取当前公众号会话（无会话时返回 null）。 */
+export async function getGraphicSession(): Promise<GraphicSession | null> {
+  const data = await apiFetch<{ session: RawGraphicSession | null }>('.graphic.session')
+  const raw = data.session
+  if (!raw) return null
+  return {
+    sourceText: raw.sourceText,
+    topic: raw.topic,
+    pageCount: raw.pageCount,
+    textPick: raw.textPick,
+    imagePick: raw.imagePick,
+    storyboard: parseStoryboardJson(raw.storyboardJson),
+    pages: parsePagesJson(raw.pagesJson),
+    sessionId: raw.sessionId,
+  }
+}
+
+/** 保存公众号会话（UPSERT）。 */
+export async function saveGraphicSession(session: GraphicSession): Promise<void> {
+  await apiFetch<{ ok: boolean }>('.graphic.session', {
+    method: 'PUT',
+    body: JSON.stringify({
+      sourceText: session.sourceText,
+      topic: session.topic,
+      pageCount: session.pageCount,
+      textPick: session.textPick,
+      imagePick: session.imagePick,
+      storyboardJson: session.storyboard ? JSON.stringify(session.storyboard) : null,
+      pagesJson: JSON.stringify(session.pages),
+      sessionId: session.sessionId,
+    }),
+  })
+}
+
+/** 清除公众号会话。 */
+export async function clearGraphicSession(): Promise<void> {
+  await apiFetch<{ ok: boolean }>('.graphic.session', { method: 'DELETE' })
 }
 
 // ---- Assets ----

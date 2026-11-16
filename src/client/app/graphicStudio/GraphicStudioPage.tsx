@@ -9,20 +9,23 @@
  */
 
 import { ArrowLeft, Sparkle, ImageSquare, TrashSimple, ArrowSquareOut, DownloadSimple } from '@phosphor-icons/react'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   generateStoryboard,
   generateImages,
   listBackends,
   assetUrl,
   exportGraphicZip,
+  getGraphicSession,
+  saveGraphicSession,
+  listTasks,
   type Backend,
   type StoryboardResult,
   type StoryboardPage,
+  type TaskRecord,
 } from '../hostClient'
 import { absoluteAssetUrl } from '../Lightbox'
 import { GroupedModelPicker, backendToGroup, decodePick, type ModelGroup } from '../GroupedModelPicker'
-import { loadGraphicDraft, saveGraphicDraft } from './graphicDraft'
 
 interface Toast {
   (message: string, tone?: 'info' | 'success' | 'warning'): void
@@ -85,21 +88,47 @@ interface PageRecord {
   error?: string
 }
 
+/** 按 pageIndex 聚合生图任务，每页取最新（createdAt 最大）的任务。 */
+function buildPageTaskMap(tasks: TaskRecord[], sessionId: string): Map<number, TaskRecord> {
+  const byPage = new Map<number, TaskRecord>()
+  for (const task of tasks) {
+    if (task.input.sessionId !== sessionId) continue
+    const index = typeof task.input.pageIndex === 'number' ? task.input.pageIndex : -1
+    if (index < 0) continue
+    const existing = byPage.get(index)
+    if (!existing || task.createdAt > existing.createdAt) byPage.set(index, task)
+  }
+  return byPage
+}
+
+/** 从任务 result 里取第一张图的 asset id。 */
+function extractAssetId(task: TaskRecord): string | undefined {
+  const images = Array.isArray(task.result.images) ? task.result.images : []
+  for (const img of images) {
+    if (img && typeof img === 'object' && typeof (img as { id?: unknown }).id === 'string') {
+      return (img as { id: string }).id
+    }
+  }
+  return undefined
+}
+
 export function GraphicStudioPage({ onBack, onToast }: { onBack: () => void; onToast: Toast }) {
-  // 挂载时恢复上次草稿（惰性初始化，仅首次渲染读取一次 localStorage）。
-  const [restored] = useState(loadGraphicDraft)
-  const [sourceText, setSourceText] = useState(restored?.sourceText ?? '')
-  const [topic, setTopic] = useState(restored?.topic ?? '')
-  const [pageCount, setPageCount] = useState(restored?.pageCount ?? 4)
+  const [sourceText, setSourceText] = useState('')
+  const [topic, setTopic] = useState('')
+  const [pageCount, setPageCount] = useState(4)
   const [textBackends, setTextBackends] = useState<Backend[]>([])
-  const [textPick, setTextPick] = useState(restored?.textPick ?? '')
+  const [textPick, setTextPick] = useState('')
   const [imageBackends, setImageBackends] = useState<Backend[]>([])
-  const [imagePick, setImagePick] = useState(restored?.imagePick ?? '')
+  const [imagePick, setImagePick] = useState('')
   const [breaking, setBreaking] = useState(false)
-  const [storyboard, setStoryboard] = useState<StoryboardResult | null>(restored?.storyboard ?? null)
-  const [pages, setPages] = useState<PageRecord[]>(() => (restored?.pages ?? []).map((p) => ({ page: p.page, assetId: p.assetId, error: p.error })))
+  const [storyboard, setStoryboard] = useState<StoryboardResult | null>(null)
+  const [pages, setPages] = useState<PageRecord[]>([])
   const [activeIndex, setActiveIndex] = useState(0)
-  const [warnings, setWarnings] = useState<string[]>(restored?.storyboard?.warnings ?? [])
+  const [warnings, setWarnings] = useState<string[]>([])
+  const [sessionId, setSessionId] = useState('')
+  const [loaded, setLoaded] = useState(false)
+  const pagesRef = useRef<PageRecord[]>(pages)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -122,19 +151,112 @@ export function GraphicStudioPage({ onBack, onToast }: { onBack: () => void; onT
     }
   }, [])
 
-  // 状态变化时自动保存草稿（剥离 busy 瞬态，避免恢复后卡在「生成中」）。
+  // 状态变化时自动保存到后端会话（防抖，剥离 busy 瞬态，恢复完成前不写）。
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
-    saveGraphicDraft({
-      version: 1,
-      sourceText,
-      topic,
-      pageCount,
-      textPick,
-      imagePick,
-      storyboard,
-      pages: pages.map((p) => ({ page: p.page, assetId: p.assetId, error: p.error })),
-    })
-  }, [sourceText, topic, pageCount, textPick, imagePick, storyboard, pages])
+    if (!loaded) return
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => {
+      saveGraphicSession({
+        sourceText,
+        topic,
+        pageCount,
+        textPick,
+        imagePick,
+        storyboard,
+        pages: pages.map((p) => ({ page: p.page, assetId: p.assetId, error: p.error })),
+        sessionId,
+      }).catch(() => {})
+    }, 300)
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+    }
+  }, [loaded, sourceText, topic, pageCount, textPick, imagePick, storyboard, pages, sessionId])
+
+  // pagesRef 始终指向最新 pages，供异步回填逻辑读取。
+  useEffect(() => {
+    pagesRef.current = pages
+  }, [pages])
+
+  /** 用后端任务结果回填各页（success→assetId / failed→error / running→busy），返回是否仍有 running。 */
+  const refreshFromTasks = useCallback(async (sid: string): Promise<boolean> => {
+    try {
+      const tasks = await listTasks({ kind: 'image' })
+      const byPage = buildPageTaskMap(tasks, sid)
+      if (!byPage.size) return false
+      let hasRunning = false
+      const next = pagesRef.current.map((p, i) => {
+        const task = byPage.get(i)
+        if (!task || p.assetId) return p
+        if (task.status === 'success') {
+          const id = extractAssetId(task)
+          if (id) return { ...p, busy: false, assetId: id, error: undefined }
+          return p
+        }
+        if (task.status === 'failed') return { ...p, busy: false, error: task.errorMessage ?? '生成失败' }
+        if (task.status === 'running') {
+          hasRunning = true
+          return { ...p, busy: true, error: undefined }
+        }
+        return p
+      })
+      setPages(next)
+      return hasRunning
+    } catch {
+      return false
+    }
+  }, [])
+
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current)
+      pollRef.current = null
+    }
+  }, [])
+
+  /** 轮询后台进行中的生图任务，直到全部结束再回填结果。 */
+  const startPolling = useCallback((sid: string) => {
+    if (pollRef.current) return
+    const tick = async () => {
+      const running = await refreshFromTasks(sid)
+      if (!running) stopPolling()
+    }
+    pollRef.current = setInterval(tick, 3000)
+    void tick()
+  }, [refreshFromTasks, stopPolling])
+
+  // 卸载时清理轮询定时器。
+  useEffect(() => stopPolling, [stopPolling])
+
+  // 挂载时从后端恢复会话，并回填后台进行中/已完成的生图结果。
+  useEffect(() => {
+    let cancelled = false
+    getGraphicSession()
+      .then(async (session) => {
+        if (cancelled) return
+        setLoaded(true)
+        if (!session) return
+        setSourceText(session.sourceText)
+        setTopic(session.topic)
+        setPageCount(session.pageCount)
+        setTextPick(session.textPick)
+        setImagePick(session.imagePick)
+        setStoryboard(session.storyboard)
+        setPages(session.pages.map((p) => ({ page: p.page, assetId: p.assetId, error: p.error })))
+        setWarnings(session.storyboard?.warnings ?? [])
+        setSessionId(session.sessionId)
+        if (session.sessionId && session.pages.some((p) => !p.assetId)) {
+          const stillRunning = await refreshFromTasks(session.sessionId)
+          if (stillRunning && !cancelled) startPolling(session.sessionId)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoaded(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [refreshFromTasks, startPolling])
 
   const textGroups = useMemo<ModelGroup[]>(() => textBackends.map(backendToGroup), [textBackends])
   const imageGroups = useMemo<ModelGroup[]>(() => imageBackends.map(backendToGroup), [imageBackends])
@@ -153,6 +275,7 @@ export function GraphicStudioPage({ onBack, onToast }: { onBack: () => void; onT
       return
     }
     setBreaking(true)
+    stopPolling()
     setStoryboard(null)
     setPages([])
     setWarnings([])
@@ -168,6 +291,7 @@ export function GraphicStudioPage({ onBack, onToast }: { onBack: () => void; onT
         baseUrl: textBackend?.text?.baseUrl,
         apiKey: textBackend?.text?.apiKey,
       })
+      setSessionId(crypto.randomUUID())
       setStoryboard(result)
       setPages(result.pages.map((p) => ({ page: p })))
       setWarnings(result.warnings ?? [])
@@ -194,6 +318,8 @@ export function GraphicStudioPage({ onBack, onToast }: { onBack: () => void; onT
       const images = await generateImages({
         backendId: imageBackend.id,
         request: { prompt, count: 1, size: 1024, ...(imageModelId ? { model: imageModelId } : {}) },
+        pageIndex: index,
+        sessionId,
       })
       const assetId = images[0]?.id
       setPages((prev) => prev.map((p, i) => (i === index ? { ...p, busy: false, assetId } : p)))

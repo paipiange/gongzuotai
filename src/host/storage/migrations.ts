@@ -147,6 +147,24 @@ const migrations: Migration[] = [
       ALTER TABLE creations ADD COLUMN tags_json TEXT NOT NULL DEFAULT '[]';
     `,
   },
+  {
+    version: 4,
+    name: 'graphic-session',
+    sql: `
+      CREATE TABLE IF NOT EXISTS graphic_sessions (
+        id TEXT PRIMARY KEY,
+        source_text TEXT NOT NULL DEFAULT '',
+        topic TEXT NOT NULL DEFAULT '',
+        page_count INTEGER NOT NULL DEFAULT 4,
+        text_pick TEXT NOT NULL DEFAULT '',
+        image_pick TEXT NOT NULL DEFAULT '',
+        storyboard_json TEXT,
+        pages_json TEXT NOT NULL DEFAULT '[]',
+        session_id TEXT NOT NULL DEFAULT '',
+        updated_at TEXT NOT NULL
+      );
+    `,
+  },
 ]
 
 export const latestSchemaVersion = migrations.at(-1)?.version ?? 0

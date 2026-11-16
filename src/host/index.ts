@@ -10,6 +10,7 @@ import { TemplateRepository } from './storage/templateRepository'
 import { InspirationRepository } from './storage/inspirationRepository'
 import { PublishRepository } from './storage/publishRepository'
 import { TaskRepository } from './storage/taskRepository'
+import { GraphicSessionRepository } from './storage/graphicSessionRepository'
 import { ExportService } from './storage/exportService'
 import { ImageGenService } from './imagegen/ImageGenService'
 import { registerApiRoutes } from './api/routes'
@@ -72,6 +73,7 @@ export async function apply(ctx: Context, config: Config = {}) {
   const publish = new PublishRepository(storage.db)
   const exports = new ExportService(storage.paths)
   const tasks = new TaskRepository(storage.db)
+  const graphicSessions = new GraphicSessionRepository(storage.db)
 
   // The image-gen service is rebuilt on demand from the latest saved config so
   // a newly saved backend takes effect without a plugin restart.
@@ -415,7 +417,7 @@ export async function apply(ctx: Context, config: Config = {}) {
     )
 
     registerApiRoutes(
-      { creations, settings, assets, templates, inspirations, publish, exports, tasks, buildImageGen, llm: host.llm },
+      { creations, settings, assets, templates, inspirations, publish, exports, tasks, graphicSessions, buildImageGen, llm: host.llm },
       (path, methods, handler) => {
         disposers.push(
           webServer.register({

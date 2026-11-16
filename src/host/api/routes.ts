@@ -5,6 +5,7 @@ import type { TemplateRepository } from '../storage/templateRepository'
 import type { InspirationRepository } from '../storage/inspirationRepository'
 import type { PublishRepository, PublishPlatform, PublishStatus } from '../storage/publishRepository'
 import type { TaskRepository } from '../storage/taskRepository'
+import type { GraphicSessionRepository } from '../storage/graphicSessionRepository'
 import type { ExportService, ExportFormat } from '../storage/exportService'
 import type { ImageGenService, ProviderId } from '../imagegen/ImageGenService'
 import type { ImageGenRequest } from '../imagegen/types'
@@ -35,6 +36,7 @@ export type ApiDeps = {
   publish: PublishRepository
   exports: ExportService
   tasks: TaskRepository
+  graphicSessions: GraphicSessionRepository
   /** Builds a fresh image-gen service so a newly saved backend takes effect without a restart. */
   buildImageGen: () => ImageGenService
   /** Harness `llm` service (for AI inspiration suggestion). Optional. */
@@ -123,7 +125,7 @@ type ClientDraft = {
 }
 
 export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
-  const { creations, settings, assets, templates, inspirations, publish, exports, tasks, buildImageGen, llm } = deps
+  const { creations, settings, assets, templates, inspirations, publish, exports, tasks, graphicSessions, buildImageGen, llm } = deps
 
   // ---- Creations list + create ----
 
@@ -273,6 +275,10 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
         backendId?: string
         request?: ImageGenRequest
         sourceCreationId?: string
+        /** 公众号分镜：第几页（用于后台任务恢复时回填到对应页）。 */
+        pageIndex?: number
+        /** 公众号分镜：本次拆页的 run id（用于匹配进行中/已完成的生图任务）。 */
+        sessionId?: string
       } | null
       if (!body || !body.request?.prompt) return error('缺少 prompt')
       const imageGen = buildImageGen()
@@ -295,6 +301,8 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
           backendId: body.backendId,
           provider: body.provider,
           sourceCreationId: body.sourceCreationId,
+          pageIndex: body.pageIndex ?? null,
+          sessionId: body.sessionId ?? null,
         },
       })
       try {
@@ -858,6 +866,40 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
           'Cache-Control': 'no-store',
         },
       })
+  })
+
+  // ---- Graphic studio session persistence ----
+
+  register('/api/paipiange.graphic.session', ['GET', 'PUT', 'DELETE'], async (request) => {
+      if (request.method === 'GET') {
+        return json({ session: graphicSessions.get() })
+      }
+      if (request.method === 'DELETE') {
+        graphicSessions.clear()
+        return json({ ok: true })
+      }
+      const body = await request.json().catch(() => null) as {
+        sourceText?: unknown
+        topic?: unknown
+        pageCount?: unknown
+        textPick?: unknown
+        imagePick?: unknown
+        storyboardJson?: unknown
+        pagesJson?: unknown
+        sessionId?: unknown
+      } | null
+      if (!body) return error('请求体无效')
+      graphicSessions.save({
+        sourceText: typeof body.sourceText === 'string' ? body.sourceText : '',
+        topic: typeof body.topic === 'string' ? body.topic : '',
+        pageCount: typeof body.pageCount === 'number' && body.pageCount > 0 ? Math.floor(body.pageCount) : 4,
+        textPick: typeof body.textPick === 'string' ? body.textPick : '',
+        imagePick: typeof body.imagePick === 'string' ? body.imagePick : '',
+        storyboardJson: typeof body.storyboardJson === 'string' ? body.storyboardJson : null,
+        pagesJson: typeof body.pagesJson === 'string' ? body.pagesJson : '[]',
+        sessionId: typeof body.sessionId === 'string' ? body.sessionId : '',
+      })
+      return json({ ok: true })
   })
 
   // ---- Graphic storyboard pages ZIP export ----
