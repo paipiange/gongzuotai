@@ -35,6 +35,20 @@ describe('OpenAICompatImageProvider', () => {
     expect(images[0].mimeType).toBe('image/png')
   })
 
+  it('sends explicit width×height as the size string (non-square)', async () => {
+    const calls: Array<{ url: string; body: unknown }> = []
+    globalThis.fetch = vi.fn(async (input: unknown, init?: RequestInit) => {
+      calls.push({ url: String(input), body: init?.body ? JSON.parse(String(init.body)) : undefined })
+      return new Response(JSON.stringify({ data: [{ b64_json: 'YQ==' }] }), { status: 200 })
+    }) as unknown as typeof fetch
+
+    const provider = new OpenAICompatImageProvider({ baseUrl: 'https://api.example.com/v1', apiKey: 'secret', model: 'dall-e-3' })
+    await provider.generate({ prompt: 'a poster', width: 1024, height: 1280 })
+
+    expect(calls[0].url).toBe('https://api.example.com/v1/images/generations')
+    expect(calls[0].body).toMatchObject({ size: '1024x1280' })
+  })
+
   it('throws on non-2xx response', async () => {
     globalThis.fetch = vi.fn(async () => new Response('bad key', { status: 401 })) as unknown as typeof fetch
     const provider = new OpenAICompatImageProvider({ baseUrl: 'https://x', apiKey: 'k', model: 'm' })
@@ -83,6 +97,21 @@ describe('OpenAICompatImageProvider', () => {
     const body = calls[0].body as FormData
     expect(body.get('image')).toBeInstanceOf(Blob)
     expect(body.get('image2')).toBeInstanceOf(Blob)
+  })
+
+  it('sends width×height on the edits endpoint when a reference is present', async () => {
+    const calls: Array<{ url: string; body: unknown }> = []
+    globalThis.fetch = vi.fn(async (input: unknown, init?: RequestInit) => {
+      calls.push({ url: String(input), body: init?.body })
+      return new Response(JSON.stringify({ data: [{ b64_json: 'YQ==' }] }), { status: 200 })
+    }) as unknown as typeof fetch
+
+    const provider = new OpenAICompatImageProvider({ baseUrl: 'https://x/v1', apiKey: 'k', model: 'm' })
+    const dataUrl = `data:image/png;base64,${Buffer.from('ref').toString('base64')}`
+    await provider.generate({ prompt: 'p', image: dataUrl, width: 1024, height: 1280 })
+
+    const body = calls[0].body as FormData
+    expect(body.get('size')).toBe('1024x1280')
   })
 })
 
@@ -159,6 +188,41 @@ describe('ComfyUIProvider', () => {
     expect(prompt['4'].class_type).toBe('TextEncodeQwenImageEdit')
     expect(prompt['5'].class_type).toBe('EmptyQwenImageLayeredLatentImage')
     expect(prompt['1'].inputs.unet_name).toBe('qwen_image_edit_2511.safetensors')
+  })
+
+  it('sends explicit width×height into the latent node', async () => {
+    const png = Buffer.from('png-bytes')
+    let submittedBody: Record<string, unknown> | undefined
+    globalThis.fetch = vi.fn(async (input: unknown, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/prompt')) {
+        submittedBody = JSON.parse(String(init?.body))
+        return new Response(JSON.stringify({ prompt_id: 'p1' }), { status: 200 })
+      }
+      if (url.includes('/history/p1')) {
+        return new Response(
+          JSON.stringify({ p1: { status: { completed: true }, outputs: { '8': { images: [{ filename: 'out.png', subfolder: '', type: 'output' }] } } } }),
+          { status: 200 },
+        )
+      }
+      if (url.includes('/view')) {
+        return new Response(png, { status: 200, headers: { 'content-type': 'image/png' } })
+      }
+      return new Response('{}', { status: 404 })
+    }) as unknown as typeof fetch
+
+    const provider = new ComfyUIProvider({
+      server: 'http://127.0.0.1:8188',
+      unet: 'qwen_image_edit_2511.safetensors',
+      clip: 'qwen_2.5_vl_7b.safetensors',
+      vae: 'qwen_image_vae.safetensors',
+    })
+    await provider.generate({ prompt: 'a poster', width: 640, height: 960 })
+
+    const prompt = (submittedBody?.prompt ?? {}) as Record<string, { class_type: string; inputs: Record<string, unknown> }>
+    expect(prompt['5'].class_type).toBe('EmptyQwenImageLayeredLatentImage')
+    expect(prompt['5'].inputs.width).toBe(640)
+    expect(prompt['5'].inputs.height).toBe(960)
   })
 
   it('uploads a reference image and builds an img2img workflow for repainting', async () => {

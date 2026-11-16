@@ -314,7 +314,7 @@ export function GraphicStudioPage({ onBack, onToast }: { onBack: () => void; onT
     try {
       const images = await generateImages({
         backendId: imageBackend.id,
-        request: { prompt, count: 1, size: 1024, ...(imageModelId ? { model: imageModelId } : {}), ...(referenceImages.length ? { images: referenceImages } : {}) },
+        request: { prompt, count: 1, width: 1024, height: 1280, ...(imageModelId ? { model: imageModelId } : {}), ...(referenceImages.length ? { images: referenceImages } : {}) },
         pageIndex: index,
         sessionId,
       })

@@ -11,6 +11,10 @@ export interface ImageGenRequest {
   count?: number
   /** Square size in pixels (width = height). Default provider-specific. */
   size?: number
+  /** Explicit output width in pixels (overrides `size` for non-square output). */
+  width?: number
+  /** Explicit output height in pixels (overrides `size` for non-square output). */
+  height?: number
   /** ComfyUI: seed override. LLM providers generally ignore this. */
   seed?: number
   /** ComfyUI: sampling steps. */

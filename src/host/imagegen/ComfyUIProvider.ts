@@ -128,7 +128,8 @@ function buildWorkflow(
 ): Record<string, unknown> {
   const steps = request.steps ?? 20
   const cfg = request.cfg ?? 4.0
-  const size = request.size ?? 1024
+  const width = request.width ?? request.size ?? 1024
+  const height = request.height ?? request.size ?? 1024
   const positive = request.prompt
   const negative = request.negativePrompt ?? 'blurry, low quality, distorted, deformed, ugly'
   const count = request.count ?? 1
@@ -184,7 +185,7 @@ function buildWorkflow(
         class_type: 'EmptyQwenImageLayeredLatentImage',
         // layers=0 yields a single-image latent; layers>0 produces a multi-frame
         // output (layers+1 images) which is intended for video/editing, not t2i.
-        inputs: { width: size, height: size, layers: 0, batch_size: count },
+        inputs: { width, height, layers: 0, batch_size: count },
       },
       '6': {
         class_type: 'KSampler',
@@ -217,7 +218,7 @@ function buildWorkflow(
     '3': { class_type: 'CLIPTextEncode', inputs: { text: negative, clip: ['1', 1] } },
     '4': {
       class_type: 'EmptyLatentImage',
-      inputs: { width: size, height: size, batch_size: count },
+      inputs: { width, height, batch_size: count },
     },
     '5': {
       class_type: 'KSampler',

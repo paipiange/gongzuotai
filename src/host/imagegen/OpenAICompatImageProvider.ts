@@ -41,7 +41,7 @@ export class OpenAICompatImageProvider implements ImageGenProvider {
         model: this.config.model,
         prompt: request.prompt,
         n: count,
-        size: request.size ? `${request.size}x${request.size}` : undefined,
+        size: this.sizeParam(request),
         response_format: 'b64_json',
       }),
       ...(signal ? { signal } : {}),
@@ -57,13 +57,24 @@ export class OpenAICompatImageProvider implements ImageGenProvider {
     form.append('prompt', request.prompt)
     form.append('model', this.config.model)
     form.append('n', String(count))
-    if (request.size) form.append('size', `${request.size}x${request.size}`)
+    const size = this.sizeParam(request)
+    if (size) form.append('size', size)
     return fetch(`${base}/images/edits`, {
       method: 'POST',
       headers: { authorization: `Bearer ${this.config.apiKey}` },
       body: form,
       ...(signal ? { signal } : {}),
     })
+  }
+
+  /**
+   * Resolve the OpenAI-compatible `size` string ("WxH"). Explicit width/height
+   * wins for non-square output; otherwise fall back to the legacy square `size`.
+   */
+  private sizeParam(request: ImageGenRequest): string | undefined {
+    if (request.width && request.height) return `${request.width}x${request.height}`
+    if (request.size) return `${request.size}x${request.size}`
+    return undefined
   }
 
   private async parseImages(response: Response, signal?: AbortSignal): Promise<GeneratedImage[]> {

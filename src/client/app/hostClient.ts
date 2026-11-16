@@ -245,6 +245,10 @@ export async function generateImages(input: {
     negativePrompt?: string
     count?: number
     size?: number
+    /** 非方形输出宽（像素），优先于 size。 */
+    width?: number
+    /** 非方形输出高（像素），优先于 size。 */
+    height?: number
     seed?: number
     steps?: number
     cfg?: number

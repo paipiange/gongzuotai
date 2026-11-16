@@ -291,6 +291,8 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
           negativePrompt: body.request.negativePrompt,
           count: body.request.count,
           size: body.request.size,
+          width: body.request.width,
+          height: body.request.height,
           seed: body.request.seed,
           steps: body.request.steps,
           cfg: body.request.cfg,
