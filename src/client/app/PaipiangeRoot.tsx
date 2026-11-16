@@ -64,6 +64,7 @@ import { UpdateCheck } from './UpdateCheck'
 import { exportCreation, generateTextStream, listBackends, batchCreations, type Backend, type TaskRecord } from './hostClient'
 import { extractImageFilesFromClipboard, readImageAsDataUrl } from './pasteImages'
 import { GenerationLogPage } from './GenerationLog'
+import { HERO_BG } from './heroBackground'
 
 type ArtVariant = 'river' | 'court' | 'blossom' | 'night' | 'portrait' | 'hero'
 
@@ -347,8 +348,7 @@ function Topbar({
 
 function Hero({ onStart }: { onStart: () => void }) {
   return (
-    <section className="pa-hero">
-      <ScenicArt variant="hero" label="原创春樱古风人物插画" />
+    <section className="pa-hero" style={{ backgroundImage: `url(${HERO_BG})` }}>
       <div className="pa-hero__shade" />
       <div className="pa-hero__content">
         <span className="pa-overline">PAIPIANGE CREATIVE STUDIO</span>

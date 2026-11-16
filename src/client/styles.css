@@ -556,7 +556,9 @@
   position: relative;
   min-height: 220px;
   overflow: hidden;
-  background: #382116;
+  background-color: #382116;
+  background-size: cover;
+  background-position: center;
 }
 
 .pa-root .pa-art {
