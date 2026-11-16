@@ -67,10 +67,10 @@ describe('OpenAICompatImageProvider', () => {
     expect(images[0].data.toString()).toBe('edited')
   })
 
-  it('uses the first reference image when multiple are supplied', async () => {
-    const calls: Array<{ url: string }> = []
-    globalThis.fetch = vi.fn(async (input: unknown) => {
-      calls.push({ url: String(input) })
+  it('appends all reference images (image + image2) when multiple are supplied', async () => {
+    const calls: Array<{ url: string; body: unknown }> = []
+    globalThis.fetch = vi.fn(async (input: unknown, init?: RequestInit) => {
+      calls.push({ url: String(input), body: init?.body })
       return new Response(JSON.stringify({ data: [{ b64_json: 'YQ==' }] }), { status: 200 })
     }) as unknown as typeof fetch
 
@@ -80,6 +80,9 @@ describe('OpenAICompatImageProvider', () => {
     await provider.generate({ prompt: 'p', images: [first, second] })
 
     expect(calls[0].url).toBe('https://x/v1/images/edits')
+    const body = calls[0].body as FormData
+    expect(body.get('image')).toBeInstanceOf(Blob)
+    expect(body.get('image2')).toBeInstanceOf(Blob)
   })
 })
 

@@ -17,10 +17,10 @@ export class OpenAICompatImageProvider implements ImageGenProvider {
   async generate(request: ImageGenRequest, signal?: AbortSignal): Promise<GeneratedImage[]> {
     const count = Math.max(1, Math.min(request.count ?? 1, 4))
     const base = this.config.baseUrl.replace(/\/+$/, '')
-    const reference = request.image ?? request.images?.[0]
+    const references = request.images?.length ? request.images : request.image ? [request.image] : []
 
-    const response = reference
-      ? await this.generateEdit(base, reference, request, count, signal)
+    const response = references.length
+      ? await this.generateEdit(base, references, request, count, signal)
       : await this.generateFromPrompt(base, request, count, signal)
 
     if (!response.ok) {
@@ -48,9 +48,12 @@ export class OpenAICompatImageProvider implements ImageGenProvider {
     })
   }
 
-  private async generateEdit(base: string, reference: string, request: ImageGenRequest, count: number, signal?: AbortSignal): Promise<Response> {
+  private async generateEdit(base: string, references: string[], request: ImageGenRequest, count: number, signal?: AbortSignal): Promise<Response> {
     const form = new FormData()
-    form.append('image', dataUrlToBlob(reference), 'reference.png')
+    // 多图参考：第一张用标准 `image` 字段，后续用 `image2`/`image3`…（717333/cpa 网关均实测支持）
+    references.forEach((ref, i) => {
+      form.append(i === 0 ? 'image' : `image${i + 1}`, dataUrlToBlob(ref), `reference${i + 1}.png`)
+    })
     form.append('prompt', request.prompt)
     form.append('model', this.config.model)
     form.append('n', String(count))
