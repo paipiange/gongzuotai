@@ -22,6 +22,7 @@ import {
 } from '../hostClient'
 import { absoluteAssetUrl } from '../Lightbox'
 import { GroupedModelPicker, backendToGroup, decodePick, type ModelGroup } from '../GroupedModelPicker'
+import { loadGraphicDraft, saveGraphicDraft } from './graphicDraft'
 
 interface Toast {
   (message: string, tone?: 'info' | 'success' | 'warning'): void
@@ -85,18 +86,20 @@ interface PageRecord {
 }
 
 export function GraphicStudioPage({ onBack, onToast }: { onBack: () => void; onToast: Toast }) {
-  const [sourceText, setSourceText] = useState('')
-  const [topic, setTopic] = useState('')
-  const [pageCount, setPageCount] = useState(4)
+  // 挂载时恢复上次草稿（惰性初始化，仅首次渲染读取一次 localStorage）。
+  const [restored] = useState(loadGraphicDraft)
+  const [sourceText, setSourceText] = useState(restored?.sourceText ?? '')
+  const [topic, setTopic] = useState(restored?.topic ?? '')
+  const [pageCount, setPageCount] = useState(restored?.pageCount ?? 4)
   const [textBackends, setTextBackends] = useState<Backend[]>([])
-  const [textPick, setTextPick] = useState('')
+  const [textPick, setTextPick] = useState(restored?.textPick ?? '')
   const [imageBackends, setImageBackends] = useState<Backend[]>([])
-  const [imagePick, setImagePick] = useState('')
+  const [imagePick, setImagePick] = useState(restored?.imagePick ?? '')
   const [breaking, setBreaking] = useState(false)
-  const [storyboard, setStoryboard] = useState<StoryboardResult | null>(null)
-  const [pages, setPages] = useState<PageRecord[]>([])
+  const [storyboard, setStoryboard] = useState<StoryboardResult | null>(restored?.storyboard ?? null)
+  const [pages, setPages] = useState<PageRecord[]>(() => (restored?.pages ?? []).map((p) => ({ page: p.page, assetId: p.assetId, error: p.error })))
   const [activeIndex, setActiveIndex] = useState(0)
-  const [warnings, setWarnings] = useState<string[]>([])
+  const [warnings, setWarnings] = useState<string[]>(restored?.storyboard?.warnings ?? [])
 
   useEffect(() => {
     let cancelled = false
@@ -118,6 +121,20 @@ export function GraphicStudioPage({ onBack, onToast }: { onBack: () => void; onT
       cancelled = true
     }
   }, [])
+
+  // 状态变化时自动保存草稿（剥离 busy 瞬态，避免恢复后卡在「生成中」）。
+  useEffect(() => {
+    saveGraphicDraft({
+      version: 1,
+      sourceText,
+      topic,
+      pageCount,
+      textPick,
+      imagePick,
+      storyboard,
+      pages: pages.map((p) => ({ page: p.page, assetId: p.assetId, error: p.error })),
+    })
+  }, [sourceText, topic, pageCount, textPick, imagePick, storyboard, pages])
 
   const textGroups = useMemo<ModelGroup[]>(() => textBackends.map(backendToGroup), [textBackends])
   const imageGroups = useMemo<ModelGroup[]>(() => imageBackends.map(backendToGroup), [imageBackends])
