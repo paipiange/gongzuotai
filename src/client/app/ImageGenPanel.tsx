@@ -6,6 +6,7 @@ import { StylePicker } from './StylePicker'
 import { LayoutPicker } from './LayoutPicker'
 import { ColorPicker } from './ColorPicker'
 import { Lightbox, absoluteAssetUrl } from './Lightbox'
+import { extractImageFilesFromClipboard, readImageAsDataUrl } from './pasteImages'
 import { GroupedModelPicker, backendToGroup, decodePick, type ModelGroup } from './GroupedModelPicker'
 import {
   stylePresets,
@@ -118,6 +119,21 @@ export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creatio
     }
   }
 
+  const handlePaste = async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = extractImageFilesFromClipboard(event.clipboardData)
+    if (files.length === 0) return
+    const hasText = Array.from(event.clipboardData?.items ?? []).some((item) => item.kind === 'string')
+    if (!hasText) event.preventDefault()
+    for (const file of files) {
+      try {
+        const dataUrl = await readImageAsDataUrl(file)
+        setReferenceImages((prev) => [...prev, dataUrl])
+      } catch (cause) {
+        onToast(cause instanceof Error ? cause.message : '图片读取失败', 'warning')
+      }
+    }
+  }
+
   const handleReferenceUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? [])
     if (files.length === 0) return
@@ -189,7 +205,7 @@ export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creatio
       <form onSubmit={handleSubmit} className="pa-imagegen-panel__form">
         <label className="pa-field pa-field--full">
           <span>画面主题 <b aria-hidden="true">*</b></span>
-          <textarea value={topic} onChange={(event) => setTopic(event.target.value)} maxLength={500} placeholder="例如：一只橘猫在窗台晒太阳的治愈插画" />
+          <textarea value={topic} onChange={(event) => setTopic(event.target.value)} onPaste={handlePaste} maxLength={500} placeholder="例如：一只橘猫在窗台晒太阳的治愈插画，也可直接 Ctrl+V 粘贴参考图" />
         </label>
 
         <label className="pa-field">
@@ -270,7 +286,7 @@ export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creatio
 
         <div className="pa-imagegen-panel__repaint">
           <label className="pa-field">
-            <span>参考图（可选，可多张）</span>
+            <span>参考图（可选，可多张，支持 Ctrl+V 粘贴）</span>
             <div className="pa-imagegen-panel__upload">
               <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple onChange={handleReferenceUpload} className="pa-visually-hidden" />
               <button type="button" className="pa-secondary-button" onClick={() => fileInputRef.current?.click()}>
@@ -289,9 +305,6 @@ export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creatio
                   </div>
                 ))}
               </div>
-            )}
-            {!isComfyui && referenceImages.length > 0 && (
-              <small>当前图片 API 后端暂不支持参考图参与生图，参考图仅作留存。</small>
             )}
           </label>
           {isComfyui && referenceImages.length > 0 && (

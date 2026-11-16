@@ -62,6 +62,7 @@ import { ThemeSettings } from './ThemeSettings'
 import { TemplateManager } from './TemplateManager'
 import { UpdateCheck } from './UpdateCheck'
 import { exportCreation, generateTextStream, listBackends, batchCreations, type Backend, type TaskRecord } from './hostClient'
+import { extractImageFilesFromClipboard, readImageAsDataUrl } from './pasteImages'
 import { GenerationLogPage } from './GenerationLog'
 
 type ArtVariant = 'river' | 'court' | 'blossom' | 'night' | 'portrait' | 'hero'
@@ -523,6 +524,7 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
   const [style, setStyle] = useState(initialCreation?.style ?? '')
   const [requirement, setRequirement] = useState(initialCreation?.requirement ?? '')
   const [tags, setTags] = useState(initialCreation?.tags ?? [])
+  const [referenceImages, setReferenceImages] = useState<string[]>([])
   const [generating, setGenerating] = useState(false)
   const [textBackends, setTextBackends] = useState<Backend[]>([])
   const [textBackendId, setTextBackendId] = useState('')
@@ -531,6 +533,21 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
   const isVideo = studio === 'video'
   const isImage = studio === 'image'
   const isText = !isVideo && !isImage
+
+  const handlePasteReference = async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = extractImageFilesFromClipboard(event.clipboardData)
+    if (files.length === 0) return
+    const hasText = Array.from(event.clipboardData?.items ?? []).some((item) => item.kind === 'string')
+    if (!hasText) event.preventDefault()
+    for (const file of files) {
+      try {
+        const dataUrl = await readImageAsDataUrl(file)
+        setReferenceImages((prev) => [...prev, dataUrl])
+      } catch (cause) {
+        onToast(cause instanceof Error ? cause.message : '图片读取失败', 'warning')
+      }
+    }
+  }
 
   useEffect(() => {
     setCreationId(initialCreation?.id)
@@ -792,7 +809,18 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
             </label>
           )}
           <label className="pa-field"><span>草稿标题</span><input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={80} placeholder="例如：春日品牌故事初稿" /></label>
-          <label className="pa-field"><span>主题 / 关键词 <b aria-hidden="true">*</b></span><textarea value={topic} onChange={(event) => setTopic(event.target.value)} maxLength={300} placeholder="例如：以江南春日为主题，写一篇有画面感的品牌故事" /><small>{topic.length}/300</small></label>
+          <label className="pa-field"><span>主题 / 关键词 <b aria-hidden="true">*</b></span><textarea value={topic} onChange={(event) => setTopic(event.target.value)} onPaste={handlePasteReference} maxLength={300} placeholder="例如：以江南春日为主题，写一篇有画面感的品牌故事，也可 Ctrl+V 粘贴参考图" /><small>{topic.length}/300</small></label>
+          {referenceImages.length > 0 && (
+            <div className="pa-imagegen-panel__ref-list">
+              {referenceImages.map((img, index) => (
+                <div key={index} className="pa-imagegen-panel__ref-item">
+                  <img src={img} alt={`参考图 ${index + 1}`} className="pa-imagegen-panel__ref-preview" />
+                  <button type="button" className="pa-icon-button pa-imagegen-panel__ref-remove" aria-label={`移除参考图 ${index + 1}`} title="移除" onClick={() => setReferenceImages((prev) => prev.filter((_, i) => i !== index))}><X aria-hidden="true" size={14} /></button>
+                </div>
+              ))}
+            </div>
+          )}
+          {referenceImages.length > 0 && <small>参考图仅作留存，不会发送给文字模型。</small>}
           <label className="pa-field"><span>内容风格</span><select value={style} onChange={(event) => setStyle(event.target.value)}><option value="">不指定（自由发挥）</option><option value="cinematic">电影感叙事</option><option value="poetic">东方诗意</option><option value="clear">清晰专业</option><option value="lively">轻松活泼</option></select></label>
           <label className="pa-field"><span>补充要求</span><input value={requirement} onChange={(event) => setRequirement(event.target.value)} placeholder="目标受众、篇幅、结构或画面比例" /></label>
           <label className="pa-field"><span>标签</span><input value={tags.join(', ')} onChange={(event) => setTags(event.target.value.split(/[,，、\s]+/).map((t) => t.trim()).filter(Boolean))} placeholder="用逗号或空格分隔，如：品牌故事, 春日" /></label>

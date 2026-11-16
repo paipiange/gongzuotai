@@ -40,6 +40,47 @@ describe('OpenAICompatImageProvider', () => {
     const provider = new OpenAICompatImageProvider({ baseUrl: 'https://x', apiKey: 'k', model: 'm' })
     await expect(provider.generate({ prompt: 'p' })).rejects.toThrow(/401/)
   })
+
+  it('switches to /images/edits (multipart) when a reference image is present', async () => {
+    const calls: Array<{ url: string; body: unknown }> = []
+    globalThis.fetch = vi.fn(async (input: unknown, init?: RequestInit) => {
+      calls.push({ url: String(input), body: init?.body })
+      return new Response(
+        JSON.stringify({ data: [{ b64_json: Buffer.from('edited').toString('base64') }] }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      )
+    }) as unknown as typeof fetch
+
+    const provider = new OpenAICompatImageProvider({ baseUrl: 'https://api.example.com/v1/', apiKey: 'secret', model: 'dall-e-3' })
+    const dataUrl = `data:image/png;base64,${Buffer.from('ref-bytes').toString('base64')}`
+    const images = await provider.generate({ prompt: 'make it sunny', image: dataUrl, size: 1024, count: 2 })
+
+    expect(calls[0].url).toBe('https://api.example.com/v1/images/edits')
+    const body = calls[0].body as FormData
+    expect(body).toBeInstanceOf(FormData)
+    expect(body.get('prompt')).toBe('make it sunny')
+    expect(body.get('model')).toBe('dall-e-3')
+    expect(body.get('n')).toBe('2')
+    expect(body.get('size')).toBe('1024x1024')
+    expect(body.get('image')).toBeInstanceOf(Blob)
+    expect(images).toHaveLength(1)
+    expect(images[0].data.toString()).toBe('edited')
+  })
+
+  it('uses the first reference image when multiple are supplied', async () => {
+    const calls: Array<{ url: string }> = []
+    globalThis.fetch = vi.fn(async (input: unknown) => {
+      calls.push({ url: String(input) })
+      return new Response(JSON.stringify({ data: [{ b64_json: 'YQ==' }] }), { status: 200 })
+    }) as unknown as typeof fetch
+
+    const provider = new OpenAICompatImageProvider({ baseUrl: 'https://x/v1', apiKey: 'k', model: 'm' })
+    const first = `data:image/png;base64,${Buffer.from('first').toString('base64')}`
+    const second = `data:image/png;base64,${Buffer.from('second').toString('base64')}`
+    await provider.generate({ prompt: 'p', images: [first, second] })
+
+    expect(calls[0].url).toBe('https://x/v1/images/edits')
+  })
 })
 
 describe('ComfyUIProvider', () => {
