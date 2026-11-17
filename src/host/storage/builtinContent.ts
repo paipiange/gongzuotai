@@ -1,6 +1,10 @@
+import { existsSync, readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import type Database from 'better-sqlite3'
 import { InspirationRepository, type CreateInspirationInput } from './inspirationRepository'
 import { TemplateRepository, type CreateTemplateInput } from './templateRepository'
+import { AssetRepository } from './assetRepository'
 
 /**
  * 预置内容（内置模板 + 内置灵感）。
@@ -14,7 +18,7 @@ import { TemplateRepository, type CreateTemplateInput } from './templateReposito
  * 并在 seed 里按版本号做增量即可。
  */
 
-export const BUILTIN_CONTENT_VERSION = 1
+export const BUILTIN_CONTENT_VERSION = 2
 
 const SEED_VERSION_KEY = 'builtin_content_version'
 
@@ -126,6 +130,37 @@ export const BUILTIN_TEMPLATES: CreateTemplateInput[] = [
 请直接输出文案。`,
   },
   {
+    category: '漫画',
+    name: 'Q 版情侣漫画',
+    description: '把婚恋/情侣/家庭文案或参考图制作成小红书·公众号 Q 版情侣漫画，固定男女主、奶油粉暖棕手绘画风，支持文案拆页、双分镜排版、逐页出图并打包交付。',
+    promptTemplate: `你是一位专门为中国公众号与小红书制作连续 Q 版漫画的视觉总监。请围绕「{{主题/文案}}」创作一套 Q 版情侣漫画分镜。
+
+【固定人物（不可漂移，必须始终一致）】
+- 女主 Girl A：年轻成人 Q 版，超长蓬松栗棕波浪卷发（头发偏画面左侧别粉色缎面蝴蝶结，不可消失）、超大暖棕眼睛、粉色腮红、金色矩形垂坠耳饰、小巧金色爱心项链；穿搭粉色吊带连衣裙/粉色内搭 + 奶油白宽松落肩针织开衫。
+- 男主 Boy B：年轻成人 Q 版，蓬松栗棕短发（前额自然分束）、暖棕大眼、饱满温和脸颊、略粗眉毛；穿搭巧克力棕宽松针织开衫 + 奶油白高领/圆领针织衫。
+- 两者都是 2.5–3.5 头身 Q 版，男生略高、女生头发更长；任何情况不得把主角换成青蛙/小鸡/其他情侣，不得随机换发型换衣服。
+
+【画风与设计】
+- 一句话：温暖奶油粉 × 巧克力暖棕 × 彩铅水彩手绘 × 软萌 Q 版 × 小红书故事漫画。
+- 配色 token：背景奶油白 #FFF8F3、主粉 #F5B6BF、浅杏粉 #FBE4DF、深巧克力棕 #6A3C2C、栗棕发色 #89523D、珊瑚红 #E96F70、暖金黄 #F6C46A、浅绿 #B5C99F、强对比黑 #211713；整体避免赛博霓虹、冷紫、强蓝绿或写实摄影风。
+- 页面：优先 3:4 竖版 1080×1440，上下各 1 格双分镜，圆角深棕边框；单页信息多可 1080×1350。
+
+【分镜与拆页】
+- 若用户给了原文/参考图，优先逐页保留原句、原顺序、原分镜结构，只替换人物与画风，不擅自改写。
+- 若用户给了一段文案拆成新系列，默认 4–6 张：第 1 张强钩子（最抓眼的数字/矛盾/一句话 + 主角夸张反应）→ 第 2 张对话推进解释矛盾 → 第 3 张补充现实细节 → 第 4 张升级/反转 → 第 5 张（可选）认真解释底线与现实 → 第 6 张（可选）留一个自然的问题引导评论。
+
+【文字原则】
+- 首选生成「无字插画背景」+ 后期程序排版中文，每格顶部预留约 15% 高度的纯奶油白标题区，不放乱码/模糊假字。
+- 若模型带字，只接受完全可读、与原稿逐字一致的结果；数字、金额、标点必须人工复核（例如 0.388 万 = 3880 元，不等于 38.8 万）。
+- 不虚构真实采访、收入、医疗等事实；对敏感剧情可标注「虚构漫画情节」。
+
+【交付】
+- 一页一图：每页输出一张独立 PNG，不拼接九宫格后裁切；N 张输入对应 N 张输出。
+- 同系列统一尺寸；最后把所有独立图片打包成 ZIP 交付。
+
+请先输出逐页分镜方案（每页：序号、标题、上格场景、下格场景、出场人物、表情、关键道具、重点字、是否双分镜），供确认后再逐页出图。`,
+  },
+  {
     category: '通用',
     name: '通用长文写作框架',
     description: '适用于报告、总结、行业分析等长文的通用骨架。',
@@ -217,10 +252,10 @@ export const BUILTIN_INSPIRATIONS: CreateInspirationInput[] = [
 ]
 
 /** 读取已 seed 的内置内容版本号。 */
-function getSeedVersion(db: Database.Database): number {
+function getSeedVersion(db: Database.Database, key: string = SEED_VERSION_KEY): number {
   const row = db
     .prepare('SELECT value_json FROM app_settings WHERE key = ?')
-    .get(SEED_VERSION_KEY) as { value_json: string } | undefined
+    .get(key) as { value_json: string } | undefined
   if (!row) return 0
   try {
     const parsed = JSON.parse(row.value_json) as unknown
@@ -231,10 +266,10 @@ function getSeedVersion(db: Database.Database): number {
 }
 
 /** 记录已 seed 的内置内容版本号。 */
-function setSeedVersion(db: Database.Database, version: number): void {
+function setSeedVersion(db: Database.Database, version: number, key: string = SEED_VERSION_KEY): void {
   db.prepare(
     'INSERT INTO app_settings (key, value_json, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at',
-  ).run(SEED_VERSION_KEY, JSON.stringify(version), new Date().toISOString())
+  ).run(key, JSON.stringify(version), new Date().toISOString())
 }
 
 /**
@@ -262,4 +297,65 @@ export function seedBuiltinContent(db: Database.Database): { templates: number; 
   })()
 
   return { templates: templateCount, inspirations: inspirationCount }
+}
+
+/** 情侣漫画内置参考图（随插件包分发到 lib/assets/couple-comic/）。 */
+const COUPLE_COMIC_REFERENCE_IMAGES = [
+  { file: 'female_reference.png', name: '情侣漫画·女主参考图', tags: ['情侣漫画', '参考图', '女主', '内置'] },
+  { file: 'male_reference.png', name: '情侣漫画·男主参考图', tags: ['情侣漫画', '参考图', '男主', '内置'] },
+  { file: 'two_panel_style_reference.png', name: '情侣漫画·双分镜画风参考图', tags: ['情侣漫画', '参考图', '画风', '内置'] },
+] as const
+
+const COUPLE_COMIC_TEMPLATE_NAME = 'Q 版情侣漫画'
+
+/**
+ * 把情侣漫画的三张固定参考图写入素材库，并把「Q 版情侣漫画」模板的封面指向画风参考图。
+ *
+ * 幂等：以 app_settings 里的 `couple_comic_assets_version` 标记；参考图入库后版本号写回，
+ * 重复启动不会重复插入。返回入库的素材数量。
+ *
+ * 注意：本函数需要 `AssetRepository`（依赖 StoragePaths 写磁盘），无法在
+ * `seedBuiltinContent`（数据库 open 内部、尚无 paths）中调用；由 Host 在
+ * `assets` 实例创建后单独调用一次。
+ */
+export function seedCoupleComicAssets(
+  db: Database.Database,
+  assets: AssetRepository,
+  resourceDir?: string,
+): number {
+  if (getSeedVersion(db, 'couple_comic_assets_version') >= 1) return 0
+
+  // 编译产物里本模块位于 lib/index.js，资源被拷贝到 lib/assets/couple-comic/。
+  // 因此相对 import.meta.url 直接取 ./assets/couple-comic。
+  const base = resourceDir ?? join(dirname(fileURLToPath(import.meta.url)), 'assets', 'couple-comic')
+  const templates = new TemplateRepository(db)
+  let count = 0
+
+  db.transaction(() => {
+    for (const ref of COUPLE_COMIC_REFERENCE_IMAGES) {
+      const filePath = join(base, ref.file)
+      if (!existsSync(filePath)) continue
+      const data = readFileSync(filePath)
+      const width = data.length > 24 ? data.readUInt32BE(16) : null
+      const height = data.length > 24 ? data.readUInt32BE(20) : null
+      const saved = assets.save({
+        kind: 'image',
+        name: ref.name,
+        mimeType: 'image/png',
+        data,
+        width,
+        height,
+        tags: [...ref.tags],
+      })
+      // 用画风参考图作为模板封面
+      if (ref.file === 'two_panel_style_reference.png') {
+        const template = templates.list().find((t) => t.name === COUPLE_COMIC_TEMPLATE_NAME)
+        if (template) templates.setCoverAssetId(template.id, saved.id)
+      }
+      count += 1
+    }
+    setSeedVersion(db, 1, 'couple_comic_assets_version')
+  })()
+
+  return count
 }

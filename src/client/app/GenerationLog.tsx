@@ -42,7 +42,7 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
   const [hasMore, setHasMore] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [detail, setDetail] = useState<TaskRecord | null>(null)
-  const [lightboxId, setLightboxId] = useState<string | null>(null)
+  const [lightbox, setLightbox] = useState<{ ids: string[]; index: number } | null>(null)
 
   const PAGE_SIZE = 50
 
@@ -102,6 +102,25 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
     return String(task.input.prompt ?? '')
   }
 
+  /** 从 input 提取请求参数摘要（图片：模型/尺寸/参考图数；文本：模型/风格）。 */
+  const paramSummary = (task: TaskRecord): string[] => {
+    const out: string[] = []
+    if (task.kind === 'image') {
+      const w = task.input.width
+      const h = task.input.height
+      const size = task.input.size
+      if (w && h) out.push(`${w}×${h}`)
+      else if (size) out.push(`${size}×${size}`)
+      const refCount = Number(task.input.referenceImageCount ?? 0)
+      if (refCount > 0) out.push(`参考图 ${refCount}`)
+      const model = task.input.model
+      if (model) out.push(`模型 ${String(model)}`)
+    } else if (task.kind === 'text') {
+      if (task.input.style) out.push(String(task.input.style))
+    }
+    return out
+  }
+
   /** 从成功任务的 result 中提取文字正文。 */
   const resultText = (task: TaskRecord): string | null => {
     const result = task.result as { text?: unknown }
@@ -119,6 +138,34 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
   const resultVideoId = (task: TaskRecord): string | null => {
     const result = task.result as { assetId?: unknown }
     return typeof result?.assetId === 'string' ? result.assetId : null
+  }
+
+  /** 请求参数里的参考图 asset id 列表（后端把 data URL 转存成了 asset）。 */
+  const referenceImageIds = (task: TaskRecord): string[] => {
+    const refs = task.input.referenceImages
+    if (!Array.isArray(refs)) return []
+    return refs.filter((id): id is string => typeof id === 'string')
+  }
+
+  /**
+   * 把请求参数 input 拆成「可读字段」列表：跳过 referenceImages（单独渲染成图）
+   * 和空值字段；超长字符串（如 prompt）截断展示，避免撑爆弹窗。
+   */
+  const inputFields = (task: TaskRecord): Array<{ key: string; value: string }> => {
+    const skip = new Set(['referenceImages'])
+    const out: Array<{ key: string; value: string }> = []
+    for (const [key, raw] of Object.entries(task.input)) {
+      if (skip.has(key)) continue
+      if (raw === undefined || raw === null || raw === '') continue
+      if (typeof raw === 'object') {
+        out.push({ key, value: prettyJson(raw) })
+        continue
+      }
+      let text = String(raw)
+      if (text.length > 600) text = `${text.slice(0, 600)}…（共 ${text.length} 字）`
+      out.push({ key, value: text })
+    }
+    return out
   }
 
   return (
@@ -168,6 +215,7 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
                   <div className="pa-task-row__meta">
                     <span>{formatTime(task.createdAt)}</span>
                     {task.modelId && <span>{task.modelId}</span>}
+                    {paramSummary(task).map((s) => <span key={s} className="pa-task-row__param">{s}</span>)}
                     {task.status === 'failed' && task.errorMessage && <span className="pa-task-row__error">{task.errorMessage}</span>}
                   </div>
                 </div>
@@ -205,8 +253,34 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
               </div>
 
               <section className="pa-task-detail__section">
-                <h4>请求参数（input）</h4>
-                <pre>{prettyJson(detail.input)}</pre>
+                <h4>请求参数</h4>
+                {referenceImageIds(detail).length > 0 && (
+                  <div className="pa-task-detail__refs">
+                    <span className="pa-task-detail__refs-label">参考图（{referenceImageIds(detail).length}）</span>
+                    <div className="pa-task-detail__refs-grid">
+                      {referenceImageIds(detail).map((id, idx) => (
+                        <figure key={id} className="pa-task-detail__ref">
+                          <button
+                            type="button"
+                            className="pa-task-detail__ref-btn"
+                            onClick={() => setLightbox({ ids: referenceImageIds(detail), index: idx })}
+                            title="点击查看大图"
+                          >
+                            <img src={assetUrl(id)} alt={`参考图 ${idx + 1}`} loading="lazy" />
+                          </button>
+                        </figure>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <dl className="pa-task-detail__params">
+                  {inputFields(detail).map((field) => (
+                    <div key={field.key} className="pa-task-detail__param">
+                      <dt>{field.key}</dt>
+                      <dd>{field.value}</dd>
+                    </div>
+                  ))}
+                </dl>
               </section>
 
               {detail.status === 'failed' ? (
@@ -226,13 +300,13 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
                 <section className="pa-task-detail__section">
                   <h4>返回图片（{resultImageIds(detail).length}）</h4>
                   <div className="pa-task-detail__images">
-                    {resultImageIds(detail).map((id) => (
+                    {resultImageIds(detail).map((id, idx) => (
                       <figure key={id} className="pa-task-detail__image">
-                        <button type="button" className="pa-task-detail__image-btn" onClick={() => setLightboxId(id)} title="点击查看大图">
+                        <button type="button" className="pa-task-detail__image-btn" onClick={() => setLightbox({ ids: resultImageIds(detail), index: idx })} title="点击查看大图">
                           <img src={assetUrl(id)} alt={`生成图 ${id}`} loading="lazy" />
                         </button>
                         <figcaption>
-                          <button type="button" className="pa-link-button" onClick={() => setLightboxId(id)}>查看大图</button>
+                          <button type="button" className="pa-link-button" onClick={() => setLightbox({ ids: resultImageIds(detail), index: idx })}>查看大图</button>
                           <a className="pa-link-button" href={absoluteAssetUrl(id)} target="_blank" rel="noreferrer"><ArrowSquareOut aria-hidden="true" size={13} />浏览器打开</a>
                         </figcaption>
                       </figure>
@@ -262,7 +336,7 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
         </div>
       )}
 
-      {lightboxId && <Lightbox assetId={lightboxId} onClose={() => setLightboxId(null)} />}
+      {lightbox && <Lightbox assetIds={lightbox.ids} index={lightbox.index} onClose={() => setLightbox(null)} />}
     </div>
   )
 }

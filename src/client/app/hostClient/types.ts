@@ -67,6 +67,7 @@ export interface TemplateRecord {
   category: string
   name: string
   description: string
+  coverAssetId: string | null
   promptTemplate: string
   fields: unknown[]
   isBuiltin: boolean

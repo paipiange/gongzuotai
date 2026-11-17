@@ -318,4 +318,37 @@ describe('ImageGenService', () => {
 
     await expect(service.generate('comfyui', { prompt: 'p' })).rejects.toThrow(/未配置/)
   })
+
+  it('ignores model override for comfyui backends (no spurious "未配置" error)', async () => {
+    // ComfyUI 后端带一个「模型」占位值（如 checkpoint 名），但 model 覆盖只对
+    // llm-image 生效；对 comfyui 应直接忽略 request.model，而不是走 buildProviderWithModel
+    // 返回 null 后误报「生图后端未配置」。
+    globalThis.fetch = vi.fn(async (input: unknown, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/prompt')) {
+        return new Response(JSON.stringify({ prompt_id: 'p1' }), { status: 200 })
+      }
+      if (url.includes('/history/p1')) {
+        return new Response(JSON.stringify({ p1: { status: { status_str: 'success', completed: true }, outputs: { '1': { images: [{ filename: 'out.png', type: 'output', subfolder: '' }] } } } }), { status: 200 })
+      }
+      if (url.includes('/view')) {
+        return new Response(Buffer.from('fake-png'), { status: 200, headers: { 'content-type': 'image/png' } })
+      }
+      if (url.includes('/upload/image')) {
+        return new Response(JSON.stringify({ name: 'up.png', type: 'input', subfolder: '' }), { status: 200 })
+      }
+      return new Response('{}', { status: 200 })
+    }) as unknown as typeof fetch
+
+    const service = new ImageGenService({
+      backends: [
+        { id: 'backend-3', name: '本机comfyui', kind: 'comfyui', comfyui: { server: 'http://127.0.0.1:8188', checkpoint: 'qwen.safetensors' }, createdAt: '', updatedAt: '' },
+      ],
+    })
+
+    // 带一个「模型」占位值（模拟前端塞的 checkpoint 名），不应抛「生图后端未配置」。
+    await expect(
+      service.generateByBackend('backend-3', { prompt: 'p', model: 'qwen.safetensors' }),
+    ).resolves.toBeInstanceOf(Array)
+  })
 })

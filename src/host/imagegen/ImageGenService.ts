@@ -87,18 +87,15 @@ export class ImageGenService {
     if (!impl) throw new Error(`生图后端未配置: ${backendId}`)
     // A model override (from the request) rebuilds the LLM provider with the
     // chosen model, letting a backend expose a group of models. ComfyUI ignores
-    // the override since its model is fixed by its config.
-    if (request.model && request.model !== this.backendModel(backendId)) {
+    // the override since its model is fixed by its config — so only llm-image
+    // backends go through the override path (otherwise buildProviderWithModel
+    // returns null and we'd wrongly report "未配置").
+    const backend = this.backendConfigs.get(backendId)
+    if (backend?.kind === 'llm-image' && request.model && request.model !== backend.llm?.model) {
       impl = this.buildProviderWithModel(backendId, request.model)
     }
     if (!impl) throw new Error(`生图后端未配置: ${backendId}`)
     return impl.generate(request, signal)
-  }
-
-  /** Return the default model of a managed backend, if it has one. */
-  private backendModel(backendId: string): string | undefined {
-    const backend = this.backendConfigs.get(backendId)
-    return backend?.llm?.model
   }
 
   /** Rebuild an llm-image provider with a different model (same baseUrl/apiKey). */

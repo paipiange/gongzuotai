@@ -90,6 +90,14 @@ export class TemplateRepository {
     const result = this.db.prepare('DELETE FROM templates WHERE id = ?').run(id)
     return result.changes === 1
   }
+
+  /** 回填模板封面素材 id（内置模板 seed 参考图后调用）。 */
+  setCoverAssetId(id: string, coverAssetId: string | null) {
+    const result = this.db
+      .prepare('UPDATE templates SET cover_asset_id = @coverAssetId, updated_at = @updatedAt WHERE id = @id')
+      .run({ id, coverAssetId, updatedAt: new Date().toISOString() })
+    return result.changes === 1
+  }
 }
 
 function mapTemplate(row: TemplateRow): TemplateRecord {

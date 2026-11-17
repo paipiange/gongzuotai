@@ -1,5 +1,7 @@
-import { readFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'tsdown'
 
 // 注入版本号：让 client 端「检查更新」读 package.json 版本，避免两处硬编码漂移。
@@ -12,6 +14,40 @@ function rawPlugin() {
       if (!id.endsWith('?raw')) return null
       const source = await readFile(id.slice(0, -4), 'utf8')
       return { code: `export default ${JSON.stringify(source)}`, moduleType: 'js' as const }
+    },
+  }
+}
+
+/**
+ * 把 `src/host/assets/` 下的内置资源（如情侣漫画参考图 PNG）原样拷到 `lib/assets/`，
+ * 随插件包分发，供 Host 在 seed 时从磁盘读取写入素材库。
+ * tsdown 无内置 copy 能力，这里用 writeBundle 钩子在产物落地后补一次拷贝。
+ */
+function copyAssetsPlugin() {
+  const projectRoot = dirname(fileURLToPath(import.meta.url))
+  const sourceDir = join(projectRoot, 'src/host/assets')
+  const targetDir = 'assets'
+  return {
+    name: 'paipiange-copy-assets',
+    writeBundle() {
+      const outDir = join(projectRoot, 'lib')
+      if (!existsSync(sourceDir)) return
+      const copy = (src: string, dst: string) => {
+        if (!existsSync(src)) return
+        const files = readdirSync(src)
+        for (const f of files) {
+          const s = join(src, f)
+          const d = join(dst, f)
+          if (statSync(s).isDirectory()) {
+            mkdirSync(d, { recursive: true })
+            copy(s, d)
+          } else {
+            mkdirSync(dirname(d), { recursive: true })
+            copyFileSync(s, d)
+          }
+        }
+      }
+      copy(sourceDir, join(outDir, targetDir))
     },
   }
 }
@@ -36,6 +72,7 @@ export default defineConfig([
     clean: true,
     dts: true,
     external: hostExternals,
+    plugins: [copyAssetsPlugin()],
     outExtensions: () => ({ js: '.js', dts: '.d.ts' }),
   },
   {

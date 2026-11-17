@@ -50,6 +50,10 @@ export function decodePick(value: string): { groupId: string; model: string } | 
 /**
  * 把一个 Backend 映射成一个 ModelGroup（取默认模型 + models 分组去重）。
  * 用于 AI 生图（llm-image）与公众号创作（llm-text / llm-image）。
+ *
+ * ComfyUI 后端没有「模型列表」——它的模型由工作流固定、生成时忽略 model 覆盖，
+ * 但为了让它在选择器里「可选中」，这里用主模型 checkpoint（缺省回退 server）作为
+ * 唯一的模型标识项。
  */
 export function backendToGroup(b: {
   id: string
@@ -57,6 +61,7 @@ export function backendToGroup(b: {
   kind: 'llm-text' | 'llm-image' | 'comfyui'
   llm?: { model: string; models?: string[] }
   text?: { model: string; models?: string[] }
+  comfyui?: { server?: string; checkpoint?: string }
 }): ModelGroup {
   const models: string[] = []
   let hint: string | undefined
@@ -69,6 +74,8 @@ export function backendToGroup(b: {
     for (const m of b.text?.models ?? []) models.push(m)
     hint = '文字 API'
   } else {
+    // ComfyUI：用 checkpoint 作主模型标识，缺省回退 server 或「默认工作流」。
+    models.push(b.comfyui?.checkpoint || b.comfyui?.server || '默认工作流')
     hint = '本机 ComfyUI'
   }
   return { id: b.id, label: b.name, models: Array.from(new Set(models)), hint }

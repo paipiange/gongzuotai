@@ -48,7 +48,12 @@ log "2/5 构建插件 pnpm build:plugin ..."
 ( cd "$PROJECT_ROOT" && pnpm build:plugin ) || fail "构建失败，已中止"
 
 log "3/5 同步 lib 产物到顶层 ..."
-cp -f "$PROJECT_ROOT"/lib/* "$TARGET/lib/" || fail "复制 lib 产物失败"
+# 只拷贝 lib 顶层的文件（目录用 -r 单独处理），避免 cp -f 遇到 assets 目录报错
+find "$PROJECT_ROOT/lib" -maxdepth 1 -type f -exec cp -f {} "$TARGET/lib/" \;
+# 同步内置静态资源目录（如情侣漫画参考图 assets/）
+if [ -d "$PROJECT_ROOT/lib/assets" ]; then
+  cp -rf "$PROJECT_ROOT/lib/assets" "$TARGET/lib/" || fail "复制 lib/assets 失败"
+fi
 clean_stale "$TARGET/lib"
 
 log "4/5 同步 lib 产物到 .pnpm 副本（dsh 实际加载位置）..."
@@ -58,7 +63,10 @@ log "4/5 同步 lib 产物到 .pnpm 副本（dsh 实际加载位置）..."
 PNPM_COPIES=$(find "$PROFILE_NM/.pnpm" -maxdepth 3 -type d -name "dsh-paipiange" 2>/dev/null)
 if [ -n "$PNPM_COPIES" ]; then
   for pkg in $PNPM_COPIES; do
-    cp -f "$PROJECT_ROOT"/lib/* "$pkg/lib/" || fail "复制 lib 到 $pkg 失败"
+    find "$PROJECT_ROOT/lib" -maxdepth 1 -type f -exec cp -f {} "$pkg/lib/" \;
+    if [ -d "$PROJECT_ROOT/lib/assets" ]; then
+      cp -rf "$PROJECT_ROOT/lib/assets" "$pkg/lib/" || fail "复制 lib/assets 到 $pkg 失败"
+    fi
     cp -f "$PROJECT_ROOT/package.json" "$pkg/package.json" || fail "复制 package.json 到 $pkg 失败"
     clean_stale "$pkg/lib"
     ok "   已同步 .pnpm 副本: $pkg"

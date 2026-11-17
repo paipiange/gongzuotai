@@ -4,6 +4,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { spawn } from 'node:child_process'
 import { PaipiangeDatabase } from './storage/database'
+import { seedCoupleComicAssets } from './storage/builtinContent'
 import { CreationRepository } from './storage/creationRepository'
 import { SettingsRepository } from './storage/SettingsRepository'
 import { AssetRepository } from './storage/assetRepository'
@@ -80,6 +81,15 @@ export async function apply(ctx: Context, config: Config = {}) {
   const settings = new SettingsRepository(storage.db)
   const assets = new AssetRepository(storage.db, storage.paths)
   const templates = new TemplateRepository(storage.db)
+
+  // 幂等地把内置情侣漫画参考图写入素材库，并回填模板封面。
+  // 失败不阻断插件启动（仅缺失内置参考图，不影响其他功能）。
+  try {
+    seedCoupleComicAssets(storage.db, assets)
+  } catch {
+    // 内置参考图 seed 失败属于非致命问题，忽略并继续启动。
+  }
+
   const inspirations = new InspirationRepository(storage.db)
   const publish = new PublishRepository(storage.db)
   const exports = new ExportService(storage.paths)

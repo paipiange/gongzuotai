@@ -2,6 +2,20 @@ import type { ProviderId } from '../../imagegen/ImageGenService'
 import type { ImageGenRequest } from '../../imagegen/types'
 import { error, json, type ApiDeps, type RegisterRoute } from './shared'
 
+/** 解析 data URL 为 { buffer, mimeType, ext }；非法返回 null。 */
+function parseDataUrl(dataUrl: string): { buffer: Buffer; mimeType: string; ext: string } | null {
+  const match = /^data:(image\/(?:png|jpeg|jpg|webp));base64,(.+)$/.exec(dataUrl)
+  if (!match) return null
+  try {
+    const buffer = Buffer.from(match[2], 'base64')
+    if (buffer.length === 0) return null
+    const ext = match[1] === 'image/jpeg' ? 'jpg' : match[1].split('/')[1]
+    return { buffer, mimeType: match[1], ext }
+  } catch {
+    return null
+  }
+}
+
 /** Image-gen config/generate, text-gen config, generation tasks, analytics, and backend management. */
 export function registerGenerationRoutes(deps: ApiDeps, register: RegisterRoute) {
   const { settings, tasks, buildImageGen, analytics, llm } = deps
@@ -50,10 +64,36 @@ export function registerGenerationRoutes(deps: ApiDeps, register: RegisterRoute)
       } | null
       if (!body || !body.request?.prompt) return error('缺少 prompt')
       const imageGen = buildImageGen()
+      // 解析后端名 + 模型名，用于生图记录的直观展示（而非 backend id）。
+      const backend = body.backendId
+        ? settings.listBackends().find((b) => b.id === body.backendId)
+        : undefined
+      const backendLabel = backend?.name ?? body.backendId ?? body.provider ?? null
+      const effectiveModel = body.request.model ?? backend?.llm?.model ?? null
+      const modelLabel = backendLabel && effectiveModel ? `${backendLabel} · ${effectiveModel}` : (backendLabel ?? effectiveModel ?? null)
+      // 参考图（data URL）转成 asset 保存，task 里只记 asset id 引用，避免把巨大
+      // 的 base64 塞进 task input（会拖慢列表加载）。这样生成记录能原样展示用户输入的图。
+      const refDataUrls = (body.request.images?.length ? body.request.images : body.request.image ? [body.request.image] : [])
+      const referenceImages: string[] = []
+      for (const dataUrl of refDataUrls) {
+        const parsed = parseDataUrl(dataUrl)
+        if (!parsed) continue
+        try {
+          const asset = deps.assets.save({
+            kind: 'image',
+            name: `reference-${Date.now()}-${referenceImages.length}.${parsed.ext}`,
+            mimeType: parsed.mimeType,
+            data: parsed.buffer,
+          })
+          referenceImages.push(asset.id)
+        } catch {
+          // 参考图保存失败不阻断生图，仅不记录该图。
+        }
+      }
       const task = tasks.start({
         kind: 'image',
         creationId: body.sourceCreationId ?? null,
-        modelId: body.backendId ?? body.provider ?? null,
+        modelId: modelLabel,
         input: {
           prompt: body.request.prompt,
           negativePrompt: body.request.negativePrompt,
@@ -65,8 +105,10 @@ export function registerGenerationRoutes(deps: ApiDeps, register: RegisterRoute)
           steps: body.request.steps,
           cfg: body.request.cfg,
           model: body.request.model,
+          backendName: backend?.name ?? null,
           hasReferenceImage: !!(body.request.image || body.request.images?.length),
           referenceImageCount: body.request.images?.length ?? (body.request.image ? 1 : 0),
+          referenceImages,
           denoise: body.request.denoise,
           backendId: body.backendId,
           provider: body.provider,
@@ -92,7 +134,7 @@ export function registerGenerationRoutes(deps: ApiDeps, register: RegisterRoute)
         tasks.markSuccess(task.id, {
           count: saved.length,
           images: saved.map((s) => ({ id: s.id, mimeType: s.mimeType, sizeBytes: s.sizeBytes })),
-        }, body.backendId ?? body.provider ?? null)
+        }, modelLabel)
         return json({ images: saved }, 201)
       } catch (cause) {
         const message = cause instanceof Error ? cause.message : String(cause)

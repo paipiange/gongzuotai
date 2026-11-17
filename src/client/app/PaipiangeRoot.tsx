@@ -61,8 +61,10 @@ import { AnalyticsPage } from './AnalyticsPage'
 import { MarkdownEditor } from './MarkdownEditor'
 import { ThemeSettings } from './ThemeSettings'
 import { TemplateManager } from './TemplateManager'
+import { TemplateUsePanel } from './TemplateUsePanel'
 import { UpdateCheck } from './UpdateCheck'
 import { exportCreation, generateTextStream, generateVideoStream, assetUrl, listBackends, batchCreations, type Backend, type TaskRecord } from './hostClient'
+import { GroupedModelPicker, backendToGroup, decodePick, type ModelGroup } from './GroupedModelPicker'
 import { extractImageFilesFromClipboard, readImageAsDataUrl } from './pasteImages'
 import { GenerationLogPage } from './GenerationLog'
 import { HERO_BG } from './heroBackground'
@@ -528,8 +530,7 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
   const [referenceImages, setReferenceImages] = useState<string[]>([])
   const [generating, setGenerating] = useState(false)
   const [textBackends, setTextBackends] = useState<Backend[]>([])
-  const [textBackendId, setTextBackendId] = useState('')
-  const [textModelId, setTextModelId] = useState('')
+  const [textPick, setTextPick] = useState('')
   const abortRef = useRef<AbortController | null>(null)
   const isVideo = studio === 'video'
   const isImage = studio === 'image'
@@ -592,7 +593,12 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
       if (cancelled) return
       const text = list.filter((b) => b.kind === 'llm-text')
       setTextBackends(text)
-      if (text.length) setTextBackendId((prev) => (text.some((b) => b.id === prev) ? prev : text[0].id))
+      if (text.length) setTextPick((prev) => {
+        const gid = decodePick(prev)?.groupId
+        if (text.some((b) => b.id === gid)) return prev
+        const first = backendToGroup(text[0])
+        return first.models[0] ? `${first.id}::${first.models[0]}` : ''
+      })
       const comfy = list.filter((b) => b.kind === 'comfyui')
       setComfyBackends(comfy)
       if (comfy.length) setVideoBackendId((prev) => (comfy.some((b) => b.id === prev) ? prev : comfy[0].id))
@@ -604,19 +610,12 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
     }
   }, [])
 
-  const currentTextBackend = textBackends.find((b) => b.id === textBackendId)
+  const decodedTextPick = decodePick(textPick)
+  const currentTextBackend = textBackends.find((b) => b.id === decodedTextPick?.groupId)
+  const textModelId = decodedTextPick?.model ?? ''
 
-  // Models available for the selected text backend (default + group extras).
-  const textBackendModels = useMemo(() => {
-    const set = new Set<string>()
-    if (currentTextBackend?.text?.model) set.add(currentTextBackend.text.model)
-    for (const m of currentTextBackend?.text?.models ?? []) set.add(m)
-    return [...set]
-  }, [currentTextBackend])
-
-  useEffect(() => {
-    setTextModelId((prev) => (textBackendModels.includes(prev) ? prev : currentTextBackend?.text?.model ?? ''))
-  }, [textBackendId, textBackendModels, currentTextBackend?.text?.model])
+  // 分组结构（每个文字后端一组，组内为该后端支持的模型）。
+  const textModelGroups = useMemo<ModelGroup[]>(() => textBackends.map(backendToGroup), [textBackends])
 
   // Debounced auto-save: once a draft has an id, persist edits silently so the
   // user never loses work. Skips video (never persisted) and avoids the toast
@@ -906,25 +905,16 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
           <SectionHeading title="创作参数" />
           <label className="pa-field"><span>创作类型</span><select defaultValue={studio}><option value={studio}>{studioLabels[studio]}</option></select></label>
           <label className="pa-field">
-            <span>文字后端</span>
-            <select value={textBackendId} onChange={(event) => setTextBackendId(event.target.value)}>
-              {textBackends.length === 0 && <option value="">（默认 / 未配置，去设置中心添加）</option>}
-              {textBackends.map((b) => (
-                <option key={b.id} value={b.id}>{b.name}{b.text ? ` · ${b.text.model}` : ''}</option>
-              ))}
-            </select>
+            <span>模型</span>
+            <GroupedModelPicker
+              groups={textModelGroups}
+              value={textPick}
+              onChange={setTextPick}
+              placeholder="选择文字模型"
+              emptyHint="暂无可用的文字后端"
+            />
             {textBackends.length === 0 && <small>未配置文字后端，将使用 Harness 默认模型。可在「设置中心 → 后端管理」添加。</small>}
           </label>
-          {textBackendModels.length > 1 && (
-            <label className="pa-field">
-              <span>模型</span>
-              <select value={textModelId} onChange={(event) => setTextModelId(event.target.value)}>
-                {textBackendModels.map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-            </label>
-          )}
           <label className="pa-field"><span>草稿标题</span><input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={80} placeholder="例如：春日品牌故事初稿" /></label>
           <label className="pa-field"><span>主题 / 关键词 <b aria-hidden="true">*</b></span><textarea value={topic} onChange={(event) => setTopic(event.target.value)} onPaste={handlePasteReference} maxLength={300} placeholder="例如：以江南春日为主题，写一篇有画面感的品牌故事，也可 Ctrl+V 粘贴参考图" /><small>{topic.length}/300</small></label>
           {referenceImages.length > 0 && (
@@ -1173,6 +1163,15 @@ function WorkspacePage({ page, creations, storageSource, onNavigate, onOpenStudi
 
   if (page === 'assets') {
     return <AssetsPage onToast={onToast} />
+  }
+
+  if (page === 'templates') {
+    return (
+      <div className="pa-page">
+        <PageIntro title={meta.title} description={meta.description} />
+        <TemplateUsePanel onToast={onToast} />
+      </div>
+    )
   }
 
   if (page === 'settings') {

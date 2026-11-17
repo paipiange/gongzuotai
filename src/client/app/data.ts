@@ -18,6 +18,7 @@ export type PageId =
   | 'home'
   | 'create'
   | 'graphic'
+  | 'templates'
   | 'assets'
   | 'analytics'
   | 'publish'
@@ -52,6 +53,7 @@ export const navigation: NavItem[] = [
   { id: 'home', label: '首页', icon: House },
   { id: 'create', label: 'AI 创作', icon: Sparkle },
   { id: 'graphic', label: '公众号创作', icon: Article },
+  { id: 'templates', label: '模板中心', icon: TextAa },
   { id: 'assets', label: '素材库', icon: FolderOpen },
   { id: 'analytics', label: '数据分析', icon: ChartBar },
   { id: 'publish', label: '发布管理', icon: PaperPlaneTilt },
@@ -152,6 +154,7 @@ export const pageMeta: Record<PageId, { title: string; description: string }> = 
   home: { title: '首页', description: '创作入口、灵感与模板' },
   create: { title: 'AI 创作', description: '选择适合内容目标的创作方式' },
   graphic: { title: '公众号创作', description: '多页图文分镜工作台' },
+  templates: { title: '模板中心', description: '选用创作模板，按字段快速生成内容' },
   assets: { title: '素材库', description: '统一管理图片、文字、提示词与文件' },
   analytics: { title: '数据分析', description: '查看本地创作趋势与类型分布' },
   publish: { title: '发布管理', description: '整理待发布内容与本地导出记录' },

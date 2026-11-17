@@ -1,4 +1,5 @@
 import { COMFYUI_DEFAULT_MODELS, type ComfyUiConfig, type GeneratedImage, type ImageGenProvider, type ImageGenRequest } from './types'
+import { composeSideBySide } from './pngCompose'
 
 /**
  * Local ComfyUI provider. Builds a minimal txt2img workflow, submits it to
@@ -21,12 +22,22 @@ export class ComfyUIProvider implements ImageGenProvider {
     const timeoutSignal = this.withTimeout(signal)
     const seed = request.seed ?? Math.floor(Math.random() * 0xffffffff)
 
-    // When reference image(s) are supplied, upload them to ComfyUI and build an
-    // img2img (repaint) workflow. Qwen-Image-Edit is a single-image editor, so the
-    // first reference is used as the base; extra references are uploaded but not
-    // yet wired into the workflow (reserved for future multi-reference support).
-    const referenceImages = request.images?.length ? request.images : (request.image ? [request.image] : [])
-    const uploadedName = referenceImages.length ? await this.uploadImage(referenceImages[0], timeoutSignal) : undefined
+    // Reference image(s): Qwen-Image-Edit is a single-image editor. When a single
+    // `image` is supplied it is used directly; when two+ `images` are supplied
+    // (e.g. the couple-comic female + male anchors), they are stitched side by
+    // side into one reference so both characters stay locked in a single pass.
+    const rawImages = request.images?.length ? request.images : (request.image ? [request.image] : [])
+    let referenceDataUrl: string | undefined
+    if (rawImages.length >= 2) {
+      try {
+        referenceDataUrl = composeSideBySide(rawImages[0], rawImages[1])
+      } catch {
+        referenceDataUrl = rawImages[0]
+      }
+    } else if (rawImages.length === 1) {
+      referenceDataUrl = rawImages[0]
+    }
+    const uploadedName = referenceDataUrl ? await this.uploadImage(referenceDataUrl, timeoutSignal) : undefined
     const workflow = buildWorkflow(this.config, request, seed, uploadedName)
 
     const promptId = await this.submit(workflow, timeoutSignal)

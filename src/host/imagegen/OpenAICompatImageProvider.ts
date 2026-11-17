@@ -1,7 +1,17 @@
 import type { GeneratedImage, ImageGenProvider, ImageGenRequest, LlmImageConfig } from './types'
+import { downscaleDataUrlIfNeeded } from './pngCompose'
 
-/** Upper bound for a single image-generation round-trip before giving up. */
-const IMAGE_GEN_TIMEOUT_MS = 180_000
+/** 单次图生图请求（一次尝试）的上限。OpenAI 兼容网关实测 40~70s，设 90s 覆盖正常慢请求、又不会干等挂死。 */
+const IMAGE_GEN_TIMEOUT_MS = 90_000
+
+/** 图生图（edits）接口的重试次数（网关 524/504/连接失败/超时等瞬时错误）。 */
+const EDIT_RETRY_COUNT = 2
+
+/** 重试前的退避毫秒数（给网关喘息，避免立刻重打一个未恢复的上游）。 */
+const EDIT_RETRY_DELAY_MS = 1500
+
+/** 参考图最长边（超出则等比缩小，降低上游网关处理超时概率）。 */
+const REFERENCE_MAX_DIM = 768
 
 /**
  * OpenAI-compatible images endpoint (e.g. OpenAI /dalle, or any gateway that
@@ -18,20 +28,68 @@ export class OpenAICompatImageProvider implements ImageGenProvider {
   constructor(private readonly config: LlmImageConfig) {}
 
   async generate(request: ImageGenRequest, signal?: AbortSignal): Promise<GeneratedImage[]> {
-    const timeoutSignal = this.withTimeout(signal)
     const count = Math.max(1, Math.min(request.count ?? 1, 4))
     const base = this.config.baseUrl.replace(/\/+$/, '')
-    const references = request.images?.length ? request.images : request.image ? [request.image] : []
+    // 参考图过大时先等比缩小，降低上游网关图生图接口的处理耗时与超时概率。
+    const references = (request.images?.length ? request.images : request.image ? [request.image] : [])
+      .map((ref) => downscaleDataUrlIfNeeded(ref, REFERENCE_MAX_DIM))
 
-    const response = references.length
-      ? await this.generateEdit(base, references, request, count, timeoutSignal)
-      : await this.generateFromPrompt(base, request, count, timeoutSignal)
+    if (references.length) {
+      return this.generateEditWithRetry(base, references, request, count, signal)
+    }
+
+    const timeoutSignal = this.withTimeout(signal)
+    const response = await this.generateFromPrompt(base, request, count, timeoutSignal)
 
     if (!response.ok) {
       const body = await response.text().catch(() => '')
       throw new Error(`Image API error ${response.status}: ${body.slice(0, 200)}`)
     }
     return this.parseImages(response, timeoutSignal)
+  }
+
+  /**
+   * 图生图（edits）调用，带瞬时错误重试：网关 524/504 超时、网络错误等重试。
+   * 每次尝试都用「独立的 90s 超时」——一旦单次挂死，90s 即放弃并重试，
+   * 而不是共用一个 180s 硬超时（那样挂死会干等 3 分钟才轮到重试）。
+   * 只有「外部取消」信号（用户主动中止）才立即抛出、不再重试。
+   */
+  private async generateEditWithRetry(
+    base: string,
+    references: string[],
+    request: ImageGenRequest,
+    count: number,
+    signal?: AbortSignal,
+  ): Promise<GeneratedImage[]> {
+    let lastError: unknown
+    for (let attempt = 0; attempt <= EDIT_RETRY_COUNT; attempt++) {
+      if (signal?.aborted) throw new Error('已取消')
+      try {
+        // 每次尝试独立超时；若外部有取消信号，则叠加它。
+        const attemptSignal = this.withTimeout(signal)
+        const response = await this.generateEdit(base, references, request, count, attemptSignal)
+        if (response.ok) return this.parseImages(response, attemptSignal)
+        // 5xx（尤其 524/504）视为可重试；4xx 立即抛出。
+        if (response.status >= 500) {
+          const body = await response.text().catch(() => '')
+          lastError = new Error(`Image API error ${response.status}: ${body.slice(0, 200)}`)
+        } else {
+          const body = await response.text().catch(() => '')
+          throw new Error(`Image API error ${response.status}: ${body.slice(0, 200)}`)
+        }
+      } catch (cause) {
+        // 外部取消（用户主动中止）→ 立即抛出；超时/网络错误 → 记录后重试。
+        if (signal?.aborted) throw cause
+        lastError = cause
+      }
+      // 退避：给上游网关喘息时间，再重试。
+      if (attempt < EDIT_RETRY_COUNT) await this.delay(EDIT_RETRY_DELAY_MS)
+    }
+    throw lastError instanceof Error ? lastError : new Error(String(lastError))
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms))
   }
 
   /** Combine the caller's abort signal with a hard timeout so a hung gateway cannot stall forever. */
