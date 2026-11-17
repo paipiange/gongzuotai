@@ -27,7 +27,7 @@ afterEach(() => {
 async function openTemporaryStorage() {
   const root = join(tmpdir(), `paipiange-template-test-${randomUUID()}`)
   temporaryRoots.push(root)
-  return PaipiangeDatabase.open({ dataRoot: root })
+  return PaipiangeDatabase.open({ dataRoot: root, seedBuiltin: false })
 }
 
 describe('TemplateRepository', () => {

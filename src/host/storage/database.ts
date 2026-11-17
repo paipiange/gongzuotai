@@ -3,6 +3,7 @@ import { copyFileSync, existsSync, rmSync } from 'node:fs'
 import { basename } from 'node:path'
 import { createRequire } from 'node:module'
 import type Database from 'better-sqlite3'
+import { seedBuiltinContent } from './builtinContent'
 import { getSchemaVersion, latestSchemaVersion, migrateDatabase } from './migrations'
 import { ensureStorageDirectories, resolvePrivatePath, resolveStoragePaths, type StoragePaths } from './paths'
 
@@ -15,6 +16,8 @@ const DatabaseCtor = requireCjs('better-sqlite3') as typeof Database
 
 export interface StorageOptions {
   dataRoot?: string
+  /** 首次建库时是否写入内置模板与灵感（默认 true，幂等）。单元测试可传 false 隔离。 */
+  seedBuiltin?: boolean
 }
 
 export class PaipiangeDatabase {
@@ -42,6 +45,7 @@ export class PaipiangeDatabase {
         await db.backup(resolvePrivatePath(paths.backups, preMigrationName))
       }
       migrateDatabase(db)
+      if (options.seedBuiltin !== false) seedBuiltinContent(db)
       return new PaipiangeDatabase(db, paths)
     } catch (error) {
       db.close()

@@ -244,5 +244,5 @@ describe('templates, inspirations, publish and export', () => {
 async function openTemporaryStorage() {
   const root = join(tmpdir(), `paipiange-extra-test-${crypto.randomUUID()}`)
   temporaryRoots.push(root)
-  return PaipiangeDatabase.open({ dataRoot: root })
+  return PaipiangeDatabase.open({ dataRoot: root, seedBuiltin: false })
 }
