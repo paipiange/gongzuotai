@@ -673,8 +673,7 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
     return saved
   }
 
-  const submit = async (event: FormEvent) => {
-    event.preventDefault()
+  const runGenerate = async () => {
     if (!topic.trim()) {
       onToast('请先填写创作主题', 'warning')
       return
@@ -732,6 +731,35 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
       setGenerating(false)
     }
   }
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault()
+    void runGenerate()
+  }
+
+  // 快捷键：Ctrl/Cmd+Enter 触发生成，Ctrl/Cmd+S 保存草稿（图片工作室的
+  // 生成/保存走独立面板，不响应快捷键）。用 ref 引用最新函数避免重复绑定。
+  const isImageRef = useRef(isImage)
+  isImageRef.current = isImage
+  const runGenerateRef = useRef(runGenerate)
+  runGenerateRef.current = runGenerate
+  const saveRef = useRef(save)
+  saveRef.current = save
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (isImageRef.current) return
+      if (!event.metaKey && !event.ctrlKey) return
+      if (event.key === 'Enter') {
+        event.preventDefault()
+        void runGenerateRef.current()
+      } else if (event.key.toLowerCase() === 's') {
+        event.preventDefault()
+        void saveRef.current('draft')
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
 
   /** Video studio: run the local pipeline (LLM → HTML → render, or ComfyUI frames → FFmpeg). */
   const submitVideo = async () => {

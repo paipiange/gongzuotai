@@ -254,3 +254,17 @@ export interface TaskRecord {
   finishedAt: string | null
   createdAt: string
 }
+
+/** 数据分析看板总览（对应后端 AnalyticsRepository.overview）。 */
+export interface AnalyticsOverview {
+  generated: {
+    total: number
+    byKind: Record<string, number>
+    byStatus: Record<string, number>
+    successRate: number
+  }
+  creations: { total: number; byStatus: Record<string, number>; byType: Record<string, number> }
+  assets: { total: number; byKind: Record<string, number> }
+  publish: { total: number; byStatus: Record<string, number> }
+  trend7d: Array<{ day: string; count: number }>
+}

@@ -5,6 +5,7 @@
 
 import { BASE, HostError, apiFetch } from './client'
 import type {
+  AnalyticsOverview,
   AssetRecord,
   AssetStorageStats,
   AihotItem,
@@ -240,4 +241,12 @@ export async function listTasks(input?: { kind?: TaskKind; status?: TaskStatus; 
 export async function getTask(id: string): Promise<TaskRecord> {
   const data = await apiFetch<{ task: TaskRecord }>(`.task?id=${encodeURIComponent(id)}`)
   return data.task
+}
+
+// ---- Analytics dashboard ----
+
+/** Fetch the read-only analytics overview aggregated from local SQLite. */
+export async function fetchAnalytics(): Promise<AnalyticsOverview> {
+  const data = await apiFetch<{ overview: AnalyticsOverview }>('.analytics')
+  return data.overview
 }

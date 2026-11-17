@@ -104,9 +104,12 @@ export function GraphicStudioPage({ onBack, onToast }: { onBack: () => void; onT
   const [warnings, setWarnings] = useState<string[]>([])
   const [referenceImages, setReferenceImages] = useState<string[]>([])
   const [sessionId, setSessionId] = useState('')
+  const [restoredFlag, setRestoredFlag] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const pagesRef = useRef<PageRecord[]>(pages)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const restoredTextPickRef = useRef('')
+  const restoredImagePickRef = useRef('')
 
   useEffect(() => {
     let cancelled = false
@@ -116,8 +119,6 @@ export function GraphicStudioPage({ onBack, onToast }: { onBack: () => void; onT
       const image = list.filter((b) => b.kind === 'llm-image' || b.kind === 'comfyui')
       setTextBackends(text)
       setImageBackends(image)
-      if (text.length) setTextPick((prev) => (text.some((b) => b.id === decodePick(prev)?.groupId) ? prev : pickDefault(text)))
-      if (image.length) setImagePick((prev) => (image.some((b) => b.id === decodePick(prev)?.groupId) ? prev : pickDefault(image)))
     }).catch(() => {
       if (!cancelled) {
         setTextBackends([])
@@ -128,6 +129,20 @@ export function GraphicStudioPage({ onBack, onToast }: { onBack: () => void; onT
       cancelled = true
     }
   }, [])
+
+  // 统一合并「恢复的 pick」与「已加载的后端列表」，消除两个异步操作（加载后端 /
+  // 恢复会话）完成顺序不定带来的竞态：无论谁先完成，最终 pick 都是「恢复值（若
+  // 其后端仍存在）否则回退到第一个后端」，且用户之后手动改选不会被覆盖。
+  useEffect(() => {
+    setTextPick((prev) => {
+      const desired = restoredFlag ? restoredTextPickRef.current : prev
+      return textBackends.some((b) => b.id === decodePick(desired)?.groupId) ? desired : pickDefault(textBackends)
+    })
+    setImagePick((prev) => {
+      const desired = restoredFlag ? restoredImagePickRef.current : prev
+      return imageBackends.some((b) => b.id === decodePick(desired)?.groupId) ? desired : pickDefault(imageBackends)
+    })
+  }, [textBackends, imageBackends, restoredFlag])
 
   // 状态变化时自动保存到后端会话（防抖，剥离 busy 瞬态，恢复完成前不写）。
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -217,8 +232,9 @@ export function GraphicStudioPage({ onBack, onToast }: { onBack: () => void; onT
         setSourceText(session.sourceText)
         setTopic(session.topic)
         setPageCount(session.pageCount)
-        setTextPick(session.textPick)
-        setImagePick(session.imagePick)
+        restoredTextPickRef.current = session.textPick
+        restoredImagePickRef.current = session.imagePick
+        setRestoredFlag(true)
         setStoryboard(session.storyboard)
         setPages(session.pages.map((p) => ({ page: p.page, assetId: p.assetId, error: p.error })))
         setWarnings(session.storyboard?.warnings ?? [])
