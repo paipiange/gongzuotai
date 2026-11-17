@@ -113,17 +113,31 @@ export class TaskRepository {
     return run.changes === 1
   }
 
-  /** List tasks, newest first. Optionally filter by kind/status. */
-  list(kind?: TaskKind, status?: TaskStatus, limit = 100, offset = 0): TaskRecord[] {
+  /**
+   * List tasks, newest first. Optionally filter by kind/status and search by a
+   * free-text query (matched against the stored input/output JSON, error message
+   * and model id). The query is a case-insensitive substring match.
+   */
+  list(kind?: TaskKind, status?: TaskStatus, limit = 100, offset = 0, query?: string): TaskRecord[] {
+    const q = query?.trim() ?? ''
     const rows = this.db.prepare(`
       SELECT * FROM tasks
       WHERE (@kind IS NULL OR kind = @kind)
         AND (@status IS NULL OR status = @status)
+        AND (
+          @q = ''
+          OR input_json LIKE @qPattern ESCAPE '\\'
+          OR result_json LIKE @qPattern ESCAPE '\\'
+          OR error_message LIKE @qPattern ESCAPE '\\'
+          OR model_id LIKE @qPattern ESCAPE '\\'
+        )
       ORDER BY created_at DESC, rowid DESC
       LIMIT @limit OFFSET @offset
     `).all({
       kind: kind ?? null,
       status: status ?? null,
+      q,
+      qPattern: q ? `%${escapeLike(q)}%` : '',
       limit: Math.min(Math.max(limit, 1), 500),
       offset: Math.max(offset, 0),
     }) as TaskRow[]
@@ -161,4 +175,8 @@ function parseObject(value: string): Record<string, unknown> {
   } catch {
     return {}
   }
+}
+
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, (match) => `\\${match}`)
 }

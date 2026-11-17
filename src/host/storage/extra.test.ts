@@ -197,6 +197,29 @@ describe('templates, inspirations, publish and export', () => {
     storage.close()
   })
 
+  it('searches assets by name or tag with query, and paginates in SQL', async () => {
+    const storage = await openTemporaryStorage()
+    const repo = new AssetRepository(storage.db, storage.paths)
+    const a = repo.save({ kind: 'image', name: '海边日出.png', mimeType: 'image/png', data: Buffer.from('a'), tags: ['风景', '治愈'] })
+    repo.save({ kind: 'image', name: '产品海报.png', mimeType: 'image/png', data: Buffer.from('b'), tags: ['营销'] })
+
+    // By name substring.
+    expect(repo.list(undefined, 100, 0, undefined, '日出')).toHaveLength(1)
+    expect(repo.list(undefined, 100, 0, undefined, '日出')[0].id).toBe(a.id)
+    // By tag substring (tags are searched too).
+    expect(repo.list(undefined, 100, 0, undefined, '治愈')).toHaveLength(1)
+    expect(repo.list(undefined, 100, 0, undefined, '治愈')[0].id).toBe(a.id)
+    // No match.
+    expect(repo.list(undefined, 100, 0, undefined, '不存在')).toHaveLength(0)
+    // Like wildcards are escaped, not interpreted.
+    expect(repo.list(undefined, 100, 0, undefined, '%')).toHaveLength(0)
+    // Pagination: first page returns one, second page returns none.
+    expect(repo.list(undefined, 1, 0)).toHaveLength(1)
+    expect(repo.list(undefined, 1, 1)).toHaveLength(1)
+
+    storage.close()
+  })
+
   it('writes saved images under media/images with a matching relative path', async () => {
     const storage = await openTemporaryStorage()
     const repo = new AssetRepository(storage.db, storage.paths)

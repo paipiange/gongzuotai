@@ -97,7 +97,9 @@ export interface LoadResult {
 /** Load all creations, preferring the Host. */
 export async function loadCreations(): Promise<LoadResult> {
   try {
-    const hostRecords = await hostList()
+    // Pull up to 500 records in one pass (the UI filters client-side); the
+    // default backend page size of 50 would silently drop older drafts.
+    const hostRecords = await hostList({ limit: 500 })
     // Reconcile any legacy local records into the Host before clearing the
     // local copy — otherwise drafts saved while offline would be silently
     // dropped once the Host comes back.

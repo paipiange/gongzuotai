@@ -1,5 +1,5 @@
-import { ClockCounterClockwise, ArrowClockwise, TextAa, ImageSquare, VideoCamera, CheckCircle, XCircle, CaretRight, Eye, ArrowSquareOut } from '@phosphor-icons/react'
-import { useEffect, useMemo, useState } from 'react'
+import { ClockCounterClockwise, ArrowClockwise, TextAa, ImageSquare, VideoCamera, CheckCircle, XCircle, CaretRight, Eye, ArrowSquareOut, MagnifyingGlass } from '@phosphor-icons/react'
+import { useEffect, useState } from 'react'
 import { getTask, listTasks, assetUrl, type TaskKind, type TaskRecord, type TaskStatus } from './hostClient'
 import { Lightbox, absoluteAssetUrl } from './Lightbox'
 
@@ -36,31 +36,53 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
   const [loaded, setLoaded] = useState(false)
   const [kindFilter, setKindFilter] = useState<'all' | TaskKind>('all')
   const [statusFilter, setStatusFilter] = useState<'all' | TaskStatus>('all')
+  const [query, setQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
+  const [offset, setOffset] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [detail, setDetail] = useState<TaskRecord | null>(null)
   const [lightboxId, setLightboxId] = useState<string | null>(null)
 
-  const reload = async () => {
+  const PAGE_SIZE = 50
+
+  // Debounce the search box so we don't hit the backend on every keystroke.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query.trim()), 300)
+    return () => clearTimeout(timer)
+  }, [query])
+
+  const load = async (reset: boolean) => {
+    const nextOffset = reset ? 0 : offset
+    if (reset) setLoaded(false)
+    else setLoadingMore(true)
     try {
-      const list = await listTasks()
-      setTasks(list)
+      const list = await listTasks({
+        kind: kindFilter === 'all' ? undefined : kindFilter,
+        status: statusFilter === 'all' ? undefined : statusFilter,
+        query: debouncedQuery || undefined,
+        limit: PAGE_SIZE,
+        offset: nextOffset,
+      })
+      setTasks((current) => (reset ? list : [...current, ...list]))
+      setOffset(nextOffset + list.length)
+      setHasMore(list.length === PAGE_SIZE)
     } catch {
       onToast('无法读取生成记录，本地服务未连接', 'warning')
     } finally {
       setLoaded(true)
+      setLoadingMore(false)
     }
   }
 
   useEffect(() => {
-    void reload()
-  }, [])
+    void load(true)
+  }, [kindFilter, statusFilter, debouncedQuery])
 
-  const visible = useMemo(() => {
-    return tasks.filter((t) => {
-      if (kindFilter !== 'all' && t.kind !== kindFilter) return false
-      if (statusFilter !== 'all' && t.status !== statusFilter) return false
-      return true
-    })
-  }, [tasks, kindFilter, statusFilter])
+  const loadMore = () => {
+    if (loadingMore || !hasMore) return
+    void load(false)
+  }
 
   const openDetail = async (task: TaskRecord) => {
     try {
@@ -107,10 +129,11 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
           <h1>生成记录</h1>
           <p>每一次生成（无论成功或失败）都会留下记录，可查看请求参数与返回日志，并一键继续修改。</p>
         </div>
-        <button type="button" className="pa-secondary-button" onClick={reload}><ArrowClockwise aria-hidden="true" size={16} />刷新</button>
+        <button type="button" className="pa-secondary-button" onClick={() => load(true)}><ArrowClockwise aria-hidden="true" size={16} />刷新</button>
       </div>
 
       <div className="pa-record-toolbar">
+        <label className="pa-record-search"><MagnifyingGlass aria-hidden="true" size={17} /><span className="pa-visually-hidden">搜索生成记录</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索提示词、结果或错误信息" /></label>
         <div className="pa-segmented" aria-label="类型筛选">
           <button type="button" data-active={kindFilter === 'all'} onClick={() => setKindFilter('all')}>全部</button>
           <button type="button" data-active={kindFilter === 'text'} onClick={() => setKindFilter('text')}>文字</button>
@@ -126,11 +149,12 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
 
       {!loaded ? (
         <section className="pa-panel pa-large-empty"><div className="pa-large-empty__icon"><ClockCounterClockwise aria-hidden="true" size={27} weight="duotone" /></div><h2>正在加载…</h2></section>
-      ) : visible.length === 0 ? (
-        <section className="pa-panel pa-large-empty"><div className="pa-large-empty__icon"><ClockCounterClockwise aria-hidden="true" size={27} weight="duotone" /></div><h2>暂无生成记录</h2><p>去「AI 创作」生成文字或图片后，这里会记录每次请求与结果。</p></section>
+      ) : tasks.length === 0 ? (
+        <section className="pa-panel pa-large-empty"><div className="pa-large-empty__icon"><ClockCounterClockwise aria-hidden="true" size={27} weight="duotone" /></div><h2>{query ? '没有匹配的生成记录' : '暂无生成记录'}</h2><p>去「AI 创作」生成文字或图片后，这里会记录每次请求与结果。</p></section>
       ) : (
+        <>
         <ul className="pa-task-list">
-          {visible.map((task) => {
+          {tasks.map((task) => {
             const KindIcon = task.kind === 'text' ? TextAa : task.kind === 'image' ? ImageSquare : VideoCamera
             return (
               <li key={task.id} className="pa-task-row">
@@ -155,6 +179,14 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
             )
           })}
         </ul>
+        {hasMore && (
+          <div className="pa-load-more">
+            <button type="button" className="pa-secondary-button" onClick={loadMore} disabled={loadingMore}>
+              {loadingMore ? '加载中…' : `加载更多（已显示 ${tasks.length} 条）`}
+            </button>
+          </div>
+        )}
+        </>
       )}
 
       {detail && (

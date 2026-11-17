@@ -174,7 +174,7 @@ export class CreationRepository {
       status: input.status ?? null,
       query,
       queryPattern: query ? `%${escapeLike(query)}%` : '',
-      limit: clampInteger(input.limit, 50, 1, 100),
+      limit: clampInteger(input.limit, 50, 1, 500),
       offset: clampInteger(input.offset, 0, 0, 100_000),
     }) as CreationRow[]
     const mapped = rows.map(mapCreation)

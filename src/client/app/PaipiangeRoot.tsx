@@ -1030,7 +1030,7 @@ function HistoryPage({ creations, onOpen, onStatus, onDelete, onCreate, onRefres
   const [busy, setBusy] = useState(false)
   const visible = creations.filter((creation) => {
     const matchesStatus = filter === 'archived' ? creation.status === 'archived' : creation.status !== 'archived'
-    const haystack = `${creation.title}${creation.topic}${creation.content}${studioLabels[creation.studio]}`.toLowerCase()
+    const haystack = `${creation.title}${creation.topic}${creation.content}${studioLabels[creation.studio]}${creation.tags.join(' ')}`.toLowerCase()
     return matchesStatus && haystack.includes(query.trim().toLowerCase())
   })
 
@@ -1076,7 +1076,7 @@ function HistoryPage({ creations, onOpen, onStatus, onDelete, onCreate, onRefres
       ) : (
         <>
           <div className="pa-record-toolbar">
-            <label className="pa-record-search"><MagnifyingGlass aria-hidden="true" size={17} /><span className="pa-visually-hidden">搜索创作记录</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索标题、主题或正文" /></label>
+            <label className="pa-record-search"><MagnifyingGlass aria-hidden="true" size={17} /><span className="pa-visually-hidden">搜索创作记录</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索标题、主题、正文或标签" /></label>
             <div className="pa-segmented" aria-label="记录状态筛选">
               <button type="button" data-active={filter === 'active'} onClick={() => setFilter('active')}>进行中</button>
               <button type="button" data-active={filter === 'archived'} onClick={() => setFilter('archived')}>已归档</button>

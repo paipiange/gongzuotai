@@ -157,10 +157,14 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
       const status = url.searchParams.get('status') ?? undefined
       const query = url.searchParams.get('query') ?? undefined
       const tagsParam = url.searchParams.get('tags') ?? undefined
+      const limit = Number(url.searchParams.get('limit') ?? '50') || 50
+      const offset = Number(url.searchParams.get('offset') ?? '0') || 0
       const records = creations.list({
         status: status === 'draft' || status === 'queued' || status === 'archived' ? status : undefined,
         query,
         tags: tagsParam ? tagsParam.split(',').map((t) => t.trim()).filter(Boolean) : undefined,
+        limit,
+        offset,
       })
       return json({ creations: records.map(toClientCreation) })
   })
@@ -343,6 +347,7 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
       const url = new URL(request.url)
       const kind = url.searchParams.get('kind')
       const status = url.searchParams.get('status')
+      const query = url.searchParams.get('query') ?? undefined
       const limit = Number(url.searchParams.get('limit') ?? '100') || 100
       const offset = Number(url.searchParams.get('offset') ?? '0') || 0
       const rows = tasks.list(
@@ -350,6 +355,7 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
         status === 'running' || status === 'success' || status === 'failed' ? status : undefined,
         limit,
         offset,
+        query,
       )
       return json({ tasks: rows })
   })
@@ -598,10 +604,13 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
       const kind = url.searchParams.get('kind')
       const creationId = url.searchParams.get('creationId')
       const tagsParam = url.searchParams.get('tags')
+      const query = url.searchParams.get('query') ?? undefined
+      const limit = Number(url.searchParams.get('limit') ?? '100') || 100
+      const offset = Number(url.searchParams.get('offset') ?? '0') || 0
       const tags = tagsParam ? tagsParam.split(',').map((t) => t.trim()).filter(Boolean) : undefined
       const rows = creationId
         ? assets.listByCreation(creationId)
-        : assets.list(kind === 'image' || kind === 'file' || kind === 'prompt' || kind === 'document' ? kind : undefined, 100, 0, tags)
+        : assets.list(kind === 'image' || kind === 'file' || kind === 'prompt' || kind === 'document' ? kind : undefined, limit, offset, tags, query)
       return json({
         assets: rows.map((a) => ({
           id: a.id,

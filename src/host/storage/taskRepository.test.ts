@@ -83,4 +83,25 @@ describe('TaskRepository (generation attempts)', () => {
     expect(repo.list(undefined, 'failed')[0].id).toBe(b.id)
     storage.close()
   })
+
+  it('searches tasks by free-text query across input, result and error', async () => {
+    const storage = await openTemporaryStorage()
+    const repo = new TaskRepository(storage.db)
+
+    const a = repo.start({ kind: 'text', input: { topic: '春日穿搭' } })
+    const b = repo.start({ kind: 'image', input: { prompt: '海边日落' } })
+    repo.markSuccess(a.id, { text: '含关键词「爆款」的文章' })
+    repo.markFailed(b.id, 'imagegen', 'Image API 超时')
+
+    expect(repo.list(undefined, undefined, 100, 0, '穿搭')).toHaveLength(1)
+    expect(repo.list(undefined, undefined, 100, 0, '穿搭')[0].id).toBe(a.id)
+    expect(repo.list(undefined, undefined, 100, 0, '爆款')).toHaveLength(1)
+    expect(repo.list(undefined, undefined, 100, 0, '爆款')[0].id).toBe(a.id)
+    expect(repo.list(undefined, undefined, 100, 0, '超时')).toHaveLength(1)
+    expect(repo.list(undefined, undefined, 100, 0, '超时')[0].id).toBe(b.id)
+    expect(repo.list(undefined, undefined, 100, 0, '不存在')).toHaveLength(0)
+    // Like special characters are escaped, not treated as wildcards.
+    expect(repo.list(undefined, undefined, 100, 0, '%')).toHaveLength(0)
+    storage.close()
+  })
 })

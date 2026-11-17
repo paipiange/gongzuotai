@@ -115,11 +115,14 @@ export async function setPublishStatus(id: string, status: PublishStatus, extern
 
 // ---- Assets ----
 
-export async function listAssets(input?: { kind?: 'image' | 'file' | 'prompt' | 'document'; creationId?: string; tags?: string[] }): Promise<AssetRecord[]> {
+export async function listAssets(input?: { kind?: 'image' | 'file' | 'prompt' | 'document'; creationId?: string; tags?: string[]; query?: string; limit?: number; offset?: number }): Promise<AssetRecord[]> {
   const params = new URLSearchParams()
   if (input?.kind) params.set('kind', input.kind)
   if (input?.creationId) params.set('creationId', input.creationId)
   if (input?.tags?.length) params.set('tags', input.tags.join(','))
+  if (input?.query) params.set('query', input.query)
+  if (input?.limit) params.set('limit', String(input.limit))
+  if (input?.offset) params.set('offset', String(input.offset))
   const query = params.toString()
   const data = await apiFetch<{ assets: AssetRecord[] }>(`.assets${query ? `?${query}` : ''}`)
   return data.assets
@@ -222,10 +225,13 @@ export async function restartApp(): Promise<void> {
 
 // ---- Generation tasks (request params + result logs) ----
 
-export async function listTasks(input?: { kind?: TaskKind; status?: TaskStatus }): Promise<TaskRecord[]> {
+export async function listTasks(input?: { kind?: TaskKind; status?: TaskStatus; query?: string; limit?: number; offset?: number }): Promise<TaskRecord[]> {
   const params = new URLSearchParams()
   if (input?.kind) params.set('kind', input.kind)
   if (input?.status) params.set('status', input.status)
+  if (input?.query) params.set('query', input.query)
+  if (input?.limit) params.set('limit', String(input.limit))
+  if (input?.offset) params.set('offset', String(input.offset))
   const query = params.toString()
   const data = await apiFetch<{ tasks: TaskRecord[] }>(`.tasks${query ? `?${query}` : ''}`)
   return data.tasks

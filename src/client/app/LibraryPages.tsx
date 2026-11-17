@@ -22,6 +22,7 @@ import {
   ArrowSquareOut,
   TrendUp,
   ArrowClockwise,
+  MagnifyingGlass,
 } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
 import type { CreationRecord } from './workspaceStore'
@@ -104,6 +105,11 @@ export function AssetsPage({ onToast }: { onToast: (message: string, tone?: Toas
   const [assets, setAssets] = useState<AssetRecord[]>([])
   const [source, setSource] = useState<'host' | 'local' | 'loading'>('loading')
   const [kind, setKind] = useState<'all' | 'image' | 'file' | 'prompt' | 'document'>('all')
+  const [query, setQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
+  const [offset, setOffset] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [editingTagsId, setEditingTagsId] = useState<string | null>(null)
   const [tagsDraft, setTagsDraft] = useState('')
@@ -112,19 +118,54 @@ export function AssetsPage({ onToast }: { onToast: (message: string, tone?: Toas
   const [storageBusy, setStorageBusy] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const PAGE_SIZE = 50
+
+  // Debounce the search box so we don't hit the backend on every keystroke.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query.trim()), 300)
+    return () => clearTimeout(timer)
+  }, [query])
+
   const refresh = async () => {
     try {
-      const rows = await listAssets(kind === 'all' ? undefined : { kind })
+      const rows = await listAssets({
+        kind: kind === 'all' ? undefined : kind,
+        query: debouncedQuery || undefined,
+        limit: PAGE_SIZE,
+        offset: 0,
+      })
       setAssets(rows)
+      setOffset(rows.length)
+      setHasMore(rows.length === PAGE_SIZE)
       setSource('host')
     } catch {
       setSource('local')
     }
   }
 
+  const loadMore = async () => {
+    if (loadingMore || !hasMore) return
+    setLoadingMore(true)
+    try {
+      const rows = await listAssets({
+        kind: kind === 'all' ? undefined : kind,
+        query: debouncedQuery || undefined,
+        limit: PAGE_SIZE,
+        offset,
+      })
+      setAssets((current) => [...current, ...rows])
+      setOffset((current) => current + rows.length)
+      setHasMore(rows.length === PAGE_SIZE)
+    } catch {
+      // Keep the already-loaded list on failure.
+    } finally {
+      setLoadingMore(false)
+    }
+  }
+
   useEffect(() => {
     void refresh()
-  }, [kind])
+  }, [kind, debouncedQuery])
 
   const handleUpload = async (file: File) => {
     try {
@@ -245,6 +286,7 @@ export function AssetsPage({ onToast }: { onToast: (message: string, tone?: Toas
     <div className="pa-page">
       <PageIntro title="素材库" description="统一管理图片、文字、提示词与文件。" />
       <div className="pa-record-toolbar">
+        <label className="pa-record-search"><MagnifyingGlass aria-hidden="true" size={17} /><span className="pa-visually-hidden">搜索素材</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索素材名称或标签" /></label>
         <div className="pa-segmented" aria-label="素材类型筛选">
           {(['all', 'image', 'file', 'prompt', 'document'] as const).map((k) => (
             <button key={k} type="button" data-active={kind === k} onClick={() => setKind(k)}>
@@ -323,10 +365,18 @@ export function AssetsPage({ onToast }: { onToast: (message: string, tone?: Toas
       ) : (
         <section className="pa-panel pa-large-empty">
           <div className="pa-large-empty__icon"><CloudArrowUp aria-hidden="true" size={27} weight="duotone" /></div>
-          <h2>素材库还是空的</h2>
-          <p>{source === 'host' ? '点击“导入素材”上传图片、文稿或提示词，文件会保存到本地 Host 媒体目录。' : 'Host 服务未连接，暂无法读取素材库。'}</p>
-          <button type="button" className="pa-secondary-button" onClick={() => fileInputRef.current?.click()}>导入素材</button>
+          <h2>{query ? '没有匹配的素材' : '素材库还是空的'}</h2>
+          <p>{source === 'host' ? (query ? '换个关键词试试。' : '点击“导入素材”上传图片、文稿或提示词，文件会保存到本地 Host 媒体目录。') : 'Host 服务未连接，暂无法读取素材库。'}</p>
+          {!query && <button type="button" className="pa-secondary-button" onClick={() => fileInputRef.current?.click()}>导入素材</button>}
         </section>
+      )}
+
+      {assets.length > 0 && hasMore && (
+        <div className="pa-load-more">
+          <button type="button" className="pa-secondary-button" onClick={() => void loadMore()} disabled={loadingMore}>
+            {loadingMore ? '加载中…' : `加载更多（已显示 ${assets.length} 个）`}
+          </button>
+        </div>
       )}
 
       {storageOpen && (

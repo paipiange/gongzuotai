@@ -1484,13 +1484,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 14px;
 }
 
 .pa-root .pa-record-search {
   display: flex;
-  width: min(460px, 100%);
+  flex: 1 1 100%;
   min-height: 44px;
   align-items: center;
   gap: 9px;
@@ -1513,6 +1514,12 @@
 .pa-root .pa-record-search:focus-within {
   border-color: rgba(245, 213, 167, 0.58);
   box-shadow: 0 0 0 2px rgba(229, 183, 126, 0.12);
+}
+
+.pa-root .pa-load-more {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0 4px;
 }
 
 .pa-root .pa-segmented {

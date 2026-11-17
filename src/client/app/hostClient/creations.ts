@@ -5,11 +5,13 @@
 import { apiFetch } from './client'
 import type { CreationDraft, CreationRecord, CreationStatus } from './types'
 
-export async function listCreations(input?: { status?: CreationStatus; query?: string; tags?: string[] }): Promise<CreationRecord[]> {
+export async function listCreations(input?: { status?: CreationStatus; query?: string; tags?: string[]; limit?: number; offset?: number }): Promise<CreationRecord[]> {
   const params = new URLSearchParams()
   if (input?.status) params.set('status', input.status)
   if (input?.query) params.set('query', input.query)
   if (input?.tags?.length) params.set('tags', input.tags.join(','))
+  if (input?.limit) params.set('limit', String(input.limit))
+  if (input?.offset) params.set('offset', String(input.offset))
   const query = params.toString()
   const data = await apiFetch<{ creations: CreationRecord[] }>(`.creations${query ? `?${query}` : ''}`)
   return data.creations

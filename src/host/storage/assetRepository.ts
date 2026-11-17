@@ -99,17 +99,38 @@ export class AssetRepository {
     return row ? mapAsset(row) : null
   }
 
-  list(kind?: AssetKind, limit = 100, offset = 0, tags?: string[]) {
+  /**
+   * List non-deleted assets, newest first. Optionally filter by kind, require
+   * all of the given tags (AND semantics, matched against the tags JSON), and
+   * search by a free-text query (name or tag substring). Tags and query are
+   * applied in SQL so `limit`/`offset` paginate the filtered result correctly.
+   */
+  list(kind?: AssetKind, limit = 100, offset = 0, tags?: string[], query?: string) {
     const requiredTags = tags?.map((t) => t.trim()).filter(Boolean) ?? []
-    const rows = this.db.prepare(`
+    const q = query?.trim() ?? ''
+    let sql = `
       SELECT * FROM assets
       WHERE (@kind IS NULL OR kind = @kind) AND deleted_at IS NULL
-      ORDER BY created_at DESC
-      LIMIT @limit OFFSET @offset
-    `).all({ kind: kind ?? null, limit, offset }) as AssetRow[]
-    const mapped = rows.map(mapAsset)
-    if (!requiredTags.length) return mapped
-    return mapped.filter((record) => requiredTags.every((tag) => record.tags.includes(tag)))
+        AND (
+          @q = ''
+          OR name LIKE @qPattern ESCAPE '\\'
+          OR tags_json LIKE @qPattern ESCAPE '\\'
+        )
+    `
+    const params: Record<string, unknown> = {
+      kind: kind ?? null,
+      q,
+      qPattern: q ? `%${escapeLike(q)}%` : '',
+      limit: Math.min(Math.max(limit, 1), 500),
+      offset: Math.max(offset, 0),
+    }
+    requiredTags.forEach((tag, index) => {
+      sql += ` AND tags_json LIKE @tagPattern${index} ESCAPE '\\'`
+      params[`tagPattern${index}`] = `%"${escapeLike(tag)}"%`
+    })
+    sql += ' ORDER BY created_at DESC LIMIT @limit OFFSET @offset'
+    const rows = this.db.prepare(sql).all(params) as AssetRow[]
+    return rows.map(mapAsset)
   }
 
   listByCreation(creationId: string) {
@@ -256,4 +277,8 @@ function extensionFor(mimeType: string, name: string): string {
   if (known === 'webp') return '.webp'
   const match = name.match(/\.[a-zA-Z0-9]+$/)
   return match ? match[0].toLowerCase() : '.bin'
+}
+
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, (match) => `\\${match}`)
 }
