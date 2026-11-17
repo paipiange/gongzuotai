@@ -1,11 +1,11 @@
-import { ClockCounterClockwise, ArrowClockwise, TextAa, ImageSquare, CheckCircle, XCircle, CaretRight, Eye, ArrowSquareOut } from '@phosphor-icons/react'
+import { ClockCounterClockwise, ArrowClockwise, TextAa, ImageSquare, VideoCamera, CheckCircle, XCircle, CaretRight, Eye, ArrowSquareOut } from '@phosphor-icons/react'
 import { useEffect, useMemo, useState } from 'react'
 import { getTask, listTasks, assetUrl, type TaskKind, type TaskRecord, type TaskStatus } from './hostClient'
 import { Lightbox, absoluteAssetUrl } from './Lightbox'
 
 type Toast = (message: string, tone?: 'info' | 'success' | 'warning') => void
 
-const KIND_LABEL: Record<TaskKind, string> = { text: '文字', image: '图片' }
+const KIND_LABEL: Record<TaskKind, string> = { text: '文字', image: '图片', video: '视频' }
 const STATUS_LABEL: Record<TaskStatus, string> = { running: '进行中', success: '成功', failed: '失败' }
 
 function formatTime(value: string | null): string {
@@ -74,6 +74,9 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
     if (task.kind === 'text') {
       return String(task.input.topic ?? task.input.studio ?? '')
     }
+    if (task.kind === 'video') {
+      return String(task.input.topic ?? '')
+    }
     return String(task.input.prompt ?? '')
   }
 
@@ -88,6 +91,12 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
     const result = task.result as { images?: Array<{ id?: unknown }> }
     if (!Array.isArray(result?.images)) return []
     return result.images.map((img) => img?.id).filter((id): id is string => typeof id === 'string')
+  }
+
+  /** 从成功视频任务的 result 中提取视频 asset id。 */
+  const resultVideoId = (task: TaskRecord): string | null => {
+    const result = task.result as { assetId?: unknown }
+    return typeof result?.assetId === 'string' ? result.assetId : null
   }
 
   return (
@@ -106,6 +115,7 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
           <button type="button" data-active={kindFilter === 'all'} onClick={() => setKindFilter('all')}>全部</button>
           <button type="button" data-active={kindFilter === 'text'} onClick={() => setKindFilter('text')}>文字</button>
           <button type="button" data-active={kindFilter === 'image'} onClick={() => setKindFilter('image')}>图片</button>
+          <button type="button" data-active={kindFilter === 'video'} onClick={() => setKindFilter('video')}>视频</button>
         </div>
         <div className="pa-segmented" aria-label="状态筛选">
           <button type="button" data-active={statusFilter === 'all'} onClick={() => setStatusFilter('all')}>全部状态</button>
@@ -121,7 +131,7 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
       ) : (
         <ul className="pa-task-list">
           {visible.map((task) => {
-            const KindIcon = task.kind === 'text' ? TextAa : ImageSquare
+            const KindIcon = task.kind === 'text' ? TextAa : task.kind === 'image' ? ImageSquare : VideoCamera
             return (
               <li key={task.id} className="pa-task-row">
                 <div className="pa-task-row__icon"><KindIcon aria-hidden="true" size={20} /></div>
@@ -195,6 +205,14 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
                         </figcaption>
                       </figure>
                     ))}
+                  </div>
+                </section>
+              ) : detail.kind === 'video' && resultVideoId(detail) ? (
+                <section className="pa-task-detail__section">
+                  <h4>生成视频</h4>
+                  <video controls src={assetUrl(resultVideoId(detail)!)} style={{ width: '100%', borderRadius: 10, background: '#000' }} />
+                  <div style={{ marginTop: 8 }}>
+                    <a className="pa-link-button" href={absoluteAssetUrl(resultVideoId(detail)!)} target="_blank" rel="noreferrer"><ArrowSquareOut aria-hidden="true" size={13} />浏览器打开</a>
                   </div>
                 </section>
               ) : (

@@ -236,7 +236,7 @@ export interface BackupRecord {
   createdAt: string
 }
 
-export type TaskKind = 'text' | 'image'
+export type TaskKind = 'text' | 'image' | 'video'
 export type TaskStatus = 'running' | 'success' | 'failed'
 
 export interface TaskRecord {

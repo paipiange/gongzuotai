@@ -26,6 +26,7 @@ import {
   SidebarSimple,
   Sparkle,
   Trash,
+  VideoCamera,
   X,
 } from '@phosphor-icons/react'
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
@@ -61,7 +62,7 @@ import { MarkdownEditor } from './MarkdownEditor'
 import { ThemeSettings } from './ThemeSettings'
 import { TemplateManager } from './TemplateManager'
 import { UpdateCheck } from './UpdateCheck'
-import { exportCreation, generateTextStream, listBackends, batchCreations, type Backend, type TaskRecord } from './hostClient'
+import { exportCreation, generateTextStream, generateVideoStream, assetUrl, listBackends, batchCreations, type Backend, type TaskRecord } from './hostClient'
 import { extractImageFilesFromClipboard, readImageAsDataUrl } from './pasteImages'
 import { GenerationLogPage } from './GenerationLog'
 import { HERO_BG } from './heroBackground'
@@ -534,6 +535,17 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
   const isImage = studio === 'image'
   const isText = !isVideo && !isImage
 
+  // ---- Video studio state ----
+  const [videoAspect, setVideoAspect] = useState<'16:9' | '9:16' | '1:1'>('16:9')
+  const [videoDuration, setVideoDuration] = useState(5)
+  const [videoFps, setVideoFps] = useState(24)
+  const [videoEngine, setVideoEngine] = useState<'llm' | 'comfyui'>('llm')
+  const [videoBackendId, setVideoBackendId] = useState('')
+  const [comfyBackends, setComfyBackends] = useState<Backend[]>([])
+  const [videoProgress, setVideoProgress] = useState<{ stage: string; text: string }>({ stage: 'idle', text: '' })
+  const [videoResultId, setVideoResultId] = useState<string | null>(null)
+  const [videoUsedFallback, setVideoUsedFallback] = useState(false)
+
   const handlePasteReference = async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const files = extractImageFilesFromClipboard(event.clipboardData)
     if (files.length === 0) return
@@ -558,7 +570,7 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
       setStyle(initialCreation.style ?? '')
       setRequirement(initialCreation.requirement ?? '')
       setTags(initialCreation.tags ?? [])
-    } else if (isText || isImage) {
+    } else if (isText || isImage || isVideo) {
       // No saved creation: restore any in-progress form cached from a previous
       // visit so switching pages never loses the user's input.
       const cached = loadStudioDraft(studio)
@@ -581,6 +593,9 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
       const text = list.filter((b) => b.kind === 'llm-text')
       setTextBackends(text)
       if (text.length) setTextBackendId((prev) => (text.some((b) => b.id === prev) ? prev : text[0].id))
+      const comfy = list.filter((b) => b.kind === 'comfyui')
+      setComfyBackends(comfy)
+      if (comfy.length) setVideoBackendId((prev) => (comfy.some((b) => b.id === prev) ? prev : comfy[0].id))
     }).catch(() => {
       if (!cancelled) setTextBackends([])
     })
@@ -630,14 +645,13 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
   // unmounts StudioPage) never loses the user's input — even before a draft
   // has been saved and given an id.
   useEffect(() => {
-    if (isVideo) return
     if (!title.trim() && !topic.trim() && !content.trim()) return
     saveStudioDraft(studio, { title, topic, content, style, requirement, tags })
-  }, [title, topic, content, style, requirement, tags, studio, isVideo])
+  }, [title, topic, content, style, requirement, tags, studio])
 
   const save = async (status: CreationStatus = initialCreation?.status ?? 'draft') => {
     if (isVideo) {
-      onToast('视频功能仅为未开放占位，不会创建记录或任务', 'warning')
+      onToast('视频成品可直接在画布播放与下载，暂不支持存为草稿', 'info')
       return null
     }
     if (!topic.trim() && !title.trim()) {
@@ -661,12 +675,12 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
-    if (isVideo) {
-      onToast('视频生成暂未开放，不会创建真实任务', 'warning')
-      return
-    }
     if (!topic.trim()) {
       onToast('请先填写创作主题', 'warning')
+      return
+    }
+    if (isVideo) {
+      await submitVideo()
       return
     }
     if (isImage) {
@@ -712,6 +726,81 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
         onToast('已取消生成', 'info')
       } else {
         onToast(cause instanceof Error ? cause.message : '生成失败，请确认 Harness 已配置文本模型', 'warning')
+      }
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null
+      setGenerating(false)
+    }
+  }
+
+  /** Video studio: run the local pipeline (LLM → HTML → render, or ComfyUI frames → FFmpeg). */
+  const submitVideo = async () => {
+    if (generating) {
+      abortRef.current?.abort()
+      return
+    }
+    const controller = new AbortController()
+    abortRef.current = controller
+    setGenerating(true)
+    setVideoResultId(null)
+    setVideoUsedFallback(false)
+    const isComfy = videoEngine === 'comfyui'
+    setVideoProgress({ stage: 'coding', text: isComfy ? '正在由 ComfyUI 生成视频帧序列…' : '正在由模型编写视频动画…' })
+    try {
+      await generateVideoStream(
+        {
+          topic: topic.trim(),
+          subtitle: content.trim() || undefined,
+          style,
+          aspectRatio: videoAspect,
+          durationSec: videoDuration,
+          fps: videoFps,
+          provider: currentTextBackend?.text?.provider ?? '',
+          model: textModelId || (currentTextBackend?.text?.model ?? ''),
+          engine: videoEngine,
+          backendId: isComfy ? (videoBackendId || undefined) : undefined,
+        },
+        (event) => {
+          if (event.error) {
+            onToast(event.error, 'warning')
+            setVideoProgress({ stage: 'error', text: event.error })
+            return
+          }
+          if (event.result) {
+            setVideoResultId(event.result.assetId)
+            setVideoUsedFallback(event.result.usedFallback)
+            setVideoProgress({ stage: 'done', text: '视频生成完成' })
+            return
+          }
+          switch (event.stage) {
+            case 'coding':
+              setVideoProgress({ stage: 'coding', text: event.message ?? (isComfy ? '正在生成帧序列…' : '正在编写动画…') })
+              break
+            case 'repair':
+              setVideoProgress({ stage: 'repair', text: event.message ?? `正在修复代码（第 ${event.round}/3 轮）…` })
+              break
+            case 'render':
+              setVideoProgress({ stage: 'render', text: `逐帧渲染 ${event.frame ?? 0}/${event.total ?? 0}` })
+              break
+            case 'comfy':
+              setVideoProgress({ stage: 'comfy', text: `ComfyUI 出帧 ${event.frame ?? 0}/${event.total ?? 0}` })
+              break
+            case 'encode':
+              setVideoProgress({ stage: 'encode', text: event.message ?? '正在合成 MP4…' })
+              break
+            default:
+              break
+          }
+        },
+        controller.signal,
+      )
+      onToast('视频生成完成', 'success')
+    } catch (cause) {
+      if (controller.signal.aborted) {
+        onToast('已取消生成', 'info')
+      } else {
+        onToast(cause instanceof Error ? cause.message : '视频生成失败', 'warning')
+        setVideoProgress({ stage: 'error', text: cause instanceof Error ? cause.message : '生成失败' })
       }
     } finally {
       if (abortRef.current === controller) abortRef.current = null
@@ -768,7 +857,7 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
     <div className="pa-page pa-studio-page">
       <div className="pa-studio-heading">
         <button type="button" className="pa-icon-button" aria-label="返回 AI 创作" onClick={onBack}><ArrowLeft aria-hidden="true" size={19} /></button>
-        <div><span className="pa-overline">CREATION STUDIO</span><h1>{studioLabels[studio]}</h1><p>{isVideo ? '完整界面占位，不调用模型、不扣费、不创建任务。' : isImage ? '输入主题并选择风格，一键生成配图（handraw-style 风格库）。' : '填写创作要求，一键调用 Harness 文本模型生成，逐字流式填入画布。'}</p></div>
+        <div><span className="pa-overline">CREATION STUDIO</span><h1>{studioLabels[studio]}</h1><p>{isVideo ? '输入主题，由模型编写动画并在本机逐帧渲染成片（本地出片，不依赖视频供应商）。' : isImage ? '输入主题并选择风格，一键生成配图（handraw-style 风格库）。' : '填写创作要求，一键调用 Harness 文本模型生成，逐字流式填入画布。'}</p></div>
       </div>
       {isImage ? (
         <div className="pa-studio-image">
@@ -822,16 +911,34 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
           )}
           {referenceImages.length > 0 && <small>参考图仅作留存，不会发送给文字模型。</small>}
           <label className="pa-field"><span>内容风格</span><select value={style} onChange={(event) => setStyle(event.target.value)}><option value="">不指定（自由发挥）</option><option value="cinematic">电影感叙事</option><option value="poetic">东方诗意</option><option value="clear">清晰专业</option><option value="lively">轻松活泼</option></select></label>
-          <label className="pa-field"><span>补充要求</span><input value={requirement} onChange={(event) => setRequirement(event.target.value)} placeholder="目标受众、篇幅、结构或画面比例" /></label>
+          {isVideo && (
+            <>
+              <label className="pa-field"><span>生成引擎</span><select value={videoEngine} onChange={(event) => setVideoEngine(event.target.value as 'llm' | 'comfyui')}><option value="llm">模型写动画（LLM → 逐帧渲染）</option><option value="comfyui">ComfyUI 出帧（本机/远程模型）</option></select></label>
+              {videoEngine === 'comfyui' && (
+                <label className="pa-field"><span>ComfyUI 后端</span><select value={videoBackendId} onChange={(event) => setVideoBackendId(event.target.value)}>
+                  {comfyBackends.length === 0 && <option value="">（未配置，去「设置中心 → 后端管理」添加 ComfyUI）</option>}
+                  {comfyBackends.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name}{b.comfyui?.server ? ` · ${b.comfyui.server}` : ''}</option>
+                  ))}
+                </select></label>
+              )}
+              <label className="pa-field"><span>画面比例</span><select value={videoAspect} onChange={(event) => setVideoAspect(event.target.value as '16:9' | '9:16' | '1:1')}><option value="16:9">横屏 16:9（1280×720）</option><option value="9:16">竖屏 9:16（720×1280）</option><option value="1:1">方屏 1:1（720×720）</option></select></label>
+              <div className="pa-studio-form-row">
+                <label className="pa-field"><span>时长（秒）</span><input type="number" min={1} max={30} value={videoDuration} onChange={(event) => setVideoDuration(Math.min(30, Math.max(1, Number(event.target.value) || 5)))} /></label>
+                <label className="pa-field"><span>帧率</span><select value={videoFps} onChange={(event) => setVideoFps(Number(event.target.value))}><option value={24}>24 fps</option><option value={30}>30 fps</option></select></label>
+              </div>
+            </>
+          )}
+          <label className="pa-field"><span>补充要求</span><input value={requirement} onChange={(event) => setRequirement(event.target.value)} placeholder={isVideo ? '画面内容、镜头风格等（可选）' : '目标受众、篇幅、结构或画面比例'} /></label>
           <label className="pa-field"><span>标签</span><input value={tags.join(', ')} onChange={(event) => setTags(event.target.value.split(/[,，、\s]+/).map((t) => t.trim()).filter(Boolean))} placeholder="用逗号或空格分隔，如：品牌故事, 春日" /></label>
-          <button type="submit" className="pa-primary-button pa-studio-submit" disabled={isVideo} aria-describedby={isVideo ? 'video-disabled-hint' : undefined}>
-            <Sparkle aria-hidden="true" size={18} weight="fill" />{isVideo ? '功能暂未开放' : generating ? '停止生成' : '开始生成'}
+          <button type="submit" className="pa-primary-button pa-studio-submit" disabled={generating}>
+            <Sparkle aria-hidden="true" size={18} weight="fill" />{generating ? '停止生成' : isVideo ? '开始生成视频' : '开始生成'}
           </button>
           <div className="pa-studio-save-row">
             <button type="button" className="pa-secondary-button" disabled={isVideo} onClick={() => save('draft')}><FloppyDisk aria-hidden="true" size={17} />保存草稿</button>
             <button type="button" className="pa-secondary-button" disabled={isVideo} onClick={() => save('queued')}><PaperPlaneTilt aria-hidden="true" size={17} />加入待发布</button>
           </div>
-          {isVideo && <p id="video-disabled-hint" className="pa-form-notice">视频功能仅展示界面，不会发送任何生成请求。</p>}
+          {isVideo && <p className="pa-form-notice">视频由本机 Edge/Chrome 逐帧渲染 + FFmpeg 合成，全程本地、不上传内容；生成需要数秒到数十秒。</p>}
         </form>
         <section className="pa-panel pa-studio-canvas">
           <div className="pa-studio-canvas__toolbar">
@@ -839,7 +946,19 @@ function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
             <div><button type="button" className="pa-icon-button" aria-label="复制" onClick={copyContent}><Copy aria-hidden="true" size={18} /></button><button type="button" className="pa-icon-button" aria-label="导出" onClick={exportDraft}><DownloadSimple aria-hidden="true" size={18} /></button></div>
           </div>
           {isVideo ? (
-            <div className="pa-studio-canvas__empty"><Sparkle aria-hidden="true" size={40} weight="duotone" /><strong>视频生成暂未开放</strong><p>后续版本将根据明确授权接入视频能力；当前不会保存任务或伪造结果。</p></div>
+            videoResultId ? (
+              <div className="pa-video-result">
+                <video controls autoPlay src={assetUrl(videoResultId)} style={{ width: '100%', maxHeight: 420, borderRadius: 12, background: '#000' }} />
+                <div className="pa-video-result__meta">
+                  <span>{videoUsedFallback ? '已使用内置动画模板（模型未产出可用代码）' : '由模型编写动画生成'}</span>
+                  <a className="pa-link-button" href={assetUrl(videoResultId)} download="paipiange-video.mp4">下载 MP4</a>
+                </div>
+              </div>
+            ) : generating ? (
+              <div className="pa-studio-canvas__empty"><Sparkle aria-hidden="true" size={40} weight="duotone" /><strong>{videoProgress.text || '正在生成视频…'}</strong><p>{videoEngine === 'comfyui' ? 'ComfyUI 出帧序列 → FFmpeg 合成，请稍候。' : '模型编写动画 → 本机逐帧渲染 → FFmpeg 合成，请稍候。'}</p></div>
+            ) : (
+              <div className="pa-studio-canvas__empty"><VideoCamera aria-hidden="true" size={40} weight="duotone" /><strong>本地视频生成已就绪</strong><p>在左侧填写主题，选择生成引擎（模型写动画 / ComfyUI 出帧），点击「开始生成视频」。</p></div>
+            )
           ) : (
             <div className="pa-manual-editor">
               <div className="pa-manual-editor__notice"><PencilSimple aria-hidden="true" size={18} /><span>点击「开始生成」由 Harness 文本模型流式产出；也可用下方 Markdown 编辑器手动写作，内容会随草稿保存。</span></div>
@@ -1158,6 +1277,21 @@ export function PaipiangeRoot() {
       setStudio(studio)
       setMobileOpen(false)
       showToast('已回填到创作画布，可继续修改', 'success')
+    } else if (task.kind === 'video') {
+      // Video task: restore the topic as the video topic and reopen the studio.
+      saveStudioDraft('video', {
+        title: '',
+        topic: String(task.input.topic ?? ''),
+        content: '',
+        style: String(task.input.style ?? 'cinematic'),
+        requirement: String(task.input.requirement ?? ''),
+        tags: [],
+      })
+      setSelectedCreation(null)
+      setActivePage('create')
+      setStudio('video')
+      setMobileOpen(false)
+      showToast('已回填到视频工作台，可继续修改', 'success')
     } else {
       // Image task: restore the prompt as the image topic.
       saveStudioDraft('image', {

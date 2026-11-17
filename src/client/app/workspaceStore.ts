@@ -216,7 +216,7 @@ export interface StudioDraftCache {
 }
 
 /** Persist an in-progress studio form so switching pages never loses work. */
-export function saveStudioDraft(studio: Exclude<StudioId, 'video'>, draft: StudioDraftCache): void {
+export function saveStudioDraft(studio: StudioId, draft: StudioDraftCache): void {
   if (typeof window === 'undefined') return
   try {
     window.localStorage.setItem(STUDIO_DRAFT_PREFIX + studio, JSON.stringify(draft))
@@ -226,7 +226,7 @@ export function saveStudioDraft(studio: Exclude<StudioId, 'video'>, draft: Studi
 }
 
 /** Restore the last in-progress studio form (or null if none). */
-export function loadStudioDraft(studio: Exclude<StudioId, 'video'>): StudioDraftCache | null {
+export function loadStudioDraft(studio: StudioId): StudioDraftCache | null {
   if (typeof window === 'undefined') return null
   try {
     const raw = window.localStorage.getItem(STUDIO_DRAFT_PREFIX + studio)
@@ -246,7 +246,7 @@ export function loadStudioDraft(studio: Exclude<StudioId, 'video'>): StudioDraft
 }
 
 /** Clear the cached in-progress form for a studio (after a successful save). */
-export function clearStudioDraft(studio: Exclude<StudioId, 'video'>): void {
+export function clearStudioDraft(studio: StudioId): void {
   if (typeof window === 'undefined') return
   try {
     window.localStorage.removeItem(STUDIO_DRAFT_PREFIX + studio)
