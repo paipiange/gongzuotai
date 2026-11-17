@@ -20,3 +20,6 @@ Thumbs.db
 main.js
 ai_image_studio_workbench/
 assets/
+
+# 创作素材 / 技能包（可能含用户内容，不入库）
+*.zip

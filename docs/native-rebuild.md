@@ -61,7 +61,7 @@ cp "$SRC" "$NM/.pnpm/better-sqlite3@12.11.1/node_modules/better-sqlite3/build/Re
 ## 校验 ABI 是否正确
 
 ```bash
-node -e "const b=require('fs').readFileSync('C:/Users/Administrator/.dsh/profiles/desktop/node_modules/better-sqlite3/build/Release/better_sqlite3.node').toString('latin1'); console.log((b.match(/node_register_module_v(\d+)/)||[])[1])"
+node -e "const b=require('fs').readFileSync(require('os').homedir() + '/.dsh/profiles/desktop/node_modules/better-sqlite3/build/Release/better_sqlite3.node').toString('latin1'); console.log((b.match(/node_register_module_v(\d+)/)||[])[1])"
 # 期望输出：149（对应 Electron 44.7.0）
 ```
 
