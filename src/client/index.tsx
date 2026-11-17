@@ -1,18 +1,35 @@
 import type { Context } from '@deepseek-ai/cordis'
-import { FilmSlate } from '@phosphor-icons/react'
+import { FilmSlate, Warning } from '@phosphor-icons/react'
 import type { ComponentType } from 'react'
 import { PaipiangeRoot } from './app/PaipiangeRoot'
+import { ErrorBoundary } from './app/ErrorBoundary'
 import styles from './styles.css?raw'
 
 function PaipiangeSidebarIcon({ size = 16 }: { size?: number }) {
   return <FilmSlate aria-hidden="true" size={size} weight="duotone" />
 }
 
+/** 顶层崩溃兜底：PaipiangeRoot 自身抛异常时，用最小可用界面替代白屏。 */
+function RootErrorFallback(error: Error, reset: () => void) {
+  return (
+    <div className="pa-root" data-theme="amber" style={{ padding: 24 }}>
+      <section className="pa-panel pa-large-empty">
+        <div className="pa-large-empty__icon"><Warning aria-hidden="true" size={26} weight="duotone" /></div>
+        <h2>拍片哥工作台遇到问题</h2>
+        <p>{error.message || '插件渲染出错，请重试或重新打开面板。'}</p>
+        <button type="button" className="pa-secondary-button" onClick={reset}>重试</button>
+      </section>
+    </div>
+  )
+}
+
 function PaipiangePanel() {
   return (
     <>
       <style>{styles}</style>
-      <PaipiangeRoot />
+      <ErrorBoundary fallback={RootErrorFallback}>
+        <PaipiangeRoot />
+      </ErrorBoundary>
     </>
   )
 }

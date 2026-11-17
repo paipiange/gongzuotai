@@ -16,6 +16,7 @@ import { HomePage } from './HomePage'
 import { StudioPage } from './StudioPage'
 import { CreateHub, WorkspacePage } from './WorkspacePage'
 import { GraphicStudioPage } from './graphicStudio/GraphicStudioPage'
+import { ErrorBoundary } from './ErrorBoundary'
 import type { TaskRecord } from './hostClient'
 import type { ToastState } from './primitives'
 
@@ -249,11 +250,13 @@ export function PaipiangeRoot() {
           </div>
         )}
         <main id="pa-main-content" className="pa-content" ref={mainRef} tabIndex={-1}>
-          {activePage === 'home' && !studio && <HomePage inspirationIndex={inspirationIndex} activeCategory={activeCategory} creations={creations} onCategory={setActiveCategory} onShuffle={shuffleInspiration} onOpenStudio={openStudio} onOpenCreation={openCreation} onNavigate={navigate} onToast={showToast} />}
-          {activePage === 'create' && !studio && <CreateHub onOpenStudio={openStudio} />}
-          {studio === 'graphic' && <GraphicStudioPage onBack={() => { setStudio(null); setSelectedCreation(null) }} onToast={showToast} />}
-          {studio && studio !== 'graphic' && <StudioPage studio={studio} initialCreation={selectedCreation} onBack={() => { setStudio(null); setSelectedCreation(null) }} onSave={saveCreation} onToast={showToast} />}
-          {activePage !== 'home' && activePage !== 'create' && !studio && <WorkspacePage page={activePage} creations={creations} storageSource={storageSource} onNavigate={navigate} onOpenStudio={openStudio} onOpenCreation={openCreation} onStatus={setCreationStatus} onDelete={deleteCreation} onToast={showToast} onRefresh={refreshCreations} theme={theme} onThemeChange={changeTheme} onResumeTask={resumeTask} />}
+          <ErrorBoundary resetKey={`${activePage}:${studio ?? ''}`}>
+            {activePage === 'home' && !studio && <HomePage inspirationIndex={inspirationIndex} activeCategory={activeCategory} creations={creations} onCategory={setActiveCategory} onShuffle={shuffleInspiration} onOpenStudio={openStudio} onOpenCreation={openCreation} onNavigate={navigate} onToast={showToast} />}
+            {activePage === 'create' && !studio && <CreateHub onOpenStudio={openStudio} />}
+            {studio === 'graphic' && <GraphicStudioPage onBack={() => { setStudio(null); setSelectedCreation(null) }} onToast={showToast} />}
+            {studio && studio !== 'graphic' && <StudioPage studio={studio} initialCreation={selectedCreation} onBack={() => { setStudio(null); setSelectedCreation(null) }} onSave={saveCreation} onToast={showToast} />}
+            {activePage !== 'home' && activePage !== 'create' && !studio && <WorkspacePage page={activePage} creations={creations} storageSource={storageSource} onNavigate={navigate} onOpenStudio={openStudio} onOpenCreation={openCreation} onStatus={setCreationStatus} onDelete={deleteCreation} onToast={showToast} onRefresh={refreshCreations} theme={theme} onThemeChange={changeTheme} onResumeTask={resumeTask} />}
+          </ErrorBoundary>
         </main>
       </div>
       {toast && <div className="pa-toast" data-tone={toast.tone} role="status" aria-live="polite"><CheckCircle aria-hidden="true" size={20} weight="fill" /><span>{toast.message}</span><button type="button" aria-label="关闭提示" onClick={() => setToast(null)}><X aria-hidden="true" size={16} /></button></div>}

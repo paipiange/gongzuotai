@@ -81,7 +81,7 @@ export const quickActions: QuickAction[] = [
   {
     id: 'video',
     title: 'AI 视频生成',
-    description: '功能预览，暂未开放',
+    description: '本机渲染 AI 动画短片',
     icon: VideoCamera,
     category: '视频创作',
     art: 'night',
