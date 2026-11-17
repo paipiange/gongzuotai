@@ -10,6 +10,8 @@
 - [x] Phase 1：参考图首页高保真（仅 UI，不接模型）
 - [x] Phase 2：全页面 UI 与状态闭环（文章/图片/视频占位/标题/营销/小红书/素材/分析/发布/灵感/记录/设置）
 - [x] Phase 3（部分）：Host 侧 SQLite 持久化层（迁移 9 表、CreationRepository CRUD/搜索/软删/恢复/版本快照、备份、路径穿越防护、卸载关闭）
+- [x] 视频生成：接入本地渲染链路（LLM 写 HTML 动画 → 无头浏览器逐帧截图 → FFmpeg 合成，含沙箱校验 + 3 轮修复 + 内置模板降级），视频工作台页面真正出片（`src/host/videogen/`）
+- [x] 视频生成接入本机/远程 ComfyUI：复用 Qwen-Image-Edit 图片模型 `layers` 多帧出序列 → FFmpeg 合成（`comfyVideo.ts` + 前端「生成引擎」选择），支持 llm/comfyui 双引擎
 - [x] 安装全局 ponytail skill（`~/.workbuddy/skills/ponytail/`）
 - [x] 建立本 todolist.md
 - [x] **修复插件不显示在侧边栏**：client 端改为 `window.__ModuleLoader__.load({id, factory})` 副作用脚本格式（banner/footer 包装 + `var module/exports` shim）；`@phosphor-icons/react` 打进 bundle（不在 Harness seed 模块表，require 不到）；图标组件接收 owner `size`；slots 注册用 `ctx.effect` + disposer 收集（规范生命周期）
@@ -64,6 +66,6 @@
 ## 备注
 
 - 关键环境：本机 better-sqlite3 等原生依赖需走 FlClash 代理 `http://127.0.0.1:7890`（见 `.workbuddy/memory/2026-11-15.md`）。
-- 视频生成：永久占位，不接模型、不建真实任务（AGENTS.md 强制）。
+- 视频生成：本地渲染（LLM 写 HTML + 逐帧截图 + FFmpeg，或 ComfyUI 出帧序列 + FFmpeg），不调付费视频供应商、不建外部任务；ComfyUI 视频路径的「真实模型多帧输出」仍需实机验证（当前已用 mock 验证连通协议与合成链路）。
 - 实机 provider route：本机 Harness 只有 `llm-pi-ai` 的 `huatu717333`/`aaa42w`，无 `deepseek-official`；文本生成 provider 须运行时 `listProviders()` 发现。
 - push 依赖 FlClash 代理，代理 502 时本地 commit 已保存、待网络恢复补推。
