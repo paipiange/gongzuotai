@@ -12,6 +12,7 @@ import {
   HardDrives,
   Lightbulb,
   PaperPlaneTilt,
+  PencilSimple,
   TrashSimple,
   UploadSimple,
   X,
@@ -23,6 +24,7 @@ import {
   TrendUp,
   ArrowClockwise,
   MagnifyingGlass,
+  ImageSquare,
 } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
 import type { CreationRecord } from './workspaceStore'
@@ -52,6 +54,8 @@ import {
   type PublishPlatform,
   type TemplateRecord,
 } from './hostClient'
+import { buildWechatArticleHtml, buildWechatArticlePlainText } from './wechatHtml'
+import { processImage } from './imageProcessing'
 
 type ToastTone = 'info' | 'success' | 'warning'
 
@@ -116,6 +120,11 @@ export function AssetsPage({ onToast }: { onToast: (message: string, tone?: Toas
   const [storageOpen, setStorageOpen] = useState(false)
   const [storageStats, setStorageStats] = useState<AssetStorageStats | null>(null)
   const [storageBusy, setStorageBusy] = useState(false)
+  const [processAsset, setProcessAsset] = useState<AssetRecord | null>(null)
+  const [processMode, setProcessMode] = useState<'compress' | 'cover' | 'cover-watermark'>('compress')
+  const [processWatermark, setProcessWatermark] = useState('')
+  const [processPreview, setProcessPreview] = useState<{ url: string; blob: Blob } | null>(null)
+  const [processBusy, setProcessBusy] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const PAGE_SIZE = 50
@@ -282,6 +291,56 @@ export function AssetsPage({ onToast }: { onToast: (message: string, tone?: Toas
     }
   }
 
+  const openProcess = (asset: AssetRecord) => {
+    setProcessAsset(asset)
+    setProcessMode('compress')
+    setProcessWatermark('')
+    setProcessPreview(null)
+  }
+
+  const closeProcess = () => {
+    if (processPreview) URL.revokeObjectURL(processPreview.url)
+    setProcessAsset(null)
+    setProcessPreview(null)
+  }
+
+  const runProcess = async () => {
+    if (!processAsset) return
+    setProcessBusy(true)
+    setProcessPreview(null)
+    try {
+      const opts = processMode === 'compress'
+        ? { maxWidth: 1280, quality: 0.8 }
+        : processMode === 'cover'
+          ? { cover: { width: 900, height: 383 } }
+          : { cover: { width: 900, height: 383 }, watermark: processWatermark.trim() || '拍片哥工作台' }
+      const blob = await processImage(assetUrl(processAsset.id), opts)
+      setProcessPreview({ url: URL.createObjectURL(blob), blob })
+    } catch (cause) {
+      onToast(cause instanceof Error ? cause.message : '处理失败', 'warning')
+    } finally {
+      setProcessBusy(false)
+    }
+  }
+
+  const saveProcessed = async () => {
+    if (!processAsset || !processPreview) return
+    setProcessBusy(true)
+    try {
+      const base = processAsset.name.replace(/\.[^.]+$/, '')
+      const name = `${base}${processMode === 'compress' ? '_压缩.jpg' : '_公众号头图.jpg'}`
+      const file = new File([processPreview.blob], name, { type: processPreview.blob.type || 'image/jpeg' })
+      await uploadAsset(file)
+      onToast(`已保存处理结果「${name}」`, 'success')
+      closeProcess()
+      void refresh()
+    } catch (cause) {
+      onToast(cause instanceof Error ? cause.message : '保存失败', 'warning')
+    } finally {
+      setProcessBusy(false)
+    }
+  }
+
   return (
     <div className="pa-page">
       <PageIntro title="素材库" description="统一管理图片、文字、提示词与文件。" />
@@ -354,6 +413,11 @@ export function AssetsPage({ onToast }: { onToast: (message: string, tone?: Toas
                   <button type="button" className="pa-secondary-button" onClick={() => { setEditingTagsId(asset.id); setTagsDraft(asset.tags.join(', ')) }}>
                     <Tag aria-hidden="true" size={15} />标签
                   </button>
+                  {asset.kind === 'image' && (
+                    <button type="button" className="pa-secondary-button" onClick={() => openProcess(asset)}>
+                      <PencilSimple aria-hidden="true" size={15} />处理
+                    </button>
+                  )}
                   <button type="button" className="pa-icon-button" aria-label={`删除 ${asset.name}`} title="删除素材" onClick={() => handleDelete(asset)}>
                     <TrashSimple aria-hidden="true" size={16} />
                   </button>
@@ -408,6 +472,48 @@ export function AssetsPage({ onToast }: { onToast: (message: string, tone?: Toas
               <button type="button" className="pa-secondary-button" disabled={!storageStats || storageBusy} onClick={() => setStorageOpen(false)}>关闭</button>
               <button type="button" className="pa-secondary-button pa-danger-button" disabled={!storageStats?.orphanCount || storageBusy} onClick={() => void purgeOrphans()}>清理孤儿图片</button>
               <button type="button" className="pa-secondary-button pa-danger-button" disabled={!storageStats?.deletedCount || storageBusy} onClick={() => void emptyTrash()}>清空回收站</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {processAsset && (
+        <div className="pa-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) closeProcess() }}>
+          <div className="pa-modal pa-process-modal">
+            <div className="pa-modal__head">
+              <h3>图片后处理</h3>
+              <button type="button" className="pa-icon-button" aria-label="关闭" onClick={closeProcess}><X aria-hidden="true" size={17} /></button>
+            </div>
+            <div className="pa-modal__body">
+              <div className="pa-process-row">
+                <figure className="pa-process-preview">
+                  <img src={assetUrl(processAsset.id)} alt={processAsset.name} />
+                  <figcaption>原图</figcaption>
+                </figure>
+                {processPreview && (
+                  <figure className="pa-process-preview">
+                    <img src={processPreview.url} alt="处理结果预览" />
+                    <figcaption>处理结果</figcaption>
+                  </figure>
+                )}
+              </div>
+              <div className="pa-segmented" role="radiogroup" aria-label="处理方式" style={{ marginTop: 14 }}>
+                <button type="button" role="radio" aria-checked={processMode === 'compress'} data-active={processMode === 'compress'} onClick={() => { setProcessMode('compress'); setProcessPreview(null) }}>压缩</button>
+                <button type="button" role="radio" aria-checked={processMode === 'cover'} data-active={processMode === 'cover'} onClick={() => { setProcessMode('cover'); setProcessPreview(null) }}>公众号头图 900×383</button>
+                <button type="button" role="radio" aria-checked={processMode === 'cover-watermark'} data-active={processMode === 'cover-watermark'} onClick={() => { setProcessMode('cover-watermark'); setProcessPreview(null) }}>头图 + 水印</button>
+              </div>
+              {processMode === 'cover-watermark' && (
+                <label className="pa-field" style={{ marginTop: 12 }}>
+                  <span>水印文字</span>
+                  <input type="text" value={processWatermark} onChange={(e) => setProcessWatermark(e.target.value)} placeholder="默认：拍片哥工作台" maxLength={30} />
+                </label>
+              )}
+              <p className="pa-muted" style={{ marginTop: 12 }}>压缩：限宽 1280px、80% 质量；头图：裁切填充到公众号头图比例；结果将作为新素材保存，不影响原图。</p>
+            </div>
+            <div className="pa-modal__footer">
+              <button type="button" className="pa-secondary-button" onClick={closeProcess}>关闭</button>
+              <button type="button" className="pa-secondary-button" disabled={processBusy} onClick={() => void runProcess()}>{processBusy ? '处理中…' : '生成预览'}</button>
+              <button type="button" className="pa-primary-button" disabled={!processPreview || processBusy} onClick={() => void saveProcessed()}><UploadSimple aria-hidden="true" size={16} />保存到素材库</button>
             </div>
           </div>
         </div>
@@ -502,6 +608,30 @@ export function PublishQueuePage({ creations, onOpen, onToast }: {
     }
   }
 
+  /** 复制公众号排版 HTML（国风内联样式），粘贴到公众号编辑器即保留格式。 */
+  const copyWechatHtml = async (item: PublishItem) => {
+    const creation = creationById.get(item.creationId)
+    if (!creation) return
+    const input = { title: creation.title, content: creation.content || creation.topic }
+    const html = buildWechatArticleHtml(input)
+    const plain = buildWechatArticlePlainText(input)
+    try {
+      const clipItem = new ClipboardItem({
+        'text/html': new Blob([html], { type: 'text/html' }),
+        'text/plain': new Blob([plain], { type: 'text/plain' }),
+      })
+      await navigator.clipboard.write([clipItem])
+      onToast('已复制公众号排版，到公众号编辑器直接粘贴即可', 'success')
+    } catch {
+      try {
+        await navigator.clipboard.writeText(plain)
+        onToast('浏览器不支持富文本复制，已降级复制纯文本', 'warning')
+      } catch {
+        onToast('复制失败，请手动选择内容', 'warning')
+      }
+    }
+  }
+
   const openPlatform = (item: PublishItem) => {
     const url = PLATFORM_PUBLISH_URL[item.platform]
     if (!url) {
@@ -555,6 +685,11 @@ export function PublishQueuePage({ creations, onOpen, onToast }: {
                   {creation && (
                     <button type="button" className="pa-secondary-button" onClick={() => copyPlatform(item)}>
                       <CopySimple aria-hidden="true" size={15} />复制文案
+                    </button>
+                  )}
+                  {creation && item.platform === 'wechat' && (
+                    <button type="button" className="pa-secondary-button" onClick={() => copyWechatHtml(item)}>
+                      <Sparkle aria-hidden="true" size={15} />复制公众号排版
                     </button>
                   )}
                   <button type="button" className="pa-secondary-button" onClick={() => openPlatform(item)}>

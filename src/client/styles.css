@@ -5136,3 +5136,29 @@
   color: var(--pa-quiet);
   text-align: right;
 }
+
+/* 图片后处理弹窗 */
+.pa-root .pa-process-row {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+}
+.pa-root .pa-process-preview {
+  flex: 1;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+.pa-root .pa-process-preview img {
+  max-width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.15);
+}
+.pa-root .pa-process-preview figcaption {
+  font-size: 12px;
+  color: var(--pa-muted);
+}
