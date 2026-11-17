@@ -346,7 +346,7 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
       const limit = Number(url.searchParams.get('limit') ?? '100') || 100
       const offset = Number(url.searchParams.get('offset') ?? '0') || 0
       const rows = tasks.list(
-        kind === 'text' || kind === 'image' ? kind : undefined,
+        kind === 'text' || kind === 'image' || kind === 'video' ? kind : undefined,
         status === 'running' || status === 'success' || status === 'failed' ? status : undefined,
         limit,
         offset,

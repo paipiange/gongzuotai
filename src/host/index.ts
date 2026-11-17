@@ -493,6 +493,191 @@ export async function apply(ctx: Context, config: Config = {}) {
       }),
     )
 
+    // ---- Video generation (local: LLM → HTML → headless render → FFmpeg) ----
+    // Streams progress over SSE and saves the finished MP4 as a host asset.
+    disposers.push(
+      webServer.register({
+        kind: 'exact',
+        path: '/api/paipiange.video.generate',
+        async handler(req, res) {
+          if (trust) {
+            const rejection = trust(req)
+            if (rejection !== undefined) {
+              await sendWebResponse(res, Response.json({ error: '未授权' }, { status: 401 }))
+              return
+            }
+          }
+          if (req.method !== 'POST') {
+            await sendWebResponse(res, Response.json({ error: '方法不允许' }, { status: 405 }))
+            return
+          }
+          const send = startSse(res)
+          const request = await toWebRequest(req)
+          const body = await request.json().catch(() => null) as {
+            topic?: string
+            subtitle?: string
+            style?: string
+            aspectRatio?: '16:9' | '9:16' | '1:1'
+            durationSec?: number
+            fps?: number
+            provider?: string
+            model?: string
+            backendId?: string
+            engine?: 'llm' | 'comfyui'
+            baseUrl?: string
+            apiKey?: string
+            sourceCreationId?: string
+          } | null
+          if (!body || !body.topic?.trim()) {
+            send('error', { message: '缺少主题文案 topic' })
+            send('done', '')
+            return
+          }
+
+          let task: ReturnType<TaskRepository['start']> | null = null
+          try {
+            const engine: 'llm' | 'comfyui' = body.engine === 'comfyui' ? 'comfyui' : 'llm'
+
+            // Resolve the ComfyUI backend config when engine=comfyui.
+            let comfyuiConfig: { server: string; checkpoint?: string; unet?: string; clip?: string; vae?: string } | undefined
+            if (engine === 'comfyui') {
+              const backend = settings.listBackendsWithSecrets().find((b) => b.kind === 'comfyui' && (!body.backendId || b.id === body.backendId))
+              if (backend?.comfyui?.server) {
+                comfyuiConfig = backend.comfyui
+              } else if (settings.getComfyUiConfig()) {
+                comfyuiConfig = settings.getComfyUiConfig() ?? undefined
+              }
+              if (!comfyuiConfig?.server) {
+                send('error', { message: '未找到已配置的 ComfyUI 后端，请先在设置中心添加 ComfyUI' })
+                send('done', '')
+                return
+              }
+            }
+
+            const llm = host.llm
+            if (engine === 'llm' && (!llm || typeof llm.prepareCall !== 'function')) {
+              send('error', { message: 'Harness 文本模型服务未就绪，请先在 Harness 中配置模型' })
+              send('done', '')
+              return
+            }
+
+            task = tasks.start({
+              kind: 'video',
+              creationId: body.sourceCreationId ?? null,
+              modelId: body.model?.trim() || null,
+              input: {
+                topic: body.topic.trim(),
+                subtitle: body.subtitle?.trim() ?? '',
+                style: body.style?.trim() ?? '',
+                aspectRatio: body.aspectRatio ?? '16:9',
+                durationSec: body.durationSec ?? 5,
+                fps: body.fps ?? 24,
+                provider: body.provider ?? '',
+                model: body.model ?? '',
+              },
+            })
+
+            // Resolve provider/model: prefer saved text-gen config when omitted.
+            const defaults = settings.getTextGenConfig()
+            let provider = body.provider?.trim() || defaults.provider
+            let model = body.model?.trim() || defaults.model
+            if (engine === 'llm' && llm && typeof llm.listProviders === 'function') {
+              const available = llm.listProviders().map((p) => p.provider)
+              if (!available.includes(provider)) {
+                provider = available[0] ?? provider
+                model = ''
+              }
+            }
+            if (engine === 'llm' && !provider) {
+              send('error', { message: 'Harness 尚未配置任何可用的文本模型 Provider' })
+              send('done', '')
+              return
+            }
+
+            const { generateVideo } = await import('./videogen/videoGenService')
+            const result = await generateVideo(
+              llm,
+              {
+                topic: body.topic.trim(),
+                subtitle: body.subtitle?.trim(),
+                style: body.style?.trim(),
+                aspectRatio: body.aspectRatio,
+                durationSec: body.durationSec,
+                fps: body.fps,
+                provider,
+                model,
+                engine,
+                comfyui: comfyuiConfig,
+              },
+              {
+                signal: request.signal,
+                onProgress: (p) => {
+                  switch (p.stage) {
+                    case 'coding':
+                      send('progress', { stage: 'coding', message: p.message })
+                      break
+                    case 'repair':
+                      send('progress', { stage: 'repair', round: p.round, message: p.message })
+                      break
+                    case 'render':
+                      send('progress', { stage: 'render', frame: p.frame, total: p.total })
+                      break
+                    case 'comfy':
+                      send('progress', { stage: 'comfy', frame: p.frame, total: p.total })
+                      break
+                    case 'encode':
+                      send('progress', { stage: 'encode', message: p.message })
+                      break
+                    case 'done':
+                      send('progress', { stage: 'done', message: p.message })
+                      break
+                  }
+                },
+              },
+            )
+
+            // Persist the MP4 as a host asset so the client can reference/download it.
+            const asset = assets.save({
+              kind: 'file',
+              name: `video-${Date.now()}.mp4`,
+              mimeType: 'video/mp4',
+              data: result.mp4,
+              width: result.width,
+              height: result.height,
+              sourceCreationId: body.sourceCreationId ?? null,
+            })
+
+            tasks.markSuccess(
+              task.id,
+              {
+                assetId: asset.id,
+                width: result.width,
+                height: result.height,
+                fps: result.fps,
+                totalFrames: result.totalFrames,
+                usedFallback: result.usedFallback,
+                rounds: result.rounds,
+              },
+              model,
+            )
+            send('result', { assetId: asset.id, width: result.width, height: result.height, fps: result.fps, usedFallback: result.usedFallback })
+            send('done', '')
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error)
+            if (task) {
+              try {
+                tasks.markFailed(task.id, 'videogen', message)
+              } catch {
+                // recording must not mask the real error
+              }
+            }
+            send('error', { message })
+            send('done', '')
+          }
+        },
+      }),
+    )
+
     registerApiRoutes(
       { creations, settings, assets, templates, inspirations, publish, exports, tasks, graphicSessions, buildImageGen, llm: host.llm },
       (path, methods, handler) => {

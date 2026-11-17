@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type Database from 'better-sqlite3'
 
-export type TaskKind = 'text' | 'image'
+export type TaskKind = 'text' | 'image' | 'video'
 export type TaskStatus = 'running' | 'success' | 'failed'
 
 export interface TaskRecord {
