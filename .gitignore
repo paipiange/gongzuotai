@@ -17,6 +17,7 @@ backups/
 Thumbs.db
 
 # 参考材料 / 解包产物（不入库）
+# 注意：assets/ui-reference.png 为含真实对话内容的产品截图，仅本地保留、不进公开仓库
 main.js
 ai_image_studio_workbench/
 assets/
