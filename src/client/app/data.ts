@@ -52,7 +52,8 @@ export interface QuickAction {
 export const navigation: NavItem[] = [
   { id: 'home', label: '首页', icon: House },
   { id: 'create', label: 'AI 创作', icon: Sparkle },
-  { id: 'graphic', label: '公众号创作', icon: Article },
+  // 「公众号创作」侧栏入口已关闭（图形工作台仍可从模板中心/创作记录进入）。
+  // { id: 'graphic', label: '公众号创作', icon: Article },
   { id: 'templates', label: '模板中心', icon: TextAa },
   { id: 'assets', label: '素材库', icon: FolderOpen },
   { id: 'analytics', label: '数据分析', icon: ChartBar },

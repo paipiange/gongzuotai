@@ -78,7 +78,6 @@ UI 验收同时覆盖 1280×774、390×844 和减少动画模式。开发预览�
 
 ## 技术方案与贡献
 
-- 完整范围与分阶段计划见 [拍片哥工作台技术方案](./拍片哥工作台-paipiange-DeepSeek-Harness-Plugin-技术方案.md)。
 - 代码结构与数据流见 [docs/architecture.md](./docs/architecture.md)。
 - 未来规划见 [ROADMAP.md](./ROADMAP.md)。
 - 想贡献代码请先读 [CONTRIBUTING.md](./CONTRIBUTING.md)。
