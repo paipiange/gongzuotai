@@ -129,4 +129,33 @@ describe('SettingsRepository', () => {
     expect(secrets.find((b) => b.id === created.id)?.llm?.apiKey).toBe('real-secret')
     storage.close()
   })
+
+  it('stores WeChat credentials host-side and only exposes a redacted summary', async () => {
+    const storage = await openTemporaryStorage()
+    const repo = new SettingsRepository(storage.db)
+    repo.setWechatChannelConfig({ appId: 'wx-example', appSecret: 'wechat-secret', defaultAuthor: '匿名作者' })
+
+    expect(repo.getWechatChannelConfig()).toEqual({ appId: 'wx-example', appSecret: 'wechat-secret', defaultAuthor: '匿名作者' })
+    const summary = repo.getWechatChannelSummary()
+    expect(summary).toEqual({ configured: true, appId: 'wx-example', defaultAuthor: '匿名作者', hasAppSecret: true })
+    expect(JSON.stringify(summary)).not.toContain('wechat-secret')
+
+    repo.clearWechatChannelConfig()
+    expect(repo.getWechatChannelConfig()).toBeNull()
+    storage.close()
+  })
+
+  it('stores a bounded automatic backup policy', async () => {
+    const storage = await openTemporaryStorage()
+    const repo = new SettingsRepository(storage.db)
+
+    expect(repo.getBackupPolicy()).toEqual({ enabled: true, intervalDays: 7, retention: 5, lastRunAt: null })
+    expect(repo.setBackupPolicy({ enabled: false, intervalDays: 999, retention: 0, lastRunAt: '2026-11-20T00:00:00.000Z' })).toEqual({
+      enabled: false,
+      intervalDays: 30,
+      retention: 1,
+      lastRunAt: '2026-11-20T00:00:00.000Z',
+    })
+    storage.close()
+  })
 })

@@ -73,4 +73,23 @@ describe('AssetRepository disk cleanup', () => {
     expect(orphans.freedBytes).toBe(10)
     storage.close()
   })
+
+  it('restores deleted assets and reports storage usage plus exact-content duplicates', async () => {
+    const storage = await openTemporaryStorage()
+    const repo = new AssetRepository(storage.db, storage.paths)
+    const bytes = Buffer.from('same-content')
+    const a = repo.save({ kind: 'image', name: 'a.png', mimeType: 'image/png', data: bytes })
+    repo.save({ kind: 'image', name: 'b.png', mimeType: 'image/png', data: bytes })
+    repo.save({ kind: 'file', name: 'notes.txt', mimeType: 'text/plain', data: Buffer.from('notes') })
+
+    expect(repo.getStorageUsage()).toMatchObject({ activeCount: 3, activeBytes: bytes.length * 2 + 5 })
+    expect(repo.findDuplicateStats()).toEqual({ groupCount: 1, duplicateCount: 1, duplicateBytes: bytes.length })
+
+    expect(repo.softDelete(a.id)).toBe(true)
+    expect(repo.listDeleted().map((asset) => asset.id)).toEqual([a.id])
+    expect(repo.restore(a.id)).toBe(true)
+    expect(repo.listDeleted()).toEqual([])
+    expect(repo.list('image')).toHaveLength(2)
+    storage.close()
+  })
 })

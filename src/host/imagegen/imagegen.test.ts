@@ -1,9 +1,39 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { deflateSync } from 'node:zlib'
 import { ComfyUIProvider } from './ComfyUIProvider'
 import { ImageGenService } from './ImageGenService'
 import { OpenAICompatImageProvider } from './OpenAICompatImageProvider'
 
 const originalFetch = globalThis.fetch
+
+/** 生成一张最小的非隔行 8-bit RGB PNG，供多参考图拼接测试使用。 */
+function makePngDataUrl(rgb: [number, number, number]): string {
+  const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+  const crc32 = (buf: Buffer) => {
+    let c = ~0
+    for (let i = 0; i < buf.length; i++) {
+      c ^= buf[i]
+      for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1))
+    }
+    return ~c >>> 0
+  }
+  const chunk = (type: string, data: Buffer) => {
+    const len = Buffer.alloc(4)
+    len.writeUInt32BE(data.length)
+    const name = Buffer.from(type, 'ascii')
+    const crc = Buffer.alloc(4)
+    crc.writeUInt32BE(crc32(Buffer.concat([name, data])))
+    return Buffer.concat([len, name, data, crc])
+  }
+  const ihdr = Buffer.alloc(13)
+  ihdr.writeUInt32BE(1, 0)
+  ihdr.writeUInt32BE(1, 4)
+  ihdr[8] = 8
+  ihdr[9] = 2
+  const raw = Buffer.from([0, ...rgb])
+  const png = Buffer.concat([signature, chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw)), chunk('IEND', Buffer.alloc(0))])
+  return `data:image/png;base64,${png.toString('base64')}`
+}
 
 afterEach(() => {
   globalThis.fetch = originalFetch
@@ -81,7 +111,7 @@ describe('OpenAICompatImageProvider', () => {
     expect(images[0].data.toString()).toBe('edited')
   })
 
-  it('appends all reference images (image + image2) when multiple are supplied', async () => {
+  it('combines two PNG references into one standard image field', async () => {
     const calls: Array<{ url: string; body: unknown }> = []
     globalThis.fetch = vi.fn(async (input: unknown, init?: RequestInit) => {
       calls.push({ url: String(input), body: init?.body })
@@ -89,14 +119,18 @@ describe('OpenAICompatImageProvider', () => {
     }) as unknown as typeof fetch
 
     const provider = new OpenAICompatImageProvider({ baseUrl: 'https://x/v1', apiKey: 'k', model: 'm' })
-    const first = `data:image/png;base64,${Buffer.from('first').toString('base64')}`
-    const second = `data:image/png;base64,${Buffer.from('second').toString('base64')}`
+    const first = makePngDataUrl([255, 0, 0])
+    const second = makePngDataUrl([0, 0, 255])
     await provider.generate({ prompt: 'p', images: [first, second] })
 
     expect(calls[0].url).toBe('https://x/v1/images/edits')
     const body = calls[0].body as FormData
     expect(body.get('image')).toBeInstanceOf(Blob)
-    expect(body.get('image2')).toBeInstanceOf(Blob)
+    expect(body.get('image2')).toBeNull()
+    const combined = body.get('image') as Blob
+    const bytes = Buffer.from(await combined.arrayBuffer())
+    expect(bytes.readUInt32BE(16)).toBe(2)
+    expect(bytes.readUInt32BE(20)).toBe(1)
   })
 
   it('sends width×height on the edits endpoint when a reference is present', async () => {

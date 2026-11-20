@@ -48,6 +48,8 @@ describe('PublishRepository', () => {
     expect(fetched).not.toBeNull()
     expect(fetched!.status).toBe('draft')
     expect(fetched!.exportPath).toBeNull()
+    expect(fetched!.externalId).toBeNull()
+    expect(fetched!.retryCount).toBe(0)
     expect(fetched!.exportedAt).toBeNull()
     expect(fetched!.publishedAt).toBeNull()
     storage.close()
@@ -106,6 +108,34 @@ describe('PublishRepository', () => {
     const item = repo.create({ creationId, platform: 'wechat' })
     expect(repo.remove(item.id)).toBe(true)
     expect(repo.getById(item.id)).toBeNull()
+    storage.close()
+  })
+
+  it('records immutable versions and successful attempts with media_id', async () => {
+    const { storage, repo, creationId } = await setup()
+    const item = repo.create({ creationId, platform: 'wechat' })
+
+    expect(repo.recordVersion(item.id, { title: '第一版', bodyMd: '正文一' }).versionNo).toBe(1)
+    expect(repo.recordVersion(item.id, { title: '第二版', bodyMd: '正文二' }).versionNo).toBe(2)
+    const attempt = repo.createAttempt({ publishItemId: item.id, platform: 'wechat', action: 'wechat_draft' })
+    repo.finishAttempt(attempt.id, { status: 'success', mediaId: 'draft-media-id', itemStatus: 'ready', result: { imageCount: 3 } })
+
+    expect(repo.listVersions(item.id).map((version) => version.versionNo)).toEqual([2, 1])
+    expect(repo.listAttempts(item.id)[0]).toMatchObject({ status: 'success', mediaId: 'draft-media-id', result: { imageCount: 3 } })
+    expect(repo.getById(item.id)).toMatchObject({ status: 'ready', externalId: 'draft-media-id', lastError: null })
+    storage.close()
+  })
+
+  it('persists failure reasons and increments retry count', async () => {
+    const { storage, repo, creationId } = await setup()
+    const item = repo.create({ creationId, platform: 'xiaohongshu' })
+    const first = repo.createAttempt({ publishItemId: item.id, platform: item.platform, action: 'export' })
+    repo.finishAttempt(first.id, { status: 'failed', errorMessage: '磁盘空间不足' })
+    const second = repo.createAttempt({ publishItemId: item.id, platform: item.platform, action: 'export', retryNo: 1 })
+    repo.finishAttempt(second.id, { status: 'failed', errorMessage: '文件被占用' })
+
+    expect(repo.getById(item.id)).toMatchObject({ retryCount: 2, lastError: '文件被占用' })
+    expect(repo.listAttempts(item.id)).toHaveLength(2)
     storage.close()
   })
 })

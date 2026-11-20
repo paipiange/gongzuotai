@@ -71,7 +71,13 @@ describe('textGenService (Harness llm consumer)', () => {
     expect(config.provider).toBe('pi-ai')
     expect(config.model).toBe('gpt-4o')
     expect(config.system).toContain('标题')
-    expect(config.messages).toEqual([{ role: 'user', content: '主题：新品上市\n补充要求：8 个字以内' }])
+    expect(config.messages).toEqual([
+      {
+        role: 'user',
+        content:
+          '发布平台：微信公众号\n图文文字：新品上市\n其他要求：8 个字以内\n请充分理解全部图文，生成10个具有传播潜力的中文标题。',
+      },
+    ])
   })
 
   it('stops early on abort without emitting further text', async () => {

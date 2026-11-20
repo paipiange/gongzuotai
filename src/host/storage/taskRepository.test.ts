@@ -57,12 +57,16 @@ describe('TaskRepository (generation attempts)', () => {
     const repo = new TaskRepository(storage.db)
 
     const task = repo.start({ kind: 'image', input: { prompt: 'cat' } })
-    repo.markFailed(task.id, 'imagegen', 'Image API error 401')
+    repo.markFailed(task.id, 'imagegen', 'Image API error 401', {
+      elapsedMs: 1234,
+      images: [{ id: 'partial-image' }],
+    })
 
     const fetched = repo.getById(task.id)!
     expect(fetched.status).toBe('failed')
     expect(fetched.errorCode).toBe('imagegen')
     expect(fetched.errorMessage).toBe('Image API error 401')
+    expect(fetched.result).toEqual({ elapsedMs: 1234, images: [{ id: 'partial-image' }] })
     storage.close()
   })
 
@@ -102,6 +106,110 @@ describe('TaskRepository (generation attempts)', () => {
     expect(repo.list(undefined, undefined, 100, 0, '不存在')).toHaveLength(0)
     // Like special characters are escaped, not treated as wildcards.
     expect(repo.list(undefined, undefined, 100, 0, '%')).toHaveLength(0)
+    storage.close()
+  })
+
+  it('tracks progress and prevents late success from overwriting cancellation', async () => {
+    const storage = await openTemporaryStorage()
+    const repo = new TaskRepository(storage.db)
+
+    const task = repo.start({
+      kind: 'image',
+      clientRequestId: 'request-123',
+      input: { prompt: '三张连续漫画' },
+    })
+    expect(repo.getByClientRequestId('request-123')?.id).toBe(task.id)
+    expect(repo.updateProgress(task.id, {
+      progress: { completed: 1, total: 3, paused: true },
+      images: [{ id: 'partial-image' }],
+    })).toBe(true)
+    expect(repo.markCancelled(task.id)).toBe(true)
+    expect(repo.markSuccess(task.id, { images: [{ id: 'late-image' }] })).toBe(false)
+
+    const fetched = repo.getById(task.id)!
+    expect(fetched.status).toBe('cancelled')
+    expect(fetched.result).toMatchObject({
+      progress: { completed: 1, total: 3, paused: true },
+      images: [{ id: 'partial-image' }],
+    })
+    storage.close()
+  })
+
+  it('marks unfinished tasks as interrupted after process restart', async () => {
+    const storage = await openTemporaryStorage()
+    const repo = new TaskRepository(storage.db)
+
+    const running = repo.start({ kind: 'video', input: { topic: '本地动画' } })
+    const complete = repo.start({ kind: 'text', input: { topic: '已完成内容' } })
+    repo.markSuccess(complete.id, { text: 'done' })
+
+    expect(repo.interruptRunning()).toBe(1)
+    expect(repo.getById(running.id)).toMatchObject({ status: 'failed', errorCode: 'interrupted' })
+    expect(repo.getById(complete.id)?.status).toBe('success')
+    storage.close()
+  })
+
+  it('persists queue metadata and claims ready tasks by priority', async () => {
+    const storage = await openTemporaryStorage()
+    const repo = new TaskRepository(storage.db)
+
+    const low = repo.enqueue({
+      kind: 'image',
+      priority: 1,
+      maxAttempts: 4,
+      input: { prompt: '低优先级' },
+      queuePayload: { prompt: 'low' },
+    })
+    const high = repo.enqueue({
+      kind: 'text',
+      priority: 10,
+      input: { topic: '高优先级' },
+      queuePayload: { topic: 'high' },
+    })
+
+    expect(repo.claimNext()?.id).toBe(high.id)
+    expect(repo.getById(high.id)).toMatchObject({ status: 'running', attempt: 1, priority: 10 })
+    expect(repo.claimNext()?.id).toBe(low.id)
+    expect(repo.getById(low.id)).toMatchObject({ maxAttempts: 4, queuePayload: { prompt: 'low' } })
+    storage.close()
+  })
+
+  it('deduplicates enqueue requests by client request id', async () => {
+    const storage = await openTemporaryStorage()
+    const repo = new TaskRepository(storage.db)
+    const first = repo.enqueue({ kind: 'text', clientRequestId: 'same-request', queuePayload: { topic: '一次' } })
+    const second = repo.enqueue({ kind: 'text', clientRequestId: 'same-request', queuePayload: { topic: '重复' } })
+    expect(second.id).toBe(first.id)
+    expect(repo.list()).toHaveLength(1)
+    storage.close()
+  })
+
+  it('pauses, resumes and retries durable queue work', async () => {
+    const storage = await openTemporaryStorage()
+    const repo = new TaskRepository(storage.db)
+    const task = repo.enqueue({ kind: 'video', maxAttempts: 2, queuePayload: { topic: '动画' } })
+
+    expect(repo.pause(task.id)).toBe(true)
+    expect(repo.claimNext()).toBeNull()
+    expect(repo.resume(task.id)).toBe(true)
+    expect(repo.claimNext()?.id).toBe(task.id)
+    expect(repo.retryOrFail(task.id, 'temporary', '暂时失败', { progress: 20 }, 0)).toBe('queued')
+    expect(repo.claimNext()).toMatchObject({ attempt: 2, retryCount: 1 })
+    expect(repo.retryOrFail(task.id, 'temporary', '仍然失败')).toBe('failed')
+    expect(repo.getById(task.id)).toMatchObject({ status: 'failed', attempt: 2, retryCount: 1, errorCode: 'temporary' })
+    storage.close()
+  })
+
+  it('requeues durable running work while failing legacy synchronous work after restart', async () => {
+    const storage = await openTemporaryStorage()
+    const repo = new TaskRepository(storage.db)
+    const durable = repo.enqueue({ kind: 'image', queuePayload: { prompt: '继续生成' } })
+    repo.claimNext()
+    const legacy = repo.start({ kind: 'text', input: { topic: '旧同步任务' } })
+
+    expect(repo.recoverInterrupted()).toEqual({ requeued: 1, failed: 1 })
+    expect(repo.getById(durable.id)).toMatchObject({ status: 'queued', errorCode: 'interrupted' })
+    expect(repo.getById(legacy.id)).toMatchObject({ status: 'failed', errorCode: 'interrupted' })
     storage.close()
   })
 })
