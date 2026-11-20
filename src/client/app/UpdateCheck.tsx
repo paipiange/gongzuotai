@@ -7,9 +7,8 @@ type Toast = (message: string, tone?: 'info' | 'success' | 'warning') => void
 // 避免与 package.json 中的 version 字段漂移。
 declare const __APP_VERSION__: string
 
-// ===== 更新源（GitHub Release 为正式更新源；npm 源暂未发布，留空）=====
+// ===== 更新源（GitHub Release 为正式更新源）=====
 const GITHUB_REPO = 'paipiange/gongzuotai'
-const NPM_PACKAGE = ''
 
 const CURRENT_VERSION = __APP_VERSION__
 
@@ -35,32 +34,27 @@ export function UpdateCheck({ onToast }: { onToast: Toast }) {
   }
 
   const check = async () => {
-    if (!GITHUB_REPO && !NPM_PACKAGE) {
+    if (!GITHUB_REPO) {
       setState({ status: 'error', message: '更新源尚未配置' })
-      onToast('更新源尚未配置（后续接入 GitHub / npm）', 'info')
+      onToast('更新源尚未配置（后续接入 GitHub）', 'info')
       return
     }
     setState({ status: 'checking' })
     try {
-      if (GITHUB_REPO) {
-        const response = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
-          headers: { accept: 'application/vnd.github+json' },
-        })
-        if (!response.ok) {
-          setState({ status: 'error', message: `查询失败（HTTP ${response.status}）` })
-          return
-        }
-        const data = await response.json() as { tag_name?: string; html_url?: string; name?: string }
-        const latest = (data.tag_name ?? '').replace(/^v/, '')
-        if (!latest) {
-          setState({ status: 'error', message: '未找到发布版本' })
-          return
-        }
-        settle(latest, data.html_url ?? `https://github.com/${GITHUB_REPO}/releases`)
+      const response = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
+        headers: { accept: 'application/vnd.github+json' },
+      })
+      if (!response.ok) {
+        setState({ status: 'error', message: `查询失败（HTTP ${response.status}）` })
         return
       }
-      // TODO: npm registry 检查（后续接入 NPM_PACKAGE 后实现）。
-      setState({ status: 'error', message: 'npm 更新源尚未实现' })
+      const data = await response.json() as { tag_name?: string; html_url?: string; name?: string }
+      const latest = (data.tag_name ?? '').replace(/^v/, '')
+      if (!latest) {
+        setState({ status: 'error', message: '未找到发布版本' })
+        return
+      }
+      settle(latest, data.html_url ?? `https://github.com/${GITHUB_REPO}/releases`)
     } catch (cause) {
       setState({ status: 'error', message: cause instanceof Error ? cause.message : '网络错误' })
     }
