@@ -7,10 +7,9 @@ type Toast = (message: string, tone?: 'info' | 'success' | 'warning') => void
 // 避免与 package.json 中的 version 字段漂移。
 declare const __APP_VERSION__: string
 
-// ===== 更新源（占位符，后续填入真实地址后「检查更新」即可生效）=====
-// TODO: 接入正式 GitHub 仓库与 npm 源。
-const GITHUB_REPO = '' // 例如 'paipiange/gongzuotai'
-const NPM_PACKAGE = '' // 例如 'dsh-paipiange'
+// ===== 更新源（GitHub Release 为正式更新源；npm 源暂未发布，留空）=====
+const GITHUB_REPO = 'paipiange/gongzuotai'
+const NPM_PACKAGE = ''
 
 const CURRENT_VERSION = __APP_VERSION__
 
