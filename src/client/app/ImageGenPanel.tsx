@@ -28,11 +28,12 @@ interface Toast {
  * 后端来自「后端管理」里配置的图片后端（图片 API / 本机 ComfyUI），
  * 生成时按所选后端 id 调用。
  */
-export function ImageGenPanel({ onToast, creationId, resumeTask = null, onResumeConsumed }: {
+export function ImageGenPanel({ onToast, creationId, resumeTask = null, onResumeConsumed, onOpenSettings }: {
   onToast: Toast
   creationId?: string
   resumeTask?: TaskRecord | null
   onResumeConsumed?: () => void
+  onOpenSettings?: () => void
 }) {
   const [topic, setTopic] = useState('')
   const [styleId, setStyleId] = useState('')
@@ -386,6 +387,7 @@ export function ImageGenPanel({ onToast, creationId, resumeTask = null, onResume
             onChange={setModelPick}
             placeholder="选择图片模型"
             emptyHint="暂无可用后端，请到设置中心添加"
+            onAdd={onOpenSettings}
           />
         </label>
 

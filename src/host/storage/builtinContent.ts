@@ -28,16 +28,16 @@ export const BUILTIN_TEMPLATES: CreateTemplateInput[] = [
     category: '小红书',
     name: '小红书种草笔记',
     description: '第一人称真实体验 + 痛点共鸣 + 行动号召，适合带货与好物分享。',
-    promptTemplate: `你是一位小红书爆款种草笔记写手。请围绕「{{产品/主题}}」，面向「{{目标人群}}」创作一篇种草笔记。
+    promptTemplate: `你是一位小红书爆款种草笔记写手。请围绕「{{主题}}」，面向「{{目标人群}}」创作一篇种草笔记。
 
 要求：
 1. 标题不超过 20 字，含 1 个 emoji，制造好奇或痛点共鸣。
-2. 开头用第一人称真实体验切入，点出「用了/试了之后」的直观改变。
-3. 正文分 3~4 个小点，每个小点用一句口语化结论加简短展开，多用「我」「真的」「姐妹们」等口语。
-4. 结尾给出行动号召（点赞/收藏/评论区交流），并附 3~5 个相关话题标签。
-5. 全文口语化、无 AI 味，避免「首先/其次/综上所述」等书面连接词。
+2. 开头用第一人称真实体验切入，点出「用了/试了之后」的直观改变，不要泛泛而谈。
+3. 正文分 3~4 个小点，每个小点一句口语化结论 + 2~3 句展开，多用「我」「真的」「姐妹们」等口语。
+4. 结尾给出行动号召（点赞/收藏/评论交流），并附 3~5 个相关话题标签。
+5. 语气自然克制，避免「首先/其次/综上所述」「相信/期待」等书面连接词和 AI 腔；不夸大功效、不做医疗或功效类承诺。
 
-请直接输出笔记正文。`,
+输出要求：只输出笔记正文，不要输出标题前的「标题：」等提示、不要开头寒暄、不要结尾总结词、不要 Markdown 代码块。`,
   },
   {
     category: '小红书',
@@ -47,12 +47,12 @@ export const BUILTIN_TEMPLATES: CreateTemplateInput[] = [
 
 要求：
 1. 标题用「数字 + 结果导向」，例如「3 步搞懂 X」「5 个 Y 的避坑清单」。
-2. 开头一句点明「谁适合看、看完能解决什么」。
-3. 正文按 3~6 个要点分条列出，每条配一句 emoji 小标题 + 2~3 句展开说明。
+2. 开头一句点明「谁适合看、看完能解决什么」，让读者立刻判断是否值得看。
+3. 正文按 3~6 个要点分条列出，每条一句 emoji 小标题 + 2~3 句展开说明，信息具体可落地。
 4. 结尾附一个「收藏提醒」和 3~5 个话题标签。
-5. 语言轻松、条目清晰，方便读者截图收藏。
+5. 语言轻松、条目清晰，方便截图收藏；不堆砌套话，避免「相信」「快速提升」「闭眼入」等空泛话术。
 
-请直接输出笔记正文。`,
+输出要求：只输出笔记正文，不要开头寒暄、不要结尾总结词、不要 Markdown 代码块。`,
   },
   {
     category: '公众号',
@@ -65,24 +65,24 @@ export const BUILTIN_TEMPLATES: CreateTemplateInput[] = [
 2. 开头用现象、故事或反常识问题切入，快速建立读者共鸣。
 3. 主体分 3~4 个小节，每节「观点 → 论据/数据 → 案例 → 小结」推进，用小标题分隔。
 4. 文末总结核心观点，并抛出 1 个开放问题引导读者留言互动。
-5. 语言克制、有信息密度，避免空洞口号和车轱辘话。
+5. 语言克制、有信息密度，避免空洞口号和车轱辘话；引用数据时标注为示例或说明来源，不编造具体数字。
 
-请直接输出推文正文。`,
+输出要求：标题与正文一起输出，不要开头寒暄、不要结尾「希望本文对你有帮助」等套话、不要 Markdown 代码块。`,
   },
   {
     category: '公众号',
     name: '公众号观点评论',
     description: '就热点事件表达立场，结构紧凑、观点鲜明。',
-    promptTemplate: `你是一位观点鲜明的公众号评论员。请就「{{事件/话题}}」撰写一篇评论文章。
+    promptTemplate: `你是一位观点鲜明的公众号评论员。请就「{{话题}}」撰写一篇评论文章。
 
 要求：
 1. 标题直接亮明态度，不模棱两可。
-2. 开头用一两句概述事件，然后立即抛出你的核心判断。
+2. 开头用一两句概述话题，然后立即抛出你的核心判断。
 3. 主体围绕 2~3 个分论点展开，每个论点先结论后论证，必要时引用事实或常识逻辑。
-4. 立场清晰但论述克制，不煽动、不人身攻击。
+4. 立场清晰但论述克制，不煽动、不人身攻击、不编造事实或数据。
 5. 结尾给出建设性建议或呼吁。
 
-请直接输出评论正文。`,
+输出要求：标题与正文一起输出，不要开头寒暄、不要 Markdown 代码块。`,
   },
   {
     category: '知乎',
@@ -93,11 +93,11 @@ export const BUILTIN_TEMPLATES: CreateTemplateInput[] = [
 要求：
 1. 开头第一句直接给出结论或鲜明态度，抓住读者。
 2. 接着用「先说结论 → 分层论证 → 补充细节 → 总结」的结构展开。
-3. 论证中穿插具体例子或可操作建议，避免空谈。
+3. 论证中穿插具体例子或可操作建议，避免空谈；涉及专业内容时确保准确，不确定处如实说明。
 4. 分点清晰，每点有小标题或序号。
 5. 结尾简短总结，并欢迎评论区进一步交流。
 
-请直接输出回答正文。`,
+输出要求：直接输出回答正文，不要以「回答：」开头、不要开头寒暄、不要 Markdown 代码块。`,
   },
   {
     category: '短视频',
@@ -110,9 +110,9 @@ export const BUILTIN_TEMPLATES: CreateTemplateInput[] = [
 2. 主体按「抛出问题 → 给出 3 个要点 → 每个要点一句金句」的节奏推进。
 3. 每句话短促有力，适合念出来，避免长句和书面语。
 4. 结尾留一个钩子（关注/追问/下集预告）。
-5. 脚本按「画面提示」与「口播词」两栏分段输出。
+5. 脚本按「画面提示」与「口播词」两栏分段输出，画面提示简洁描述镜头，口播词口语化。
 
-请直接输出脚本。`,
+输出要求：直接输出脚本，不要开头寒暄、不要结尾总结、不要 Markdown 代码块。`,
   },
   {
     category: '营销',
@@ -125,9 +125,9 @@ export const BUILTIN_TEMPLATES: CreateTemplateInput[] = [
 2. 文案开头制造场景感或紧迫感，让目标用户对号入座。
 3. 中间用短句分点呈现卖点，配合具体细节增强可信度。
 4. 结尾给出明确的行动号召（限时、优惠、试用等）。
-5. 语言有感染力但不夸张，避免虚假承诺。
+5. 语言有感染力但不夸张，避免虚假承诺、绝对化用语（如「最好」「第一」）和虚假功效。
 
-请直接输出文案。`,
+输出要求：直接输出文案，不要开头寒暄、不要结尾总结词、不要 Markdown 代码块。`,
   },
   {
     category: '漫画',
@@ -170,10 +170,10 @@ export const BUILTIN_TEMPLATES: CreateTemplateInput[] = [
 1. 开篇交代背景与写作目的，一句话说明本文要解决的问题。
 2. 主体采用「是什么 → 为什么 → 怎么做 → 常见误区」或「现状 → 问题 → 原因 → 对策」的逻辑推进。
 3. 每个章节设小标题，段落首句点明要点，论据与结论呼应。
-4. 数据或例子用假设性示例即可，不编造真实数据。
+4. 数据或例子用假设性示例即可，不编造真实数据；确需引用时标注来源或说明为示例。
 5. 结尾总结全文，并给出可执行的下一步建议。
 
-请直接输出正文。`,
+输出要求：直接输出正文，不要开头寒暄、不要结尾套话、不要 Markdown 代码块。`,
   },
 ]
 
@@ -318,6 +318,7 @@ const COUPLE_COMIC_TEMPLATE_NAME = 'Q 版情侣漫画'
  * `seedBuiltinContent`（数据库 open 内部、尚无 paths）中调用；由 Host 在
  * `assets` 实例创建后单独调用一次。
  */
+
 export function seedCoupleComicAssets(
   db: Database.Database,
   assets: AssetRepository,
@@ -355,6 +356,66 @@ export function seedCoupleComicAssets(
       count += 1
     }
     setSeedVersion(db, 1, 'couple_comic_assets_version')
+  })()
+
+  return count
+}
+
+/** 内置模板封面图（随插件包分发到 lib/assets/template-covers/）。 */
+const TEMPLATE_COVER_IMAGES = [
+  { file: 'xhs_grass.jpg', mimeType: 'image/jpeg', template: '小红书种草笔记', name: '模板封面·小红书种草笔记', tags: ['模板封面', '内置', '小红书种草笔记'] },
+  { file: 'xhs_tips.png', mimeType: 'image/png', template: '小红书干货合集', name: '模板封面·小红书干货合集', tags: ['模板封面', '内置', '小红书干货合集'] },
+  { file: 'wechat_deep_read.png', mimeType: 'image/png', template: '公众号深度推文', name: '模板封面·公众号深度推文', tags: ['模板封面', '内置', '公众号深度推文'] },
+  { file: 'wechat_comment.png', mimeType: 'image/png', template: '公众号观点评论', name: '模板封面·公众号观点评论', tags: ['模板封面', '内置', '公众号观点评论'] },
+  { file: 'zhihu_answer.png', mimeType: 'image/png', template: '知乎高赞回答', name: '模板封面·知乎高赞回答', tags: ['模板封面', '内置', '知乎高赞回答'] },
+  { file: 'video_script.png', mimeType: 'image/png', template: '短视频口播脚本', name: '模板封面·短视频口播脚本', tags: ['模板封面', '内置', '短视频口播脚本'] },
+  { file: 'product_launch.png', mimeType: 'image/png', template: '产品上新营销文案', name: '模板封面·产品上新营销文案', tags: ['模板封面', '内置', '产品上新营销文案'] },
+  { file: 'longform_writing.png', mimeType: 'image/png', template: '通用长文写作框架', name: '模板封面·通用长文写作框架', tags: ['模板封面', '内置', '通用长文写作框架'] },
+] as const
+
+const TEMPLATE_COVER_VERSION_KEY = 'template_cover_version'
+
+/**
+ * 把内置模板的封面图写入素材库，并回填到对应模板的 `cover_asset_id`。
+ *
+ * 幂等：以 app_settings 里的 `template_cover_version` 标记；入库后版本号写回，
+ * 重复启动不会重复插入。返回入库的封面数量。
+ *
+ * 与 `seedCoupleComicAssets` 一样，本函数需要 `AssetRepository`（写磁盘），
+ * 由 Host 在 `assets` 实例创建后单独调用。
+ */
+export function seedTemplateCovers(
+  db: Database.Database,
+  assets: AssetRepository,
+  resourceDir?: string,
+): number {
+  if (getSeedVersion(db, TEMPLATE_COVER_VERSION_KEY) >= 1) return 0
+
+  const base = resourceDir ?? join(dirname(fileURLToPath(import.meta.url)), 'assets', 'template-covers')
+  const templates = new TemplateRepository(db)
+  let count = 0
+
+  db.transaction(() => {
+    for (const cover of TEMPLATE_COVER_IMAGES) {
+      const filePath = join(base, cover.file)
+      if (!existsSync(filePath)) continue
+      const data = readFileSync(filePath)
+      const width = cover.mimeType === 'image/png' && data.length > 24 ? data.readUInt32BE(16) : null
+      const height = cover.mimeType === 'image/png' && data.length > 24 ? data.readUInt32BE(20) : null
+      const saved = assets.save({
+        kind: 'image',
+        name: cover.name,
+        mimeType: cover.mimeType,
+        data,
+        width,
+        height,
+        tags: [...cover.tags],
+      })
+      const template = templates.list().find((t) => t.name === cover.template)
+      if (template) templates.setCoverAssetId(template.id, saved.id)
+      count += 1
+    }
+    setSeedVersion(db, 1, TEMPLATE_COVER_VERSION_KEY)
   })()
 
   return count

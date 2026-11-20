@@ -71,7 +71,7 @@ export class TemplateRepository {
     const rows = this.db.prepare(`
       SELECT * FROM templates
       WHERE (@category IS NULL OR category = @category)
-      ORDER BY is_builtin DESC, updated_at DESC, id ASC
+      ORDER BY (CASE WHEN category = '漫画' THEN 0 ELSE 1 END), is_builtin DESC, updated_at DESC, id ASC
       LIMIT @limit OFFSET @offset
     `).all({
       category: input.category ?? null,

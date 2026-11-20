@@ -90,7 +90,7 @@ interface PageRecord {
   error?: string
 }
 
-export function GraphicStudioPage({ onBack, onToast }: { onBack: () => void; onToast: Toast }) {
+export function GraphicStudioPage({ onBack, onToast, onOpenSettings }: { onBack: () => void; onToast: Toast; onOpenSettings?: () => void }) {
   const [sourceText, setSourceText] = useState('')
   const [topic, setTopic] = useState('')
   const [pageCount, setPageCount] = useState(4)
@@ -447,6 +447,7 @@ export function GraphicStudioPage({ onBack, onToast }: { onBack: () => void; onT
               onChange={setTextPick}
               placeholder="选择文字模型"
               emptyHint="暂无文字后端，去设置中心添加"
+              onAdd={onOpenSettings}
             />
           </label>
           <label className="pa-field">
@@ -457,6 +458,7 @@ export function GraphicStudioPage({ onBack, onToast }: { onBack: () => void; onT
               onChange={setImagePick}
               placeholder="选择图片模型"
               emptyHint="暂无图片后端，去设置中心添加"
+              onAdd={onOpenSettings}
             />
           </label>
           <button type="button" className="pa-primary-button" onClick={handleBreakdown} disabled={breaking || !sourceText.trim()}>

@@ -64,7 +64,7 @@ export class InspirationRepository {
     const rows = this.db.prepare(`
       SELECT * FROM inspirations
       WHERE (@category IS NULL OR category = @category)
-      ORDER BY is_builtin DESC, created_at DESC, id ASC
+      ORDER BY created_at DESC, id ASC
       LIMIT @limit OFFSET @offset
     `).all({
       category: input.category ?? null,

@@ -29,6 +29,7 @@ import {
   type ComicRoleChoice,
 } from './templateUtils'
 import { ComicPublishModal } from './ComicPublishModal'
+import { renderMarkdown } from './markdownPreview'
 import { comicResumeState, isComicTemplateTask, storedTaskOrigin, taskResultImages } from './taskResume'
 
 interface Toast {
@@ -57,10 +58,11 @@ function formatElapsed(elapsedMs: number): string {
  * 1. 首页卡片宫格：封面图 + 名称 + 描述 + 分类标签，点击进入详情。
  * 2. 详情页左右双栏：左侧创作设置表单，右侧实时预览。
  */
-export function TemplateUsePanel({ onToast, resumeTask = null, onResumeConsumed }: {
+export function TemplateUsePanel({ onToast, resumeTask = null, onResumeConsumed, onOpenSettings }: {
   onToast: Toast
   resumeTask?: TaskRecord | null
   onResumeConsumed?: () => void
+  onOpenSettings?: () => void
 }) {
   const [templates, setTemplates] = useState<TemplateRecord[]>([])
   const [loaded, setLoaded] = useState(false)
@@ -117,7 +119,8 @@ export function TemplateUsePanel({ onToast, resumeTask = null, onResumeConsumed 
       const current = imgs.find((b) => b.id === decoded?.groupId)
       const currentGroup = current ? backendToGroup(current) : null
       if (currentGroup?.models.includes(decoded?.model ?? '')) return prev
-      const preferred = backendToGroup(imgs[imgs.length - 1])
+      const last = imgs[imgs.length - 1]
+      const preferred = last ? backendToGroup(last) : null
       const next = preferred?.models[0] ? `${preferred.id}::${preferred.models[0]}` : ''
       try {
         if (next) localStorage.setItem(TEMPLATE_IMAGE_PICK_KEY, next)
@@ -129,7 +132,8 @@ export function TemplateUsePanel({ onToast, resumeTask = null, onResumeConsumed 
     setTextPick((prev) => {
       const gid = decodePick(prev)?.groupId
       if (texts.some((b) => b.id === gid)) return prev
-      const first = backendToGroup(texts[0])
+      const firstBackend = texts[0]
+      const first = firstBackend ? backendToGroup(firstBackend) : null
       return first?.models[0] ? `${first.id}::${first.models[0]}` : ''
     })
   }
@@ -664,6 +668,7 @@ export function TemplateUsePanel({ onToast, resumeTask = null, onResumeConsumed 
                     }}
                     placeholder="选择图片模型"
                     emptyHint="暂无可用的图片后端"
+                    onAdd={onOpenSettings}
                   />
                 </label>
               )}
@@ -676,6 +681,7 @@ export function TemplateUsePanel({ onToast, resumeTask = null, onResumeConsumed 
                     onChange={setTextPick}
                     placeholder="选择文字模型"
                     emptyHint="暂无可用的文字后端"
+                    onAdd={onOpenSettings}
                   />
                 </label>
               )}
@@ -757,7 +763,7 @@ export function TemplateUsePanel({ onToast, resumeTask = null, onResumeConsumed 
                   ))}
                 </div>
               ) : textResult ? (
-                <pre className="pa-template-detail__text">{textResult}</pre>
+                <div className="pa-template-detail__text">{renderMarkdown(textResult)}</div>
               ) : active.coverAssetId ? (
                 <div className="pa-template-detail__cover">
                   <img src={assetUrl(active.coverAssetId)} alt={active.name} />

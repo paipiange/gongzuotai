@@ -4,7 +4,7 @@ import { existsSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs
 import { join } from 'node:path'
 import { spawn } from 'node:child_process'
 import { PaipiangeDatabase } from './storage/database'
-import { seedCoupleComicAssets } from './storage/builtinContent'
+import { seedCoupleComicAssets, seedTemplateCovers } from './storage/builtinContent'
 import { CreationRepository } from './storage/creationRepository'
 import { SettingsRepository } from './storage/SettingsRepository'
 import { AssetRepository } from './storage/assetRepository'
@@ -20,7 +20,7 @@ import { registerApiRoutes } from './api/routes'
 import { sendWebResponse, toWebRequest } from './api/webServerAdapter'
 import { generateText, generateTextDirect } from './textgen/textGenService'
 import type { TextGenRequest } from './textgen/textGenService'
-import type { LlmService } from './textgen/types'
+import { providerRouteOf, type LlmService } from './textgen/types'
 import { startSse } from './textgen/sse'
 import { WechatPublishService } from './publish/WechatPublishService'
 import { normalizeTaskOrigin } from './taskOrigin'
@@ -88,6 +88,13 @@ export async function apply(ctx: Context, config: Config = {}) {
     seedCoupleComicAssets(storage.db, assets)
   } catch {
     // 内置参考图 seed 失败属于非致命问题，忽略并继续启动。
+  }
+
+  // 幂等地把内置模板封面图写入素材库，并回填到对应模板。
+  try {
+    seedTemplateCovers(storage.db, assets)
+  } catch {
+    // 模板封面 seed 失败属于非致命问题，忽略并继续启动。
   }
 
   try {
@@ -434,7 +441,7 @@ export async function apply(ctx: Context, config: Config = {}) {
             await sendWebResponse(res, Response.json({ providers: [], models: {} }))
             return
           }
-          const providers = llm.listProviders().map((p) => p.provider)
+          const providers = llm.listProviders().map((p) => providerRouteOf(p)).filter(Boolean)
           // Best-effort model discovery per provider; ignore failures so a
           // provider with a slow catalog does not block the picker.
           const models: Record<string, string[]> = {}
@@ -560,7 +567,7 @@ export async function apply(ctx: Context, config: Config = {}) {
             // fall back to the first registered route so generation can still run.
             if (!provider) provider = defaults.provider
             if (typeof llm.listProviders === 'function') {
-              const available = llm.listProviders().map((p) => p.provider)
+              const available = llm.listProviders().map((p) => providerRouteOf(p)).filter(Boolean)
               if (!available.includes(provider)) {
                 provider = available[0] ?? provider
                 model = ''
@@ -722,7 +729,7 @@ export async function apply(ctx: Context, config: Config = {}) {
             let provider = body.provider?.trim() || defaults.provider
             let model = body.model?.trim() || defaults.model
             if (engine === 'llm' && llm && typeof llm.listProviders === 'function') {
-              const available = llm.listProviders().map((p) => p.provider)
+              const available = llm.listProviders().map((p) => providerRouteOf(p)).filter(Boolean)
               if (!available.includes(provider)) {
                 provider = available[0] ?? provider
                 model = ''

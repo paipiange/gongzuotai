@@ -21,7 +21,7 @@ import { extractImageFilesFromClipboard, readImageAsDataUrl } from './pasteImage
 import { SectionHeading, studioLabels, type ToastState } from './primitives'
 import { storedTaskOrigin } from './taskResume'
 
-export function StudioPage({ studio, initialCreation, resumeTask = null, onResumeConsumed, onBack, onSave, onToast }: {
+export function StudioPage({ studio, initialCreation, resumeTask = null, onResumeConsumed, onBack, onSave, onToast, onOpenSettings }: {
   studio: StudioId
   initialCreation: CreationRecord | null
   resumeTask?: TaskRecord | null
@@ -29,6 +29,7 @@ export function StudioPage({ studio, initialCreation, resumeTask = null, onResum
   onBack: () => void
   onSave: (draft: CreationDraft) => Promise<CreationRecord | null>
   onToast: (message: string, tone?: ToastState['tone']) => void
+  onOpenSettings?: () => void
 }) {
   const [creationId, setCreationId] = useState<string | undefined>(initialCreation?.id)
   const [title, setTitle] = useState(initialCreation?.title ?? '')
@@ -493,8 +494,8 @@ export function StudioPage({ studio, initialCreation, resumeTask = null, onResum
                 onChange={setTextPick}
                 placeholder="选择文字模型"
                 emptyHint="暂无可用的文字后端"
+                onAdd={onOpenSettings}
               />
-              {textBackends.length === 0 && <small>未配置文字后端，将使用 Harness 默认模型。可在「设置中心 → 后端管理」添加。</small>}
             </label>
             <label className="pa-field">
               <span>发布平台</span>
@@ -561,7 +562,7 @@ export function StudioPage({ studio, initialCreation, resumeTask = null, onResum
               {creationId && <span className="pa-form-notice">已关联草稿，生成图可一键设为封面。</span>}
             </div>
           </form> */}
-          <ImageGenPanel onToast={onToast} creationId={creationId} resumeTask={resumeTask} onResumeConsumed={onResumeConsumed} />
+          <ImageGenPanel onToast={onToast} creationId={creationId} resumeTask={resumeTask} onResumeConsumed={onResumeConsumed} onOpenSettings={onOpenSettings} />
         </div>
       ) : (
       <div className="pa-studio-layout">
@@ -576,8 +577,8 @@ export function StudioPage({ studio, initialCreation, resumeTask = null, onResum
               onChange={setTextPick}
               placeholder="选择文字模型"
               emptyHint="暂无可用的文字后端"
+              onAdd={onOpenSettings}
             />
-            {textBackends.length === 0 && <small>未配置文字后端，将使用 Harness 默认模型。可在「设置中心 → 后端管理」添加。</small>}
           </label>
           <label className="pa-field"><span>草稿标题</span><input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={80} placeholder="例如：春日品牌故事初稿" /></label>
           <label className="pa-field"><span>主题 / 关键词 <b aria-hidden="true">*</b></span><textarea value={topic} onChange={(event) => setTopic(event.target.value)} onPaste={handlePasteReference} maxLength={300} placeholder="例如：以江南春日为主题，写一篇有画面感的品牌故事，也可 Ctrl+V 粘贴参考图" /><small>{topic.length}/300</small></label>

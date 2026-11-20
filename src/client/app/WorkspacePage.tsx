@@ -73,7 +73,7 @@ export function WorkspacePage({ page, creations, storageSource, onNavigate, onOp
     return (
       <div className="pa-page">
         <PageIntro title={meta.title} description={meta.description} />
-        <TemplateUsePanel onToast={onToast} resumeTask={templateResumeTask} onResumeConsumed={onTemplateResumeConsumed} />
+        <TemplateUsePanel onToast={onToast} resumeTask={templateResumeTask} onResumeConsumed={onTemplateResumeConsumed} onOpenSettings={() => onNavigate('settings')} />
       </div>
     )
   }

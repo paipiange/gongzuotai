@@ -8,7 +8,7 @@
  * GroupedModelPicker 的 groups 结构（见下方 `backendToGroups` 辅助）。
  */
 
-import { CaretDown, Check } from '@phosphor-icons/react'
+import { CaretDown, Check, Plus } from '@phosphor-icons/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 export interface ModelGroup {
@@ -31,6 +31,8 @@ export interface GroupedModelPickerProps {
   placeholder?: string
   /** 无分组时触发的提示文字（可选）。 */
   emptyHint?: string
+  /** 无分组时提供的「去添加」回调；传入后空态会显示一个跳转按钮。 */
+  onAdd?: () => void
   disabled?: boolean
 }
 
@@ -81,7 +83,7 @@ export function backendToGroup(b: {
   return { id: b.id, label: b.name, models: Array.from(new Set(models)), hint }
 }
 
-export function GroupedModelPicker({ groups, value, onChange, placeholder, emptyHint, disabled }: GroupedModelPickerProps) {
+export function GroupedModelPicker({ groups, value, onChange, placeholder, emptyHint, onAdd, disabled }: GroupedModelPickerProps) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
@@ -123,7 +125,22 @@ export function GroupedModelPicker({ groups, value, onChange, placeholder, empty
       {open && (
         <div className="pa-gmp__menu" role="listbox">
           {groups.length === 0 ? (
-            <div className="pa-gmp__empty">{emptyHint ?? '暂无可用分组'}</div>
+            <div className="pa-gmp__empty">
+              <span>{emptyHint ?? '暂无可用分组'}</span>
+              {onAdd && (
+                <button
+                  type="button"
+                  className="pa-gmp__add"
+                  onClick={() => {
+                    onAdd()
+                    setOpen(false)
+                  }}
+                >
+                  <Plus aria-hidden="true" size={13} weight="bold" />
+                  去添加
+                </button>
+              )}
+            </div>
           ) : (
             groups.map((group) => (
               <div key={group.id} className="pa-gmp__group">

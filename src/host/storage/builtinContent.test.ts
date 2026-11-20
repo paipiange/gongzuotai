@@ -46,7 +46,7 @@ describe('内置模板与灵感 seed', () => {
     storage.close()
   })
 
-  it('内置内容排在最前，且不影响用户自定义内容', async () => {
+  it('内置内容标记正确，且不影响用户自定义内容', async () => {
     const storage = await PaipiangeDatabase.open({ dataRoot: newRoot() })
     const templates = new TemplateRepository(storage.db)
     const inspirations = new InspirationRepository(storage.db)
@@ -61,7 +61,9 @@ describe('内置模板与灵感 seed', () => {
     expect(templateList.some((t) => t.id === userTemplate.id)).toBe(true)
 
     const inspirationList = inspirations.list()
-    expect(inspirationList[0].isBuiltin).toBe(true)
+    // 灵感按创建时间倒序：用户新建/推荐的选题（时间更新）应排在最前，内置选题靠后。
+    expect(inspirationList[0].id).toBe(userInspiration.id)
+    expect(inspirationList[0].isBuiltin).toBe(false)
     expect(inspirationList.some((i) => i.id === userInspiration.id)).toBe(true)
     storage.close()
   })

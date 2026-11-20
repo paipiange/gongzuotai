@@ -362,6 +362,7 @@ function extensionFor(mimeType: string, name: string): string {
   if (known === 'png') return '.png'
   if (known === 'jpeg' || known === 'jpg') return '.jpg'
   if (known === 'webp') return '.webp'
+  if (known === 'svg+xml' || known === 'svg') return '.svg'
   const match = name.match(/\.[a-zA-Z0-9]+$/)
   return match ? match[0].toLowerCase() : '.bin'
 }
