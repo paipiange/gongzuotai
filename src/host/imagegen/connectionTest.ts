@@ -4,7 +4,7 @@
  * offer a "test connection" button.
  */
 
-import type { LlmService } from '../textgen/types'
+import { providerRouteOf, type LlmService } from '../textgen/types'
 
 export interface ConnectionTestInput {
   kind?: string
@@ -136,7 +136,7 @@ async function testLlmText(
   }
   const started = Date.now()
   try {
-    const providers = (llmService.listProviders() ?? []).map((p) => p.provider)
+    const providers = (llmService.listProviders() ?? []).map((p) => providerRouteOf(p)).filter(Boolean)
     const latencyMs = Date.now() - started
     if (!providers.includes(provider)) {
       const hint = providers.length ? `可用：${providers.join('、')}` : '当前无已注册的 provider'

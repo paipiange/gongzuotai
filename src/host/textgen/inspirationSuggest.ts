@@ -1,5 +1,5 @@
 import type { LlmService } from './types'
-import { generateText } from './textGenService'
+import { generateText, generateTextWithPromptDirect, type DirectTextConfig } from './textGenService'
 
 export interface SuggestionInput {
   /** Optional seed topics (recent creation titles) to ground the suggestions. */
@@ -49,6 +49,35 @@ export async function suggestInspirations(
     requirement: prompt,
   })
 
+  return parseSuggestions(result.text)
+}
+
+/**
+ * Direct-mode variant: ask a third-party OpenAI-compatible text backend for
+ * topic suggestions, bypassing the Harness `llm` service entirely. This avoids
+ * the `llm` service's provider/model plumbing (which has historically thrown
+ * `Cannot read properties of undefined (reading 'provider')` when the default
+ * `deepseek-official` route has no registered adapter or credentials).
+ */
+export async function suggestInspirationsDirect(
+  config: DirectTextConfig,
+  input: { topics?: string[]; count?: number },
+): Promise<Suggestion[]> {
+  const count = Math.min(Math.max(input.count ?? 3, 1), 6)
+  const historyNote = input.topics?.length
+    ? `\n参考用户近期创作主题（用于延续风格）：\n${input.topics.slice(0, 10).map((t, i) => `${i + 1}. ${t}`).join('\n')}`
+    : ''
+
+  const system = '你是专业的内容策划师，擅长为中文新媒体创作者推荐可落地执行的选题。'
+  const user = [
+    `请为用户推荐 ${count} 个可执行的创作选题。${historyNote}`,
+    '严格按以下 JSON 数组格式返回，不要输出任何多余文字、解释或 Markdown 代码块标记：',
+    '[',
+    '  {"title":"选题标题","description":"一句话说明选题价值与受众","promptTemplate":"可直接用于生成该内容的提示词","category":"文章创作|营销文案|小红书笔记|图片生成","tags":["标签1","标签2"]}',
+    ']',
+  ].join('\n')
+
+  const result = await generateTextWithPromptDirect(config, { system, user })
   return parseSuggestions(result.text)
 }
 

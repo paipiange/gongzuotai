@@ -26,8 +26,17 @@ export interface TokenUsage {
 
 /** One registered provider route, as returned by `listProviders()`. */
 export interface LlmProviderInfo {
-  provider: string
+  /** dsh 的 `listProviders()` 返回 provider 元数据，标识字段是 `id`（不是 `provider`）。 */
+  id?: string
+  /** 兼容旧字段：部分 host 实现可能仍暴露 `provider`。 */
+  provider?: string
   [key: string]: unknown
+}
+
+/** 从一条 provider 元数据里稳健地取出路由名（优先 `id`，回退 `provider`）。 */
+export function providerRouteOf(info: LlmProviderInfo | undefined): string {
+  if (!info) return ''
+  return (typeof info.id === 'string' && info.id) || (typeof info.provider === 'string' && info.provider) || ''
 }
 
 /** One advertised model for a provider, as returned by `listModels()`. */

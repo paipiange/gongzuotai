@@ -5,7 +5,7 @@ import type { AssetRepository } from '../storage/assetRepository'
 import type { SettingsRepository } from '../storage/SettingsRepository'
 import type { TaskRecord } from '../storage/taskRepository'
 import { generateText, generateTextDirect, type TextGenRequest } from '../textgen/textGenService'
-import type { LlmService } from '../textgen/types'
+import { providerRouteOf, type LlmService } from '../textgen/types'
 import { generateVideo, type VideoEngine, type VideoGenRequest } from '../videogen/videoGenService'
 import type { GenerationQueue } from './GenerationQueue'
 
@@ -137,7 +137,7 @@ export function registerGenerationHandlers(queue: GenerationQueue, deps: Generat
     let provider = request.provider?.trim() || backend?.text?.provider?.trim() || defaults.provider
     let model = selectedModel || defaults.model
     if (typeof deps.llm.listProviders === 'function') {
-      const available = deps.llm.listProviders().map((item) => item.provider)
+      const available = deps.llm.listProviders().map((item) => providerRouteOf(item)).filter(Boolean)
       if (!available.includes(provider)) {
         provider = available[0] ?? provider
         model = model || defaults.model
@@ -159,7 +159,7 @@ export function registerGenerationHandlers(queue: GenerationQueue, deps: Generat
     if (engine === 'llm') {
       if (!deps.llm?.prepareCall) throw new Error('Harness 文本模型服务未就绪，请先在 Harness 中配置模型')
       if (typeof deps.llm.listProviders === 'function') {
-        const available = deps.llm.listProviders().map((item) => item.provider)
+        const available = deps.llm.listProviders().map((item) => providerRouteOf(item)).filter(Boolean)
         if (!available.includes(provider)) provider = available[0] ?? provider
       }
     }

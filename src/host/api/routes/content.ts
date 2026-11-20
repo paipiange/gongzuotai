@@ -1,6 +1,7 @@
 import type { TemplateRepository } from '../../storage/templateRepository'
 import type { PublishPlatform, PublishStatus } from '../../storage/publishRepository'
 import type { ExportFormat } from '../../storage/exportService'
+import { providerRouteOf } from '../../textgen/types'
 import { error, json, type ApiDeps, type RegisterRoute } from './shared'
 
 /** Templates, inspirations, storyboard, publish queue, and export. */
@@ -97,12 +98,39 @@ export function registerContentRoutes(deps: ApiDeps, register: RegisterRoute) {
       if (!body) return error('请求体无效')
       const topics = Array.isArray(body.topics) ? body.topics.filter((t): t is string => typeof t === 'string').slice(0, 20) : []
       const count = Math.min(Math.max(body.count ?? 3, 1), 6)
-      const { suggestInspirations } = await import('../../textgen/inspirationSuggest')
+      const { suggestInspirations, suggestInspirationsDirect } = await import('../../textgen/inspirationSuggest')
       try {
-        const defaults = settings.getTextGenConfig()
-        const suggestions = await suggestInspirations(llm, { topics, count, provider: defaults.provider, model: defaults.model })
-        const saved = suggestions.map((s) => inspirations.create({ title: s.title, description: s.description, promptTemplate: s.promptTemplate, category: s.category ?? 'AI 推荐', tags: s.tags }))
-        return json({ inspirations: saved }, 201)
+        // 选题推荐优先复用用户已配置的「文字后端」（llm-text 且带 baseUrl）走 OpenAI 兼容直连，
+        // 彻底绕开 Harness llm 服务的 provider/model 装配（历史默认 deepseek-official 无 adapter/凭证时，
+        // dsh 内部会抛 `Cannot read properties of undefined (reading 'provider')`）。只有没有直连后端时，
+        // 才回退到 Harness llm 服务。
+        const textBackends = settings
+          .listBackendsWithSecrets()
+          .filter((b) => b.kind === 'llm-text' && b.text?.baseUrl?.trim())
+        for (const backend of textBackends) {
+          const baseUrl = backend.text!.baseUrl!.trim()
+          const model = backend.text!.model?.trim()
+          if (!model) continue
+          try {
+            const suggestions = await suggestInspirationsDirect(
+              { baseUrl, apiKey: backend.text!.apiKey ?? '', model },
+              { topics, count },
+            )
+            const saved = suggestions.map((s) => inspirations.create({ title: s.title, description: s.description, promptTemplate: s.promptTemplate, category: s.category ?? 'AI 推荐', tags: s.tags }))
+            return json({ inspirations: saved }, 201)
+          } catch {
+            // 该后端调用失败，尝试下一个。
+          }
+        }
+
+        // 回退：Harness llm 服务。仅当服务存在时尝试；不再调用 listProviders/listModels
+        // 做「探测」，因为 dsh 的 pi-ai adapter 在无凭证/无匹配 provider 时会在
+        // `model.provider` 等处抛 `Cannot read properties of undefined (reading 'provider')`，
+        // 直接吞掉用户看到的是一堆内部报错。清空后端后这里应返回友好提示，引导用户去添加文字后端。
+        if (!llm || typeof llm.prepareCall !== 'function') {
+          return error('未配置任何可用的文本模型（请先在「后端管理」添加文字后端，或在 Harness 配置模型）', 503)
+        }
+        return error('未配置可用的文字后端，请先在「设置中心 → 后端管理」添加一个文字模型后再推荐选题', 503)
       } catch (cause) {
         return error(cause instanceof Error ? cause.message : String(cause), 502)
       }
@@ -159,11 +187,15 @@ export function registerContentRoutes(deps: ApiDeps, register: RegisterRoute) {
           return json({ storyboard: parsed })
         }
 
-        if (!llm || typeof llm.prepareCall !== 'function') return error('Harness 文本模型服务未就绪', 503)
+        if (!llm || typeof llm.prepareCall !== 'function') return error('未配置可用的文字后端，请先在「设置中心 → 后端管理」添加一个文字模型后再拆页', 503)
         const defaults = settings.getTextGenConfig()
-        const provider = body.provider?.trim() || defaults.provider
+        let provider = body.provider?.trim() || defaults.provider
         const model = directModel || defaults.model
-        if (!provider) return error('尚未配置任何可用的文本模型 Provider')
+        if (typeof llm.listProviders === 'function') {
+          const available = llm.listProviders().map((item) => providerRouteOf(item)).filter(Boolean)
+          if (!available.includes(provider)) provider = available[0] ?? provider
+        }
+        if (!provider) return error('未配置可用的文字后端，请先在「设置中心 → 后端管理」添加一个文字模型后再拆页', 503)
         const storyboard = await generateStoryboard(llm, { ...input, provider, model })
         return json({ storyboard })
       } catch (cause) {
