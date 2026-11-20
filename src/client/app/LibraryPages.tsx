@@ -25,22 +25,30 @@ import {
   ArrowClockwise,
   MagnifyingGlass,
   ImageSquare,
+  Eye,
 } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
 import type { CreationRecord } from './workspaceStore'
 import {
   assetUrl,
   batchDeleteAssets,
+  batchRestoreAssets,
   deleteAsset,
   emptyTrashAssets,
+  exportCreation,
   exportForPlatform,
   exportPlatformText,
   getAssetStorage,
+  getPublishDetail,
   listAssets,
+  listDeletedAssets,
   listInspirations,
   listPublishItems,
+  listPublishAttempts,
   listTemplates,
   purgeOrphanAssets,
+  refreshPublishStatus,
+  retryPublish,
   setAssetTags,
   setPublishStatus,
   suggestInspirations,
@@ -51,6 +59,8 @@ import {
   type AihotItem,
   type InspirationRecord,
   type PublishItem,
+  type PublishDetail,
+  type PublishAttempt,
   type PublishPlatform,
   type TemplateRecord,
 } from './hostClient'
@@ -79,6 +89,18 @@ function formatLocalTime(value: string): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
   return date.toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+function publishActionLabel(action: string): string {
+  const labels: Record<string, string> = {
+    export: '按平台导出',
+    delivery_bundle: '导出交付包',
+    comic_export: '导出漫画贴图包',
+    wechat_draft: '同步微信公众号草稿',
+    status_refresh: '刷新发布状态',
+    manual_status: '手动更新状态',
+  }
+  return labels[action] ?? action
 }
 
 function formatBytes(bytes: number): string {
@@ -119,6 +141,7 @@ export function AssetsPage({ onToast }: { onToast: (message: string, tone?: Toas
   const [tagsDraft, setTagsDraft] = useState('')
   const [storageOpen, setStorageOpen] = useState(false)
   const [storageStats, setStorageStats] = useState<AssetStorageStats | null>(null)
+  const [trashAssets, setTrashAssets] = useState<AssetRecord[]>([])
   const [storageBusy, setStorageBusy] = useState(false)
   const [processAsset, setProcessAsset] = useState<AssetRecord | null>(null)
   const [processMode, setProcessMode] = useState<'compress' | 'cover' | 'cover-watermark'>('compress')
@@ -200,7 +223,7 @@ export function AssetsPage({ onToast }: { onToast: (message: string, tone?: Toas
   }
 
   const handleDelete = async (asset: AssetRecord) => {
-    if (!window.confirm(`确定删除素材「${asset.name}」吗？此操作不可撤销。`)) return
+    if (!window.confirm(`确定将素材「${asset.name}」移入回收站吗？清空回收站前可以恢复。`)) return
     try {
       await deleteAsset(asset.id)
       onToast(`已删除「${asset.name}」`, 'success')
@@ -225,7 +248,7 @@ export function AssetsPage({ onToast }: { onToast: (message: string, tone?: Toas
 
   const batchDelete = async () => {
     if (!selected.size) return
-    if (!window.confirm(`确定删除选中的 ${selected.size} 个素材吗？此操作不可撤销。`)) return
+    if (!window.confirm(`确定将选中的 ${selected.size} 个素材移入回收站吗？清空前可以恢复。`)) return
     try {
       const { done } = await batchDeleteAssets([...selected])
       onToast(`已删除 ${done} 个素材`, 'success')
@@ -253,7 +276,9 @@ export function AssetsPage({ onToast }: { onToast: (message: string, tone?: Toas
     setStorageOpen(true)
     setStorageStats(null)
     try {
-      setStorageStats(await getAssetStorage())
+      const [stats, deleted] = await Promise.all([getAssetStorage(), listDeletedAssets()])
+      setStorageStats(stats)
+      setTrashAssets(deleted)
     } catch (cause) {
       onToast(cause instanceof Error ? cause.message : '读取存储统计失败', 'warning')
     }
@@ -267,9 +292,27 @@ export function AssetsPage({ onToast }: { onToast: (message: string, tone?: Toas
       const result = await emptyTrashAssets()
       onToast(`已清空回收站，释放 ${formatBytes(result.freedBytes)}`, 'success')
       setStorageStats(await getAssetStorage())
+      setTrashAssets([])
       void refresh()
     } catch (cause) {
       onToast(cause instanceof Error ? cause.message : '清空回收站失败', 'warning')
+    } finally {
+      setStorageBusy(false)
+    }
+  }
+
+  const restoreTrash = async (ids: string[]) => {
+    if (!ids.length) return
+    setStorageBusy(true)
+    try {
+      const result = await batchRestoreAssets(ids)
+      onToast(`已从回收站恢复 ${result.done} 个素材`, 'success')
+      const [stats, deleted] = await Promise.all([getAssetStorage(), listDeletedAssets()])
+      setStorageStats(stats)
+      setTrashAssets(deleted)
+      void refresh()
+    } catch (cause) {
+      onToast(cause instanceof Error ? cause.message : '恢复素材失败', 'warning')
     } finally {
       setStorageBusy(false)
     }
@@ -456,6 +499,14 @@ export function AssetsPage({ onToast }: { onToast: (message: string, tone?: Toas
               ) : (
                 <div className="pa-storage-stats">
                   <div className="pa-storage-stat">
+                    <span className="pa-storage-stat__label">素材占用</span>
+                    <span className="pa-storage-stat__value">{storageStats.activeCount} 项 · {formatBytes(storageStats.activeBytes)}</span>
+                    <p className="pa-muted">
+                      图片 {storageStats.byKind.image.count} 项 / {formatBytes(storageStats.byKind.image.bytes)}；
+                      文件与文稿 {storageStats.byKind.file.count + storageStats.byKind.document.count} 项 / {formatBytes(storageStats.byKind.file.bytes + storageStats.byKind.document.bytes)}
+                    </p>
+                  </div>
+                  <div className="pa-storage-stat">
                     <span className="pa-storage-stat__label">回收站（已删除素材）</span>
                     <span className="pa-storage-stat__value">{storageStats.deletedCount} 项 · {formatBytes(storageStats.deletedBytes)}</span>
                     <p className="pa-muted">删除的素材会先进回收站，清空后才会真正释放磁盘空间。</p>
@@ -465,6 +516,28 @@ export function AssetsPage({ onToast }: { onToast: (message: string, tone?: Toas
                     <span className="pa-storage-stat__value">{storageStats.orphanCount} 张 · {formatBytes(storageStats.orphanBytes)}</span>
                     <p className="pa-muted">生图过程中离开页面可能留下未被任何创作/分镜引用的图片。</p>
                   </div>
+                  <div className="pa-storage-stat">
+                    <span className="pa-storage-stat__label">重复文件检测</span>
+                    <span className="pa-storage-stat__value">{storageStats.duplicateGroupCount} 组 · {storageStats.duplicateCount} 个副本</span>
+                    <p className="pa-muted">按文件内容 SHA-256 校验，理论可节省 {formatBytes(storageStats.duplicateBytes)}。暂不自动删除，避免影响正在引用的素材。</p>
+                  </div>
+                  {trashAssets.length > 0 && (
+                    <div className="pa-storage-stat pa-storage-trash">
+                      <div className="pa-storage-trash__head">
+                        <span className="pa-storage-stat__label">回收站内容</span>
+                        <button type="button" className="pa-link-button" disabled={storageBusy} onClick={() => void restoreTrash(trashAssets.map((asset) => asset.id))}>恢复全部</button>
+                      </div>
+                      <ul className="pa-storage-trash__list">
+                        {trashAssets.map((asset) => (
+                          <li key={asset.id}>
+                            <span>{asset.name}</span>
+                            <small>{formatBytes(asset.sizeBytes)}</small>
+                            <button type="button" className="pa-link-button" disabled={storageBusy} onClick={() => void restoreTrash([asset.id])}>恢复</button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -536,11 +609,16 @@ export function PublishQueuePage({ creations, onOpen, onToast }: {
   const [filter, setFilter] = useState<'all' | 'draft' | 'ready' | 'exported' | 'published'>('all')
   const [editingUrlId, setEditingUrlId] = useState<string | null>(null)
   const [urlDraft, setUrlDraft] = useState('')
+  const [publishPreview, setPublishPreview] = useState<{ item: PublishItem; title: string; text: string; html: string | null } | null>(null)
+  const [publishDetail, setPublishDetail] = useState<PublishDetail | null>(null)
+  const [publishActionId, setPublishActionId] = useState<string | null>(null)
+  const [recentAttempts, setRecentAttempts] = useState<PublishAttempt[]>([])
 
   const refresh = async () => {
     try {
-      const rows = await listPublishItems()
+      const [rows, attempts] = await Promise.all([listPublishItems(), listPublishAttempts(undefined, 12)])
       setItems(rows)
+      setRecentAttempts(attempts)
       setSource('host')
     } catch {
       setSource('local')
@@ -585,7 +663,7 @@ export function PublishQueuePage({ creations, onOpen, onToast }: {
 
   const downloadPlatform = async (item: PublishItem) => {
     try {
-      const blob = await exportForPlatform(item.creationId, item.platform)
+      const blob = await exportForPlatform(item.creationId, item.platform, item.id)
       const url = URL.createObjectURL(blob)
       const anchor = document.createElement('a')
       anchor.href = url
@@ -593,6 +671,7 @@ export function PublishQueuePage({ creations, onOpen, onToast }: {
       anchor.click()
       URL.revokeObjectURL(url)
       onToast(`已导出「${PLATFORM_LABELS[item.platform]}」适配文本`, 'success')
+      void refresh()
     } catch (cause) {
       onToast(cause instanceof Error ? cause.message : '平台导出失败', 'warning')
     }
@@ -600,9 +679,11 @@ export function PublishQueuePage({ creations, onOpen, onToast }: {
 
   const copyPlatform = async (item: PublishItem) => {
     try {
-      const text = await exportPlatformText(item.creationId, item.platform)
+      const text = await exportPlatformText(item.creationId, item.platform, item.id)
       await navigator.clipboard.writeText(text)
+      await setPublishStatus(item.id, 'ready')
       onToast(`已复制「${PLATFORM_LABELS[item.platform]}」适配文案到剪贴板`, 'success')
+      void refresh()
     } catch (cause) {
       onToast(cause instanceof Error ? cause.message : '复制失败', 'warning')
     }
@@ -621,14 +702,48 @@ export function PublishQueuePage({ creations, onOpen, onToast }: {
         'text/plain': new Blob([plain], { type: 'text/plain' }),
       })
       await navigator.clipboard.write([clipItem])
+      await setPublishStatus(item.id, 'ready')
       onToast('已复制公众号排版，到公众号编辑器直接粘贴即可', 'success')
+      void refresh()
     } catch {
       try {
         await navigator.clipboard.writeText(plain)
+        await setPublishStatus(item.id, 'ready')
         onToast('浏览器不支持富文本复制，已降级复制纯文本', 'warning')
+        void refresh()
       } catch {
         onToast('复制失败，请手动选择内容', 'warning')
       }
+    }
+  }
+
+  const previewPlatform = async (item: PublishItem) => {
+    const creation = creationById.get(item.creationId)
+    if (!creation) return
+    try {
+      const text = await exportPlatformText(item.creationId, item.platform)
+      const html = item.platform === 'wechat'
+        ? buildWechatArticleHtml({ title: creation.title, content: creation.content || creation.topic })
+        : null
+      setPublishPreview({ item, title: creation.title, text, html })
+    } catch (cause) {
+      onToast(cause instanceof Error ? cause.message : '发布预览生成失败', 'warning')
+    }
+  }
+
+  const downloadDeliveryBundle = async (item: PublishItem) => {
+    try {
+      const blob = await exportCreation(item.creationId, 'zip', item.id)
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `paipiange-${item.platform}-delivery.zip`
+      anchor.click()
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+      onToast('已导出交付包（Markdown、HTML 与发布素材）', 'success')
+      void refresh()
+    } catch (cause) {
+      onToast(cause instanceof Error ? cause.message : '交付包导出失败，请重试', 'warning')
     }
   }
 
@@ -639,6 +754,48 @@ export function PublishQueuePage({ creations, onOpen, onToast }: {
       return
     }
     window.open(url, '_blank', 'noopener')
+    void setPublishStatus(item.id, 'ready').then(() => refresh()).catch(() => undefined)
+  }
+
+  const openPublishHistory = async (item: PublishItem) => {
+    setPublishActionId(item.id)
+    try {
+      setPublishDetail(await getPublishDetail(item.id))
+    } catch (cause) {
+      onToast(cause instanceof Error ? cause.message : '发布历史读取失败', 'warning')
+    } finally {
+      setPublishActionId(null)
+    }
+  }
+
+  const refreshOne = async (item: PublishItem) => {
+    setPublishActionId(item.id)
+    try {
+      await refreshPublishStatus(item.id)
+      onToast(item.platform === 'wechat' && item.externalId ? '微信草稿状态已刷新' : '发布状态已检查', 'success')
+      await refresh()
+      if (publishDetail?.item.id === item.id) setPublishDetail(await getPublishDetail(item.id))
+    } catch (cause) {
+      onToast(cause instanceof Error ? cause.message : '状态刷新失败', 'warning')
+      await refresh()
+    } finally {
+      setPublishActionId(null)
+    }
+  }
+
+  const retryOne = async (item: PublishItem) => {
+    setPublishActionId(item.id)
+    try {
+      await retryPublish(item.id)
+      onToast('重试成功，发布记录已更新', 'success')
+      await refresh()
+      setPublishDetail(await getPublishDetail(item.id))
+    } catch (cause) {
+      onToast(cause instanceof Error ? cause.message : '重试失败', 'warning')
+      await refresh()
+    } finally {
+      setPublishActionId(null)
+    }
   }
 
   if (source === 'loading') {
@@ -659,6 +816,23 @@ export function PublishQueuePage({ creations, onOpen, onToast }: {
         </div>
       </div>
 
+      {source === 'host' && recentAttempts.length > 0 && (
+        <section className="pa-panel pa-publish-recent">
+          <h2>最近发布操作</h2>
+          <div className="pa-publish-history__list">
+            {recentAttempts.slice(0, 6).map((attempt) => (
+              <article key={attempt.id}>
+                <span className="pa-status-badge" data-status={attempt.status === 'success' ? 'success' : attempt.status === 'failed' ? 'failed' : 'running'}>{attempt.status === 'success' ? '成功' : attempt.status === 'failed' ? '失败' : '进行中'}</span>
+                <b>{PLATFORM_LABELS[attempt.platform]} · {publishActionLabel(attempt.action)}</b>
+                <small>{formatLocalTime(attempt.createdAt)}</small>
+                {attempt.mediaId && <code>media_id: {attempt.mediaId}</code>}
+                {attempt.errorMessage && <p className="pa-task-row__error">{attempt.errorMessage}</p>}
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
       {source === 'host' && visibleItems.length ? (
         <div className="pa-publish-grid">
           {visibleItems.map((item) => {
@@ -675,8 +849,12 @@ export function PublishQueuePage({ creations, onOpen, onToast }: {
                 {item.externalUrl && (
                   <p className="pa-publish-external"><a href={item.externalUrl} target="_blank" rel="noopener noreferrer">查看已发布内容 ↗</a></p>
                 )}
+                {item.externalId && <p className="pa-publish-external"><b>media_id：</b><code>{item.externalId}</code></p>}
+                {item.lastError && <p className="pa-task-row__error">最近失败：{item.lastError}（累计 {item.retryCount} 次）</p>}
+                {item.lastCheckedAt && <p className="pa-muted">最近刷新：{formatLocalTime(item.lastCheckedAt)}</p>}
                 <div>
                   {creation && <button type="button" className="pa-secondary-button" onClick={() => onOpen(creation)}>查看与编辑</button>}
+                  {creation && <button type="button" className="pa-secondary-button" onClick={() => void previewPlatform(item)}><Eye aria-hidden="true" size={15} />发布预览</button>}
                   {creation && (
                     <button type="button" className="pa-secondary-button" onClick={() => downloadPlatform(item)}>
                       <DownloadSimple aria-hidden="true" size={15} />按平台导出
@@ -687,6 +865,11 @@ export function PublishQueuePage({ creations, onOpen, onToast }: {
                       <CopySimple aria-hidden="true" size={15} />复制文案
                     </button>
                   )}
+                  {creation && (
+                    <button type="button" className="pa-secondary-button" onClick={() => void downloadDeliveryBundle(item)}>
+                      <Stack aria-hidden="true" size={15} />导出交付包
+                    </button>
+                  )}
                   {creation && item.platform === 'wechat' && (
                     <button type="button" className="pa-secondary-button" onClick={() => copyWechatHtml(item)}>
                       <Sparkle aria-hidden="true" size={15} />复制公众号排版
@@ -695,6 +878,10 @@ export function PublishQueuePage({ creations, onOpen, onToast }: {
                   <button type="button" className="pa-secondary-button" onClick={() => openPlatform(item)}>
                     <PaperPlaneTilt aria-hidden="true" size={15} />去平台发布
                   </button>
+                  <button type="button" className="pa-secondary-button" disabled={publishActionId === item.id} onClick={() => void refreshOne(item)}><ArrowClockwise aria-hidden="true" size={15} />刷新状态</button>
+                  <button type="button" className="pa-secondary-button" disabled={publishActionId === item.id} onClick={() => void openPublishHistory(item)}><Eye aria-hidden="true" size={15} />历史与检查</button>
+                  {(item.lastError || item.retryCount > 0) && <button type="button" className="pa-secondary-button" disabled={publishActionId === item.id} onClick={() => void retryOne(item)}>重试</button>}
+                  {item.status === 'draft' && <button type="button" className="pa-link-button" onClick={() => void markStatus(item.id, 'ready')}>设为待发布</button>}
                   {editingUrlId === item.id ? (
                     <span className="pa-publish-url-editor">
                       <input type="url" placeholder="粘贴发布后的链接" value={urlDraft} onChange={(e) => setUrlDraft(e.target.value)} />
@@ -717,6 +904,73 @@ export function PublishQueuePage({ creations, onOpen, onToast }: {
           <h2>{filter === 'all' ? '暂无待发布内容' : '该状态下暂无内容'}</h2>
           <p>{source === 'host' ? '在创作工作台保存草稿时选择“加入待发布”，内容会出现在这里。' : 'Host 服务未连接，暂无法读取待发布清单。'}</p>
         </section>
+      )}
+
+      {publishPreview && (
+        <div className="pa-modal-backdrop" onClick={(event) => { if (event.target === event.currentTarget) setPublishPreview(null) }}>
+          <div className="pa-modal pa-publish-preview" role="dialog" aria-modal="true" aria-labelledby="pa-publish-preview-title">
+            <div className="pa-modal__head">
+              <div><h3 id="pa-publish-preview-title">{PLATFORM_LABELS[publishPreview.item.platform]}发布预览</h3><p>{publishPreview.title}</p></div>
+              <button type="button" className="pa-icon-button" aria-label="关闭" onClick={() => setPublishPreview(null)}><X aria-hidden="true" size={17} /></button>
+            </div>
+            <div className="pa-modal__body">
+              {publishPreview.html ? (
+                <iframe title="公众号排版预览" className="pa-publish-preview__frame" srcDoc={publishPreview.html} sandbox="" />
+              ) : (
+                <pre className="pa-publish-preview__text">{publishPreview.text}</pre>
+              )}
+            </div>
+            <div className="pa-modal__footer">
+              <button type="button" className="pa-secondary-button" onClick={() => setPublishPreview(null)}>关闭</button>
+              <button type="button" className="pa-secondary-button" onClick={() => void copyPlatform(publishPreview.item)}>复制发布文案</button>
+              <button type="button" className="pa-primary-button" onClick={() => openPlatform(publishPreview.item)}>去平台发布</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {publishDetail && (
+        <div className="pa-modal-backdrop" onClick={(event) => { if (event.target === event.currentTarget) setPublishDetail(null) }}>
+          <div className="pa-modal pa-publish-history" role="dialog" aria-modal="true" aria-labelledby="pa-publish-history-title">
+            <div className="pa-modal__head">
+              <div><h3 id="pa-publish-history-title">发布历史与发布前检查</h3><p>{PLATFORM_LABELS[publishDetail.item.platform]} · {creationById.get(publishDetail.item.creationId)?.title ?? '创作已删除'}</p></div>
+              <button type="button" className="pa-icon-button" aria-label="关闭" onClick={() => setPublishDetail(null)}><X aria-hidden="true" size={17} /></button>
+            </div>
+            <div className="pa-modal__body">
+              <section className="pa-task-detail__section">
+                <h4>发布前检查</h4>
+                <ul className="pa-publish-checklist">
+                  {publishDetail.checklist.map((check) => <li key={check.key} data-passed={check.passed}><span>{check.passed ? '✓' : '!'}</span><div><b>{check.label}</b>{check.message && <small>{check.message}</small>}</div></li>)}
+                </ul>
+              </section>
+              <section className="pa-task-detail__section">
+                <h4>操作历史（{publishDetail.attempts.length}）</h4>
+                <div className="pa-publish-history__list">
+                  {publishDetail.attempts.length ? publishDetail.attempts.map((attempt) => (
+                    <article key={attempt.id}>
+                      <span className="pa-status-badge" data-status={attempt.status === 'success' ? 'success' : attempt.status === 'failed' ? 'failed' : 'running'}>{attempt.status === 'success' ? '成功' : attempt.status === 'failed' ? '失败' : '进行中'}</span>
+                      <b>{publishActionLabel(attempt.action)}</b>
+                      <small>{formatLocalTime(attempt.createdAt)} · 重试序号 {attempt.retryNo}</small>
+                      {attempt.mediaId && <code>{attempt.mediaId}</code>}
+                      {attempt.errorMessage && <p className="pa-task-row__error">{attempt.errorMessage}</p>}
+                    </article>
+                  )) : <p className="pa-muted">暂无操作历史</p>}
+                </div>
+              </section>
+              <section className="pa-task-detail__section">
+                <h4>发布版本（{publishDetail.versions.length}）</h4>
+                <div className="pa-publish-history__list">
+                  {publishDetail.versions.length ? publishDetail.versions.map((version) => <article key={version.id}><b>版本 {version.versionNo} · {version.title || '未命名'}</b><small>{formatLocalTime(version.createdAt)}</small><p>{version.bodyMd.slice(0, 180) || '（无正文）'}</p></article>) : <p className="pa-muted">执行导出或发布操作后会自动保存版本快照</p>}
+                </div>
+              </section>
+            </div>
+            <div className="pa-modal__footer">
+              <button type="button" className="pa-secondary-button" onClick={() => void refreshOne(publishDetail.item)}>刷新状态</button>
+              {(publishDetail.item.lastError || publishDetail.item.retryCount > 0) && <button type="button" className="pa-primary-button" onClick={() => void retryOne(publishDetail.item)}>重试最近操作</button>}
+              <button type="button" className="pa-secondary-button" onClick={() => setPublishDetail(null)}>关闭</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

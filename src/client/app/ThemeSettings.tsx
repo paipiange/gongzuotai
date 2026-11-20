@@ -5,6 +5,8 @@ const THEMES: Array<{ id: string; label: string; swatch: [string, string, string
   { id: 'jade', label: '青玉绿', swatch: ['#8fd4b0', '#1b2b22', '#0c1410'] },
   { id: 'indigo', label: '靛蓝夜', swatch: ['#9aa4e8', '#1e2036', '#0e0f1a'] },
   { id: 'crimson', label: '绯红霞', swatch: ['#e89a9a', '#361c1c', '#1a0e0e'] },
+  { id: 'white', label: '白色', swatch: ['#4d6bfe', '#ffffff', '#f5f6f8'] },
+  { id: 'black', label: '黑色', swatch: ['#c8c8d0', '#111113', '#050505'] },
 ]
 
 /** 设置页「主题与界面」卡片：切换整体配色主题。 */

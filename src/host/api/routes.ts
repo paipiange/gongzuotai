@@ -21,6 +21,7 @@ import { registerContentRoutes } from './routes/content'
 import { registerCreationRoutes } from './routes/creations'
 import { registerGenerationRoutes } from './routes/generation'
 import { registerGraphicRoutes } from './routes/graphic'
+import { registerPublishRoutes } from './routes/publish'
 import type { ApiDeps, RegisterRoute } from './routes/shared'
 
 export type { ApiDeps, RegisterRoute } from './routes/shared'
@@ -31,4 +32,5 @@ export function registerApiRoutes(deps: ApiDeps, register: RegisterRoute) {
   registerAssetRoutes(deps, register)
   registerContentRoutes(deps, register)
   registerGraphicRoutes(deps, register)
+  registerPublishRoutes(deps, register)
 }

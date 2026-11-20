@@ -3,7 +3,8 @@ import type Database from 'better-sqlite3'
 interface Migration {
   version: number
   name: string
-  sql: string
+  sql?: string
+  apply?: (db: Database.Database) => void
 }
 
 const migrations: Migration[] = [
@@ -165,6 +166,86 @@ const migrations: Migration[] = [
       );
     `,
   },
+  {
+    version: 5,
+    name: 'task-client-request-id',
+    apply: (db) => {
+      const columns = db.pragma('table_info(tasks)') as Array<{ name: string }>
+      if (!columns.some((column) => column.name === 'client_request_id')) {
+        db.exec('ALTER TABLE tasks ADD COLUMN client_request_id TEXT')
+      }
+      db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_client_request_id ON tasks(client_request_id)')
+    },
+  },
+  {
+    version: 6,
+    name: 'persistent-generation-queue',
+    apply: (db) => {
+      const columns = db.pragma('table_info(tasks)') as Array<{ name: string }>
+      const addColumn = (name: string, sql: string) => {
+        if (!columns.some((column) => column.name === name)) db.exec(sql)
+      }
+      addColumn('priority', 'ALTER TABLE tasks ADD COLUMN priority INTEGER NOT NULL DEFAULT 0')
+      addColumn('attempt', 'ALTER TABLE tasks ADD COLUMN attempt INTEGER NOT NULL DEFAULT 0')
+      addColumn('retry_count', 'ALTER TABLE tasks ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0')
+      addColumn('max_attempts', 'ALTER TABLE tasks ADD COLUMN max_attempts INTEGER NOT NULL DEFAULT 1')
+      addColumn('available_at', 'ALTER TABLE tasks ADD COLUMN available_at TEXT')
+      addColumn('queue_payload_json', "ALTER TABLE tasks ADD COLUMN queue_payload_json TEXT")
+      addColumn('heartbeat_at', 'ALTER TABLE tasks ADD COLUMN heartbeat_at TEXT')
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_tasks_queue_claim
+        ON tasks(status, available_at, priority DESC, created_at ASC)
+      `)
+    },
+  },
+  {
+    version: 7,
+    name: 'publish-history-and-versions',
+    apply: (db) => {
+      const taskColumns = db.pragma('table_info(tasks)') as Array<{ name: string }>
+      if (!taskColumns.some((column) => column.name === 'retry_count')) {
+        db.exec('ALTER TABLE tasks ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0')
+      }
+      const columns = db.pragma('table_info(publish_items)') as Array<{ name: string }>
+      const addColumn = (name: string, sql: string) => {
+        if (!columns.some((column) => column.name === name)) db.exec(sql)
+      }
+      addColumn('external_id', 'ALTER TABLE publish_items ADD COLUMN external_id TEXT')
+      addColumn('last_error', 'ALTER TABLE publish_items ADD COLUMN last_error TEXT')
+      addColumn('retry_count', 'ALTER TABLE publish_items ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0')
+      addColumn('last_checked_at', 'ALTER TABLE publish_items ADD COLUMN last_checked_at TEXT')
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS publish_attempts (
+          id TEXT PRIMARY KEY,
+          publish_item_id TEXT REFERENCES publish_items(id) ON DELETE CASCADE,
+          platform TEXT NOT NULL,
+          action TEXT NOT NULL,
+          status TEXT NOT NULL CHECK(status IN ('running','success','failed')),
+          media_id TEXT,
+          error_message TEXT,
+          retry_no INTEGER NOT NULL DEFAULT 0,
+          request_json TEXT NOT NULL DEFAULT '{}',
+          result_json TEXT NOT NULL DEFAULT '{}',
+          started_at TEXT NOT NULL,
+          finished_at TEXT,
+          created_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_publish_attempts_item_time ON publish_attempts(publish_item_id, created_at DESC);
+        CREATE TABLE IF NOT EXISTS publish_versions (
+          id TEXT PRIMARY KEY,
+          publish_item_id TEXT NOT NULL REFERENCES publish_items(id) ON DELETE CASCADE,
+          version_no INTEGER NOT NULL,
+          title TEXT NOT NULL DEFAULT '',
+          body_md TEXT NOT NULL DEFAULT '',
+          body_html TEXT NOT NULL DEFAULT '',
+          snapshot_json TEXT NOT NULL DEFAULT '{}',
+          created_at TEXT NOT NULL,
+          UNIQUE(publish_item_id, version_no)
+        );
+        CREATE INDEX IF NOT EXISTS idx_publish_versions_item_no ON publish_versions(publish_item_id, version_no DESC);
+      `)
+    },
+  },
 ]
 
 export const latestSchemaVersion = migrations.at(-1)?.version ?? 0
@@ -182,7 +263,8 @@ export function migrateDatabase(db: Database.Database) {
   for (const migration of migrations) {
     if (migration.version <= currentVersion) continue
     db.transaction(() => {
-      db.exec(migration.sql)
+      if (migration.sql) db.exec(migration.sql)
+      migration.apply?.(db)
       db.pragma(`user_version = ${migration.version}`)
     })()
   }

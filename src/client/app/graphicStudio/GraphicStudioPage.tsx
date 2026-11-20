@@ -12,13 +12,14 @@ import { ArrowLeft, Sparkle, ImageSquare, TrashSimple, ArrowSquareOut, DownloadS
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   generateStoryboard,
-  generateImages,
+  enqueueImages,
   listBackends,
   assetUrl,
   exportGraphicZip,
   getGraphicSession,
   saveGraphicSession,
   listTasks,
+  waitForTask,
   type Backend,
   type StoryboardResult,
   type StoryboardPage,
@@ -328,12 +329,22 @@ export function GraphicStudioPage({ onBack, onToast }: { onBack: () => void; onT
     const prompt = buildPagePrompt(record.page, pages.length)
     setPages((prev) => prev.map((p, i) => (i === index ? { ...p, busy: true, error: undefined } : p)))
     try {
-      const images = await generateImages({
+      const queued = await enqueueImages({
         backendId: imageBackend.id,
+        origin: {
+          kind: 'graphic',
+          id: sessionId,
+          label: '公众号创作',
+          state: { sessionId, pageIndex: index },
+        },
         request: { prompt, count: 1, width: 1024, height: 1280, ...(imageModelId ? { model: imageModelId } : {}), ...(referenceImages.length ? { images: referenceImages } : {}) },
         pageIndex: index,
         sessionId,
       })
+      const completed = await waitForTask(queued.id)
+      const images = Array.isArray(completed.result.images)
+        ? completed.result.images.filter((item): item is { id: string } => Boolean(item && typeof item === 'object' && typeof (item as { id?: unknown }).id === 'string'))
+        : []
       const assetId = images[0]?.id
       setPages((prev) => prev.map((p, i) => (i === index ? { ...p, busy: false, assetId } : p)))
       if (assetId) onToast(`第 ${index + 1} 页底图已生成`, 'success')

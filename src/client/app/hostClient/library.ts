@@ -10,8 +10,12 @@ import type {
   AssetStorageStats,
   AihotItem,
   BackupRecord,
+  BackupPolicy,
+  HomeCarouselConfig,
   InspirationRecord,
   PublishItem,
+  PublishDetail,
+  PublishAttempt,
   PublishPlatform,
   PublishStatus,
   TaskKind,
@@ -114,6 +118,31 @@ export async function setPublishStatus(id: string, status: PublishStatus, extern
   return data.item
 }
 
+export async function getPublishDetail(id: string): Promise<PublishDetail> {
+  return apiFetch<PublishDetail>(`.publish.detail?id=${encodeURIComponent(id)}`)
+}
+
+export async function refreshPublishStatus(id: string): Promise<PublishItem> {
+  const data = await apiFetch<{ item: PublishItem }>('.publish.refresh', {
+    method: 'POST', body: JSON.stringify({ id }),
+  })
+  return data.item
+}
+
+export async function retryPublish(id: string): Promise<PublishItem> {
+  const data = await apiFetch<{ item: PublishItem }>('.publish.retry', {
+    method: 'POST', body: JSON.stringify({ id }),
+  })
+  return data.item
+}
+
+export async function listPublishAttempts(id?: string, limit = 50): Promise<PublishAttempt[]> {
+  const params = new URLSearchParams({ limit: String(limit) })
+  if (id) params.set('id', id)
+  const data = await apiFetch<{ attempts: PublishAttempt[] }>(`.publish.attempts?${params.toString()}`)
+  return data.attempts
+}
+
 // ---- Assets ----
 
 export async function listAssets(input?: { kind?: 'image' | 'file' | 'prompt' | 'document'; creationId?: string; tags?: string[]; query?: string; limit?: number; offset?: number }): Promise<AssetRecord[]> {
@@ -150,9 +179,7 @@ export async function uploadAsset(file: File, creationId?: string): Promise<Asse
 /** Build an <img> source URL for an asset id (same-origin binary route). */
 export function assetUrl(id: string): string {
   return `${BASE}.asset?id=${encodeURIComponent(id)}`
-}
-
-/** Soft-delete an asset by id. */
+}/** Soft-delete an asset by id. */
 export async function deleteAsset(id: string): Promise<void> {
   await apiFetch(`.asset.delete?id=${encodeURIComponent(id)}`, { method: 'POST' })
 }
@@ -164,6 +191,22 @@ export async function batchDeleteAssets(ids: string[]): Promise<{ done: number; 
     body: JSON.stringify({ ids }),
   })
   return data
+}
+
+export async function listDeletedAssets(limit = 100): Promise<AssetRecord[]> {
+  const data = await apiFetch<{ assets: AssetRecord[] }>(`.assets.trash?limit=${encodeURIComponent(String(limit))}`)
+  return data.assets
+}
+
+export async function restoreAsset(id: string): Promise<void> {
+  await apiFetch(`.asset.restore?id=${encodeURIComponent(id)}`, { method: 'POST' })
+}
+
+export async function batchRestoreAssets(ids: string[]): Promise<{ done: number; total: number }> {
+  return apiFetch<{ done: number; total: number }>('.assets.batchrestore', {
+    method: 'POST',
+    body: JSON.stringify({ ids }),
+  })
 }
 
 export async function getAssetStorage(): Promise<AssetStorageStats> {
@@ -188,6 +231,21 @@ export async function setAssetTags(id: string, tags: string[]): Promise<void> {
   })
 }
 
+// ---- Home carousel ----
+
+export async function getHomeCarousel(): Promise<HomeCarouselConfig> {
+  const data = await apiFetch<{ carousel: HomeCarouselConfig }>('.home.carousel')
+  return data.carousel
+}
+
+export async function setHomeCarousel(input: Partial<HomeCarouselConfig>): Promise<HomeCarouselConfig> {
+  const data = await apiFetch<{ carousel: HomeCarouselConfig }>('.home.carousel', {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  })
+  return data.carousel
+}
+
 // ---- Backups ----
 
 export async function createBackup(): Promise<BackupRecord> {
@@ -198,6 +256,19 @@ export async function createBackup(): Promise<BackupRecord> {
 export async function listBackups(): Promise<BackupRecord[]> {
   const data = await apiFetch<{ backups: BackupRecord[] }>('.backups')
   return data.backups
+}
+
+export async function getBackupPolicy(): Promise<BackupPolicy> {
+  const data = await apiFetch<{ policy: BackupPolicy }>('.backup.policy')
+  return data.policy
+}
+
+export async function setBackupPolicy(input: Partial<BackupPolicy>): Promise<BackupPolicy> {
+  const data = await apiFetch<{ policy: BackupPolicy }>('.backup.policy', {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  })
+  return data.policy
 }
 
 /** Download a backup snapshot by filename. Returns the raw bytes. */
@@ -241,6 +312,57 @@ export async function listTasks(input?: { kind?: TaskKind; status?: TaskStatus; 
 export async function getTask(id: string): Promise<TaskRecord> {
   const data = await apiFetch<{ task: TaskRecord }>(`.task?id=${encodeURIComponent(id)}`)
   return data.task
+}
+
+export async function cancelTask(input: { id?: string; clientRequestId?: string }): Promise<TaskRecord> {
+  const data = await apiFetch<{ task: TaskRecord }>('.task.cancel', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return data.task
+}
+
+export async function pauseTask(id: string): Promise<TaskRecord> {
+  const data = await apiFetch<{ task: TaskRecord }>('.task.pause', { method: 'POST', body: JSON.stringify({ id }) })
+  return data.task
+}
+
+export async function resumeTask(id: string): Promise<TaskRecord> {
+  const data = await apiFetch<{ task: TaskRecord }>('.task.resume', { method: 'POST', body: JSON.stringify({ id }) })
+  return data.task
+}
+
+export async function setTaskPriority(id: string, priority: number): Promise<TaskRecord> {
+  const data = await apiFetch<{ task: TaskRecord }>('.task.priority', { method: 'PATCH', body: JSON.stringify({ id, priority }) })
+  return data.task
+}
+
+export async function waitForTask(
+  id: string,
+  onUpdate?: (task: TaskRecord) => void,
+  signal?: AbortSignal,
+  intervalMs = 500,
+): Promise<TaskRecord> {
+  while (true) {
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+    const task = await getTask(id)
+    onUpdate?.(task)
+    if (task.status === 'success') return task
+    if (task.status === 'failed' || task.status === 'cancelled') {
+      throw new Error(task.errorMessage || (task.status === 'cancelled' ? '任务已取消' : '生成失败'))
+    }
+    await new Promise<void>((resolve, reject) => {
+      const onAbort = () => {
+        window.clearTimeout(timer)
+        reject(new DOMException('Aborted', 'AbortError'))
+      }
+      const timer = window.setTimeout(() => {
+        signal?.removeEventListener('abort', onAbort)
+        resolve()
+      }, intervalMs)
+      signal?.addEventListener('abort', onAbort, { once: true })
+    })
+  }
 }
 
 // ---- Analytics dashboard ----

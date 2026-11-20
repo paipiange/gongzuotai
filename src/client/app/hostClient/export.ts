@@ -6,11 +6,11 @@
 import { BASE, HostError } from './client'
 import type { PublishPlatform } from './types'
 
-export async function exportCreation(creationId: string, format: 'markdown' | 'html' | 'zip'): Promise<Blob> {
+export async function exportCreation(creationId: string, format: 'markdown' | 'html' | 'zip', publishItemId?: string): Promise<Blob> {
   const response = await fetch(`${BASE}.export`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ creationId, format }),
+    body: JSON.stringify({ creationId, format, publishItemId }),
   })
   if (!response.ok) {
     const body = await response.json().catch(() => null) as { error?: string } | null
@@ -20,11 +20,11 @@ export async function exportCreation(creationId: string, format: 'markdown' | 'h
 }
 
 /** Export copy-paste-ready plain text adapted to a target platform. */
-export async function exportForPlatform(creationId: string, platform: PublishPlatform): Promise<Blob> {
+export async function exportForPlatform(creationId: string, platform: PublishPlatform, publishItemId?: string): Promise<Blob> {
   const response = await fetch(`${BASE}.export`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ creationId, format: 'text', platform }),
+    body: JSON.stringify({ creationId, format: 'text', platform, publishItemId }),
   })
   if (!response.ok) {
     const body = await response.json().catch(() => null) as { error?: string } | null
@@ -34,8 +34,8 @@ export async function exportForPlatform(creationId: string, platform: PublishPla
 }
 
 /** Same as exportForPlatform but returns the adapted text as a string (for clipboard). */
-export async function exportPlatformText(creationId: string, platform: PublishPlatform): Promise<string> {
-  const blob = await exportForPlatform(creationId, platform)
+export async function exportPlatformText(creationId: string, platform: PublishPlatform, publishItemId?: string): Promise<string> {
+  const blob = await exportForPlatform(creationId, platform, publishItemId)
   return blob.text()
 }
 

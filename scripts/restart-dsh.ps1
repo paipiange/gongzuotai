@@ -8,17 +8,24 @@
 
 $ErrorActionPreference = 'Stop'
 
-$exePath = 'D:/software/dsh/DeepSeek Harness.exe'
 $lnkPath = Join-Path $env:USERPROFILE 'Desktop\DeepSeek Harness.lnk'
 
-if (-not (Test-Path -LiteralPath $exePath)) {
-    Write-Error "[restart-dsh] dsh exe not found: $exePath"
+if (-not (Test-Path -LiteralPath $lnkPath)) {
+    Write-Error "[restart-dsh] desktop shortcut not found: $lnkPath"
     exit 1
 }
 
+$shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($lnkPath)
+$exePath = $shortcut.TargetPath
+if (-not $exePath -or -not (Test-Path -LiteralPath $exePath)) {
+    Write-Error "[restart-dsh] shortcut target is unavailable"
+    exit 1
+}
+$processName = [System.IO.Path]::GetFileName($exePath)
+
 Write-Host "[restart-dsh] locating Electron browser (main) process ..."
 
-$mains = Get-CimInstance Win32_Process -Filter "name='DeepSeek Harness.exe'" |
+$mains = Get-CimInstance Win32_Process -Filter "name='$processName'" |
     Where-Object { $_.CommandLine -notmatch '--type=' -and $_.CommandLine -notmatch 'expose-internals' }
 
 if (-not $mains) {
@@ -30,7 +37,7 @@ if (-not $mains) {
     }
     $waited = 0
     while ($waited -lt 20) {
-        $remaining = Get-CimInstance Win32_Process -Filter "name='DeepSeek Harness.exe'" -ErrorAction SilentlyContinue
+        $remaining = Get-CimInstance Win32_Process -Filter "name='$processName'" -ErrorAction SilentlyContinue
         if (-not $remaining) { break }
         Start-Sleep -Milliseconds 500
         $waited++
@@ -38,11 +45,6 @@ if (-not $mains) {
 }
 
 Write-Host "[restart-dsh] relaunching dsh via desktop shortcut ..."
-if (Test-Path -LiteralPath $lnkPath) {
-    Start-Process -FilePath "explorer.exe" -ArgumentList "`"$lnkPath`""
-} else {
-    Write-Host "[restart-dsh] shortcut not found, falling back to direct exe launch."
-    Start-Process -FilePath $exePath -WorkingDirectory (Split-Path $exePath)
-}
+Start-Process -FilePath "explorer.exe" -ArgumentList "`"$lnkPath`""
 
 Write-Host "[restart-dsh] done."

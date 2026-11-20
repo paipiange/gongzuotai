@@ -215,6 +215,16 @@ export interface StudioDraftCache {
   style: string
   requirement: string
   tags: string[]
+  /** 视频专用：选中的影片风格 id（99 风格库）。 */
+  videoStyleId?: string
+  /** 视频专用：是否启用多幕叙事。 */
+  videoMultiScene?: boolean
+  /** 视频专用：多幕幕数（2~6）。 */
+  videoSceneCount?: number
+  /** 视频专用：旁白音色 id（edge-tts）。 */
+  videoVoice?: string
+  /** 视频专用：是否生成背景配乐。 */
+  videoMusic?: boolean
 }
 
 /** Persist an in-progress studio form so switching pages never loses work. */
@@ -241,6 +251,11 @@ export function loadStudioDraft(studio: StudioId): StudioDraftCache | null {
       style: typeof parsed.style === 'string' ? parsed.style : 'cinematic',
       requirement: typeof parsed.requirement === 'string' ? parsed.requirement : '',
       tags: Array.isArray(parsed.tags) ? parsed.tags.filter((t): t is string => typeof t === 'string') : [],
+      videoStyleId: typeof parsed.videoStyleId === 'string' ? parsed.videoStyleId : '',
+      videoMultiScene: typeof parsed.videoMultiScene === 'boolean' ? parsed.videoMultiScene : false,
+      videoSceneCount: Number.isFinite(Number(parsed.videoSceneCount)) ? Number(parsed.videoSceneCount) : 3,
+      videoVoice: typeof parsed.videoVoice === 'string' ? parsed.videoVoice : 'zh-CN-XiaoxiaoNeural',
+      videoMusic: typeof parsed.videoMusic === 'boolean' ? parsed.videoMusic : true,
     }
   } catch {
     return null

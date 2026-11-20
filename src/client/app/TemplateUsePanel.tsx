@@ -1,26 +1,43 @@
-import { ArrowLeft, ArrowUpRight, CheckCircle, ImageSquare, Plus, Sparkle, TextT, UploadSimple, X } from '@phosphor-icons/react'
+import { ArrowLeft, ArrowUpRight, CheckCircle, ImageSquare, PaperPlaneTilt, Plus, Sparkle, TextT, UploadSimple, X } from '@phosphor-icons/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   assetUrl,
-  generateImages,
-  generateTextStream,
+  cancelTask,
+  enqueueImages,
+  enqueueTextGeneration,
   listAssets,
   listBackends,
   listTemplates,
+  pauseTask,
+  resumeTask as resumeQueuedTask,
+  waitForTask,
   type Backend,
   type GeneratedImageResult,
+  type TaskRecord,
   type TemplateRecord,
 } from './hostClient'
 import { extractImageFilesFromClipboard, readImageAsDataUrl } from './pasteImages'
 import { GroupedModelPicker, backendToGroup, decodePick, type ModelGroup } from './GroupedModelPicker'
 import { Lightbox } from './Lightbox'
-import { extractPlaceholders, fillTemplate, isComicTemplate, isImageTemplate } from './templateUtils'
+import {
+  buildComicImagePrompt,
+  extractPlaceholders,
+  fillTemplate,
+  isComicTemplate,
+  isImageTemplate,
+  resolveComicOverlayText,
+  type ComicRoleChoice,
+} from './templateUtils'
+import { ComicPublishModal } from './ComicPublishModal'
+import { comicResumeState, isComicTemplateTask, storedTaskOrigin, taskResultImages } from './taskResume'
 
 interface Toast {
   (message: string, tone?: 'info' | 'success' | 'warning'): void
 }
 
-type RoleChoice = 'female' | 'male' | 'both'
+type RoleChoice = ComicRoleChoice
+
+const TEMPLATE_IMAGE_PICK_KEY = 'paipiange.template.imagePick'
 
 const ROLE_LABELS: Record<RoleChoice, string> = {
   female: '只有女主',
@@ -28,12 +45,23 @@ const ROLE_LABELS: Record<RoleChoice, string> = {
   both: '男女同框',
 }
 
+function formatElapsed(elapsedMs: number): string {
+  const totalSeconds = Math.max(0, Math.floor(elapsedMs / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return minutes > 0 ? `${minutes}分${String(seconds).padStart(2, '0')}秒` : `${seconds}秒`
+}
+
 /**
  * 「模板中心」面板：
  * 1. 首页卡片宫格：封面图 + 名称 + 描述 + 分类标签，点击进入详情。
  * 2. 详情页左右双栏：左侧创作设置表单，右侧实时预览。
  */
-export function TemplateUsePanel({ onToast }: { onToast: Toast }) {
+export function TemplateUsePanel({ onToast, resumeTask = null, onResumeConsumed }: {
+  onToast: Toast
+  resumeTask?: TaskRecord | null
+  onResumeConsumed?: () => void
+}) {
   const [templates, setTemplates] = useState<TemplateRecord[]>([])
   const [loaded, setLoaded] = useState(false)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -42,17 +70,38 @@ export function TemplateUsePanel({ onToast }: { onToast: Toast }) {
   const [busy, setBusy] = useState(false)
   const [imageBackends, setImageBackends] = useState<Backend[]>([])
   const [textBackends, setTextBackends] = useState<Backend[]>([])
-  const [imagePick, setImagePick] = useState('')
+  const [imagePick, setImagePick] = useState(() => {
+    try {
+      return localStorage.getItem(TEMPLATE_IMAGE_PICK_KEY) ?? ''
+    } catch {
+      return ''
+    }
+  })
   const [textPick, setTextPick] = useState('')
   const [results, setResults] = useState<GeneratedImageResult[]>([])
   const [textResult, setTextResult] = useState('')
   const [lastPrompt, setLastPrompt] = useState('')
   const [lightbox, setLightbox] = useState<{ ids: string[]; index: number } | null>(null)
+  const [publishOpen, setPublishOpen] = useState(false)
 
   // 漫画模板专属状态
   const [roleChoice, setRoleChoice] = useState<RoleChoice>('female')
   const [sourceImages, setSourceImages] = useState<string[]>([])
+  const [comicImageCount, setComicImageCount] = useState(1)
+  const [comicImageText, setComicImageText] = useState('')
+  const [generationProgress, setGenerationProgress] = useState<{ current: number; total: number; completed: number } | null>(null)
+  const [generationStartedAt, setGenerationStartedAt] = useState<number | null>(null)
+  const [generationElapsedMs, setGenerationElapsedMs] = useState(0)
+  const [lastGenerationElapsedMs, setLastGenerationElapsedMs] = useState<number | null>(null)
+  const [generationPaused, setGenerationPaused] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const handledResumeTaskRef = useRef<string | null>(null)
+  const generationPausedRef = useRef(false)
+  const generationControlRef = useRef<{
+    controller: AbortController
+    taskId: string | null
+    clientRequestId: string
+  } | null>(null)
 
   const loadAll = async () => {
     const [tpls, backends] = await Promise.all([listTemplates(), listBackends()])
@@ -61,12 +110,21 @@ export function TemplateUsePanel({ onToast }: { onToast: Toast }) {
     const texts = backends.filter((b) => b.kind === 'llm-text')
     setImageBackends(imgs)
     setTextBackends(texts)
-    // 首次加载：默认选中第一个分组里的第一个模型。
+    // 优先恢复用户上次选择；首次使用时选最近添加的图片后端，而不是旧列表
+    // 的第一项，避免新配置的 CPA 后端被静默绕过。
     setImagePick((prev) => {
-      const gid = decodePick(prev)?.groupId
-      if (imgs.some((b) => b.id === gid)) return prev
-      const first = backendToGroup(imgs[0])
-      return first?.models[0] ? `${first.id}::${first.models[0]}` : ''
+      const decoded = decodePick(prev)
+      const current = imgs.find((b) => b.id === decoded?.groupId)
+      const currentGroup = current ? backendToGroup(current) : null
+      if (currentGroup?.models.includes(decoded?.model ?? '')) return prev
+      const preferred = backendToGroup(imgs[imgs.length - 1])
+      const next = preferred?.models[0] ? `${preferred.id}::${preferred.models[0]}` : ''
+      try {
+        if (next) localStorage.setItem(TEMPLATE_IMAGE_PICK_KEY, next)
+      } catch {
+        // 浏览器禁用本地存储时仍可在当前会话使用。
+      }
+      return next
     })
     setTextPick((prev) => {
       const gid = decodePick(prev)?.groupId
@@ -106,6 +164,59 @@ export function TemplateUsePanel({ onToast }: { onToast: Toast }) {
     return templates.filter((t) => (t.category || '未分类') === categoryFilter)
   }, [templates, categoryFilter])
 
+  useEffect(() => {
+    if (!loaded || !resumeTask || handledResumeTaskRef.current === resumeTask.id) return
+    handledResumeTaskRef.current = resumeTask.id
+    const restored = comicResumeState(resumeTask)
+    const origin = storedTaskOrigin(resumeTask)
+    const legacyComic = isComicTemplateTask(resumeTask)
+    const template = templates.find((item) => item.id === origin?.id)
+      ?? templates.find((item) => item.id === restored.templateId)
+      ?? (legacyComic ? templates.find((item) => item.name === restored.templateName) : undefined)
+      ?? (legacyComic ? templates.find((item) => isComicTemplate(item.category, item.name)) : undefined)
+    if (!template) {
+      onToast('没有找到 Q 版情侣漫画模板，请先恢复或导入该模板', 'warning')
+      onResumeConsumed?.()
+      return
+    }
+
+    setActiveId(template.id)
+    const originValues = origin?.state.values
+    const resumedValues = originValues && typeof originValues === 'object' && !Array.isArray(originValues)
+      ? Object.fromEntries(Object.entries(originValues).map(([key, value]) => [key, String(value ?? '')]))
+      : { '主题/文案': restored.theme, '主题': restored.theme }
+    setValues(resumedValues)
+    setRoleChoice(restored.roleChoice)
+    setComicImageCount(restored.imageCount)
+    setComicImageText(restored.overlayText)
+    setSourceImages([])
+    setResults(taskResultImages(resumeTask))
+    setTextResult(typeof resumeTask.result.text === 'string' ? resumeTask.result.text : '')
+    setLastPrompt(restored.prompts.length > 0
+      ? restored.prompts.map((item, index) => `第 ${index + 1} 张\n${item}`).join('\n\n')
+      : String(resumeTask.input.prompt ?? ''))
+    setGenerationProgress(null)
+    setGenerationPaused(false)
+    generationPausedRef.current = false
+    setGenerationStartedAt(null)
+    setGenerationElapsedMs(restored.elapsedMs ?? 0)
+    setLastGenerationElapsedMs(restored.elapsedMs)
+    setPublishOpen(false)
+
+    const backendId = typeof resumeTask.input.backendId === 'string' ? resumeTask.input.backendId : ''
+    const model = typeof resumeTask.input.model === 'string' ? resumeTask.input.model : ''
+    if (backendId && model) {
+      const pick = `${backendId}::${model}`
+      setImagePick(pick)
+      try {
+        localStorage.setItem(TEMPLATE_IMAGE_PICK_KEY, pick)
+      } catch {
+        // 本地存储不可用时仍可在当前会话继续创作。
+      }
+    }
+    onResumeConsumed?.()
+  }, [loaded, onResumeConsumed, onToast, resumeTask, templates])
+
   const openTemplate = (tpl: TemplateRecord) => {
     setActiveId(tpl.id)
     setValues({})
@@ -114,6 +225,15 @@ export function TemplateUsePanel({ onToast }: { onToast: Toast }) {
     setLastPrompt('')
     setRoleChoice('female')
     setSourceImages([])
+    setComicImageCount(1)
+    setComicImageText('')
+    setGenerationProgress(null)
+    setGenerationPaused(false)
+    generationPausedRef.current = false
+    setGenerationStartedAt(null)
+    setGenerationElapsedMs(0)
+    setLastGenerationElapsedMs(null)
+    setPublishOpen(false)
   }
 
   const closeDetail = () => {
@@ -123,12 +243,27 @@ export function TemplateUsePanel({ onToast }: { onToast: Toast }) {
     setTextResult('')
     setLastPrompt('')
     setSourceImages([])
+    setGenerationProgress(null)
+    setGenerationPaused(false)
+    generationPausedRef.current = false
+    setGenerationStartedAt(null)
+    setGenerationElapsedMs(0)
+    setLastGenerationElapsedMs(null)
+    setPublishOpen(false)
   }
 
   const isImage = active ? isImageTemplate(active.category) : false
   const isComic = active ? isComicTemplate(active.category, active.name) : false
   const isImg = isImage
   const isComicTpl = isComic
+
+  useEffect(() => {
+    if (generationStartedAt === null) return
+    const update = () => setGenerationElapsedMs(Date.now() - generationStartedAt)
+    update()
+    const timer = window.setInterval(update, 500)
+    return () => window.clearInterval(timer)
+  }, [generationStartedAt])
 
   /** 从素材库拉取固定男女主参考图，转成 data URL（按角色选择）。 */
   const loadRoleReferenceImages = async (): Promise<string[]> => {
@@ -214,11 +349,30 @@ export function TemplateUsePanel({ onToast }: { onToast: Toast }) {
       onToast(`请填写：${missing.join('、')}`, 'warning')
       return
     }
-    const prompt = fillTemplate(active.promptTemplate, values)
+    const filledPrompt = fillTemplate(active.promptTemplate, values)
+    const theme = values['主题/文案'] ?? values['主题'] ?? ''
+    const requestedImageCount = isComic ? Math.max(1, Math.min(6, comicImageCount)) : 1
+    const firstOverlayText = isComic ? resolveComicOverlayText(comicImageText, theme, 1) : ''
+    const prompt = isComic
+      ? buildComicImagePrompt(theme, roleChoice, {
+          overlayText: firstOverlayText,
+          imageIndex: 1,
+          imageCount: requestedImageCount,
+        })
+      : filledPrompt
     setLastPrompt(prompt)
     setBusy(true)
+    setPublishOpen(false)
     setResults([])
     setTextResult('')
+    setLastGenerationElapsedMs(null)
+    setGenerationPaused(false)
+    generationPausedRef.current = false
+    const controller = new AbortController()
+    const clientRequestId = crypto.randomUUID()
+    generationControlRef.current = { controller, taskId: null, clientRequestId }
+    let completedImageCount = 0
+    let imageStartedAt = 0
     try {
       if (isImage) {
         const decodedImage = decodePick(imagePick)
@@ -237,18 +391,70 @@ export function TemplateUsePanel({ onToast }: { onToast: Toast }) {
         const isOpenAiBackend = backend.kind === 'llm-image'
         const outW = isOpenAiBackend ? 1024 : 1080
         const outH = isOpenAiBackend ? 1536 : 1440
-        const generated = await generateImages({
+        imageStartedAt = Date.now()
+        setGenerationStartedAt(imageStartedAt)
+        setGenerationElapsedMs(0)
+        const batchPrompts = isComic
+          ? Array.from({ length: requestedImageCount }, (_, offset) => {
+            const index = offset + 1
+            const overlayText = resolveComicOverlayText(comicImageText, theme, index)
+            return buildComicImagePrompt(theme, roleChoice, {
+              overlayText,
+              imageIndex: index,
+              imageCount: requestedImageCount,
+            })
+          })
+          : [prompt]
+        if (isComic) {
+          setLastPrompt(batchPrompts.map((item, index) => `第 ${index + 1} 张\n${item}`).join('\n\n'))
+        }
+        setGenerationProgress({ current: 1, total: batchPrompts.length, completed: 0 })
+        const queued = await enqueueImages({
           backendId: backend.id,
-          request: {
-            prompt,
+          requests: batchPrompts.map((item) => ({
+            prompt: item,
             width: outW,
             height: outH,
             ...(model ? { model } : {}),
             ...(images.length ? { images, denoise: 0.7 } : {}),
+          })),
+          clientRequestId,
+          source: 'template',
+          templateId: active.id,
+          templateName: active.name,
+          templateCategory: active.category,
+          ...(isComic ? { templateKind: 'comic' as const, theme, roleChoice, overlayText: comicImageText } : {}),
+          origin: {
+            kind: 'template',
+            id: active.id,
+            label: active.name,
+            state: isComic ? { values, roleChoice, comicImageCount: requestedImageCount, comicImageText } : { values },
           },
         })
+        if (generationControlRef.current?.clientRequestId === clientRequestId) generationControlRef.current.taskId = queued.id
+        const completed = await waitForTask(queued.id, (task) => {
+          const taskImages = taskResultImages(task)
+          const progress = task.result.progress as { completed?: number; total?: number } | undefined
+          completedImageCount = Math.max(Number(progress?.completed) || 0, taskImages.length)
+          setResults(taskImages)
+          setGenerationProgress({
+            current: Math.min(completedImageCount + 1, batchPrompts.length),
+            total: Number(progress?.total) || batchPrompts.length,
+            completed: completedImageCount,
+          })
+          const elapsed = Number(task.result.elapsedMs)
+          if (Number.isFinite(elapsed)) setGenerationElapsedMs(elapsed)
+        }, controller.signal)
+        const generated = taskResultImages(completed)
         setResults(generated)
-        onToast(`已生成 ${generated.length} 张图片`, 'success')
+        const elapsedMs = Number(completed.result.elapsedMs) || Date.now() - imageStartedAt
+        setLastGenerationElapsedMs(elapsedMs)
+        onToast(
+          isComic
+            ? `已生成 ${generated.length} 张带文字漫画，用时 ${formatElapsed(elapsedMs)}`
+            : `已生成 ${generated.length} 张图片，用时 ${formatElapsed(elapsedMs)}`,
+          'success',
+        )
       } else {
         const decodedText = decodePick(textPick)
         const backend = textBackends.find((b) => b.id === decodedText?.groupId) ?? textBackends[0]
@@ -257,24 +463,70 @@ export function TemplateUsePanel({ onToast }: { onToast: Toast }) {
           return
         }
         const model = decodedText?.model ?? backend.text.model
-        let streamed = ''
-        await generateTextStream(
-          { model, studio: 'article', topic: prompt, backendId: backend.id },
-          (event) => {
-            if (event.delta) {
-              streamed += event.delta
-              setTextResult(streamed)
-            }
-            if (event.error) onToast(event.error, 'warning')
-          },
-        )
-        if (streamed) onToast('已生成文本', 'success')
+        const queued = await enqueueTextGeneration({
+            model,
+            studio: 'article',
+            topic: prompt,
+            backendId: backend.id,
+            origin: {
+              kind: 'template',
+              id: active.id,
+              label: active.name,
+              state: { values },
+            },
+            clientRequestId,
+        })
+        if (generationControlRef.current?.clientRequestId === clientRequestId) generationControlRef.current.taskId = queued.id
+        const completed = await waitForTask(queued.id, (task) => {
+          if (typeof task.result.text === 'string') setTextResult(task.result.text)
+        }, controller.signal)
+        if (typeof completed.result.text === 'string') setTextResult(completed.result.text)
+        onToast('已生成文本', 'success')
       }
     } catch (cause) {
-      onToast(cause instanceof Error ? cause.message : '生成失败', 'warning')
+      const message = cause instanceof Error ? cause.message : '生成失败'
+      const elapsedMs = imageStartedAt > 0 ? Date.now() - imageStartedAt : 0
+      const cancelled = controller.signal.aborted || (cause instanceof DOMException && cause.name === 'AbortError')
+      if (imageStartedAt > 0) setLastGenerationElapsedMs(elapsedMs)
+      if (cancelled) {
+        onToast(
+          isComic && completedImageCount > 0
+            ? `已取消，已保留 ${completedImageCount}/${requestedImageCount} 张结果`
+            : '已取消生成',
+          'info',
+        )
+      } else {
+        onToast(
+          isComic && completedImageCount > 0
+            ? `已完成 ${completedImageCount}/${requestedImageCount} 张；${message}`
+            : message,
+          'warning',
+        )
+      }
     } finally {
+      if (generationControlRef.current?.clientRequestId === clientRequestId) generationControlRef.current = null
       setBusy(false)
+      setGenerationPaused(false)
+      generationPausedRef.current = false
+      setGenerationProgress(null)
+      setGenerationStartedAt(null)
+      if (imageStartedAt > 0) setGenerationElapsedMs(Date.now() - imageStartedAt)
     }
+  }
+
+  const toggleGenerationPaused = () => {
+    const next = !generationPausedRef.current
+    generationPausedRef.current = next
+    setGenerationPaused(next)
+    const control = generationControlRef.current
+    if (control?.taskId) void (next ? pauseTask(control.taskId) : resumeQueuedTask(control.taskId)).catch(() => undefined)
+  }
+
+  const cancelGeneration = () => {
+    const control = generationControlRef.current
+    if (!control) return
+    control.controller.abort()
+    void cancelTask(control.taskId ? { id: control.taskId } : { clientRequestId: control.clientRequestId }).catch(() => undefined)
   }
 
   if (!loaded && templates.length === 0) {
@@ -335,6 +587,30 @@ export function TemplateUsePanel({ onToast }: { onToast: Toast }) {
                     </div>
                   </div>
 
+                  <label className="pa-field pa-field--full">
+                    <span>生成张数</span>
+                    <select
+                      value={comicImageCount}
+                      onChange={(event) => setComicImageCount(Number(event.target.value))}
+                    >
+                      {[1, 2, 3, 4, 5, 6].map((count) => (
+                        <option key={count} value={count}>{count} 张</option>
+                      ))}
+                    </select>
+                    <span className="pa-template-center__hint">多张图片会逐张生成并保持人物与画风一致，最多 6 张。</span>
+                  </label>
+
+                  <label className="pa-field pa-field--full">
+                    <span>图片内文字</span>
+                    <textarea
+                      value={comicImageText}
+                      placeholder={'例如：做人最重要的是开心\n多张图可每行填写一张的文字'}
+                      maxLength={720}
+                      onChange={(event) => setComicImageText(event.target.value)}
+                    />
+                    <span className="pa-template-center__hint">只写一行会用于全部图片；每行可对应一张；留空则使用上方主题。</span>
+                  </label>
+
                   <div className="pa-field pa-field--full">
                     <span>参考图片（可选，支持 Ctrl+V 粘贴）</span>
                     <div className="pa-template-detail__dropzone">
@@ -378,7 +654,14 @@ export function TemplateUsePanel({ onToast }: { onToast: Toast }) {
                   <GroupedModelPicker
                     groups={imageModelGroups}
                     value={imagePick}
-                    onChange={setImagePick}
+                    onChange={(next) => {
+                      setImagePick(next)
+                      try {
+                        localStorage.setItem(TEMPLATE_IMAGE_PICK_KEY, next)
+                      } catch {
+                        // 浏览器禁用本地存储时仅保留当前会话选择。
+                      }
+                    }}
                     placeholder="选择图片模型"
                     emptyHint="暂无可用的图片后端"
                   />
@@ -399,8 +682,51 @@ export function TemplateUsePanel({ onToast }: { onToast: Toast }) {
             </div>
 
             <button type="submit" className="pa-primary-button pa-template-detail__submit" disabled={busy}>
-              <Sparkle aria-hidden="true" size={18} weight="fill" />{busy ? '生成中…' : '开始创作'}
+              <Sparkle aria-hidden="true" size={18} weight="fill" />
+              {busy
+                ? generationProgress
+                  ? `生成中 ${generationProgress.current}/${generationProgress.total}`
+                  : '生成中…'
+                : isComicTpl && comicImageCount > 1
+                  ? `开始创作（${comicImageCount} 张）`
+                  : '开始创作'}
             </button>
+            {busy && (
+              <div className="pa-template-detail__generation-actions" aria-label="生成任务控制">
+                {isComicTpl && generationProgress && generationProgress.total > 1 && (
+                  <button type="button" className="pa-secondary-button" onClick={toggleGenerationPaused}>
+                    {generationPaused ? '继续生成' : '完成当前张后暂停'}
+                  </button>
+                )}
+                <button type="button" className="pa-secondary-button pa-template-detail__cancel" onClick={cancelGeneration}>
+                  取消生成
+                </button>
+              </div>
+            )}
+            {isImg && (generationProgress || lastGenerationElapsedMs !== null) && (
+              <div className="pa-template-detail__generation-status" aria-live="polite">
+                {generationProgress ? (
+                  <>
+                    <div className="pa-template-detail__generation-copy">
+                      <strong>{generationPaused ? '已暂停，等待继续' : `正在生成第 ${generationProgress.current}/${generationProgress.total} 张`}</strong>
+                      <span>已完成 {generationProgress.completed} 张 · 已用时 {formatElapsed(generationElapsedMs)}</span>
+                    </div>
+                    <div
+                      className="pa-template-detail__progress"
+                      role="progressbar"
+                      aria-label="图片生成进度"
+                      aria-valuemin={0}
+                      aria-valuemax={generationProgress.total}
+                      aria-valuenow={generationProgress.completed}
+                    >
+                      <span style={{ width: `${Math.max(8, (generationProgress.completed / generationProgress.total) * 100)}%` }} />
+                    </div>
+                  </>
+                ) : (
+                  <span className="pa-template-detail__elapsed">本次生图总用时：{formatElapsed(lastGenerationElapsedMs ?? 0)}</span>
+                )}
+              </div>
+            )}
           </form>
 
           {/* 右栏：实时预览 */}
@@ -448,6 +774,11 @@ export function TemplateUsePanel({ onToast }: { onToast: Toast }) {
             <div className="pa-template-detail__preview-foot">
               <span>生成完毕后可查看、下载和重新生成</span>
               {isComicTpl && <span className="pa-template-center__hint">按所选角色锁定人物，参考原图改编成 Q 版情侣漫画。</span>}
+              {isComicTpl && results.length > 0 && (
+                <button type="button" className="pa-primary-button pa-template-detail__publish" onClick={() => setPublishOpen(true)}>
+                  <PaperPlaneTilt aria-hidden="true" size={17} />发布 / 导出
+                </button>
+              )}
             </div>
 
             {lastPrompt && (
@@ -460,6 +791,15 @@ export function TemplateUsePanel({ onToast }: { onToast: Toast }) {
         </div>
       </section>
       {lightbox && <Lightbox assetIds={lightbox.ids} index={lightbox.index} onClose={() => setLightbox(null)} />}
+      {publishOpen && isComicTpl && results.length > 0 && (
+        <ComicPublishModal
+          results={results}
+          initialTitle={(values['主题/文案'] ?? values['主题'] ?? 'Q版情侣漫画').trim()}
+          initialCaptions={results.map((_, index) => resolveComicOverlayText(comicImageText, values['主题/文案'] ?? values['主题'] ?? '', index + 1))}
+          onClose={() => setPublishOpen(false)}
+          onToast={onToast}
+        />
+      )}
       </>
     )
   }

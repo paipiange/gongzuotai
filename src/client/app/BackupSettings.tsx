@@ -5,7 +5,7 @@
 
 import { ArrowCounterClockwise, Database, DownloadSimple, Plus } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
-import { createBackup, downloadBackup, listBackups, restartApp, restoreBackup, type BackupRecord } from './hostClient'
+import { createBackup, downloadBackup, getBackupPolicy, listBackups, restartApp, restoreBackup, setBackupPolicy, type BackupPolicy, type BackupRecord } from './hostClient'
 
 interface ToastFn {
   (message: string, tone?: 'info' | 'success' | 'warning'): void
@@ -29,13 +29,30 @@ export function BackupSettings({ onToast }: { onToast: ToastFn }) {
   const [busy, setBusy] = useState(false)
   const [confirmRestore, setConfirmRestore] = useState<BackupRecord | null>(null)
   const [restoring, setRestoring] = useState(false)
+  const [policy, setPolicy] = useState<BackupPolicy | null>(null)
+  const [policyBusy, setPolicyBusy] = useState(false)
 
   const refresh = async () => {
     try {
-      setBackups(await listBackups())
+      const [nextBackups, nextPolicy] = await Promise.all([listBackups(), getBackupPolicy()])
+      setBackups(nextBackups)
+      setPolicy(nextPolicy)
       setLoaded(true)
     } catch {
       setLoaded(false)
+    }
+  }
+
+  const updatePolicy = async (patch: Partial<BackupPolicy>) => {
+    setPolicyBusy(true)
+    try {
+      const next = await setBackupPolicy(patch)
+      setPolicy(next)
+      onToast('自动备份设置已保存', 'success')
+    } catch (cause) {
+      onToast(cause instanceof Error ? cause.message : '自动备份设置保存失败', 'warning')
+    } finally {
+      setPolicyBusy(false)
     }
   }
 
@@ -100,6 +117,31 @@ export function BackupSettings({ onToast }: { onToast: ToastFn }) {
           <div><h2>备份与恢复</h2><p>手动创建本地数据快照，可下载到磁盘；恢复会覆盖当前数据并自动重启生效。</p></div>
           <button type="button" className="pa-secondary-button" onClick={onCreate} disabled={busy}><Plus aria-hidden="true" size={16} />{busy ? '创建中…' : '创建备份'}</button>
         </div>
+        {policy && (
+          <div className="pa-backup-policy">
+            <label className="pa-toggle-row">
+              <input type="checkbox" checked={policy.enabled} disabled={policyBusy} onChange={(event) => void updatePolicy({ enabled: event.target.checked })} />
+              <span><strong>启动时自动备份</strong><small>到期后在插件启动时创建本地快照，只保留设定数量。</small></span>
+            </label>
+            <label className="pa-field">
+              <span>备份间隔</span>
+              <select value={policy.intervalDays} disabled={policyBusy || !policy.enabled} onChange={(event) => void updatePolicy({ intervalDays: Number(event.target.value) })}>
+                <option value={1}>每天</option>
+                <option value={3}>每 3 天</option>
+                <option value={7}>每 7 天</option>
+                <option value={14}>每 14 天</option>
+                <option value={30}>每 30 天</option>
+              </select>
+            </label>
+            <label className="pa-field">
+              <span>保留份数</span>
+              <select value={policy.retention} disabled={policyBusy || !policy.enabled} onChange={(event) => void updatePolicy({ retention: Number(event.target.value) })}>
+                {[3, 5, 10, 15, 20].map((count) => <option key={count} value={count}>{count} 份</option>)}
+              </select>
+            </label>
+            <span className="pa-muted">上次自动备份：{policy.lastRunAt ? formatTime(policy.lastRunAt) : '尚未执行'}</span>
+          </div>
+        )}
         {loaded ? (
           backups.length ? (
             <ul className="pa-backup-list">

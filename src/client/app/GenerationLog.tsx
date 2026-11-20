@@ -1,12 +1,12 @@
 import { ClockCounterClockwise, ArrowClockwise, TextAa, ImageSquare, VideoCamera, CheckCircle, XCircle, CaretRight, Eye, ArrowSquareOut, MagnifyingGlass } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
-import { getTask, listTasks, assetUrl, type TaskKind, type TaskRecord, type TaskStatus } from './hostClient'
+import { cancelTask, getTask, listTasks, pauseTask, resumeTask, setTaskPriority, assetUrl, type TaskKind, type TaskRecord, type TaskStatus } from './hostClient'
 import { Lightbox, absoluteAssetUrl } from './Lightbox'
 
 type Toast = (message: string, tone?: 'info' | 'success' | 'warning') => void
 
 const KIND_LABEL: Record<TaskKind, string> = { text: '文字', image: '图片', video: '视频' }
-const STATUS_LABEL: Record<TaskStatus, string> = { running: '进行中', success: '成功', failed: '失败' }
+const STATUS_LABEL: Record<TaskStatus, string> = { queued: '排队中', running: '进行中', paused: '已暂停', success: '成功', failed: '失败', cancelled: '已取消' }
 
 function formatTime(value: string | null): string {
   if (!value) return '—'
@@ -15,6 +15,30 @@ function formatTime(value: string | null): string {
   return new Intl.DateTimeFormat('zh-CN', {
     month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
   }).format(date)
+}
+
+function formatElapsedMs(value: number): string {
+  const totalSeconds = Math.max(0, Math.floor(value / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return minutes > 0 ? `${minutes}分${String(seconds).padStart(2, '0')}秒` : `${seconds}秒`
+}
+
+function taskElapsed(task: TaskRecord): string | null {
+  const recorded = Number(task.result.elapsedMs)
+  if (Number.isFinite(recorded) && recorded >= 0) return formatElapsedMs(recorded)
+  if (!task.startedAt || !task.finishedAt) return null
+  const elapsed = new Date(task.finishedAt).getTime() - new Date(task.startedAt).getTime()
+  return Number.isFinite(elapsed) && elapsed >= 0 ? formatElapsedMs(elapsed) : null
+}
+
+function taskProgress(task: TaskRecord): { completed: number; total: number; paused: boolean } | null {
+  const progress = task.result.progress
+  if (!progress || typeof progress !== 'object' || Array.isArray(progress)) return null
+  const value = progress as Record<string, unknown>
+  const completed = Math.max(0, Math.round(Number(value.completed) || 0))
+  const total = Math.max(1, Math.round(Number(value.total) || 1))
+  return { completed, total, paused: value.paused === true }
 }
 
 /** 一段用于展示的 JSON，缩进 2 空格、截断超长字符串。 */
@@ -52,9 +76,9 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
     return () => clearTimeout(timer)
   }, [query])
 
-  const load = async (reset: boolean) => {
+  const load = async (reset: boolean, silent = false) => {
     const nextOffset = reset ? 0 : offset
-    if (reset) setLoaded(false)
+    if (reset && !silent) setLoaded(false)
     else setLoadingMore(true)
     try {
       const list = await listTasks({
@@ -79,6 +103,13 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
     void load(true)
   }, [kindFilter, statusFilter, debouncedQuery])
 
+  const hasRunningTasks = tasks.some((task) => task.status === 'queued' || task.status === 'running')
+  useEffect(() => {
+    if (!hasRunningTasks) return
+    const timer = window.setInterval(() => { void load(true, true) }, 2000)
+    return () => window.clearInterval(timer)
+  }, [hasRunningTasks, kindFilter, statusFilter, debouncedQuery])
+
   const loadMore = () => {
     if (loadingMore || !hasMore) return
     void load(false)
@@ -89,6 +120,42 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
       setDetail(await getTask(task.id))
     } catch {
       setDetail(task)
+    }
+  }
+
+  const cancelRunningTask = async (task: TaskRecord) => {
+    try {
+      const cancelled = await cancelTask({ id: task.id })
+      setTasks((current) => current.map((item) => item.id === cancelled.id ? cancelled : item))
+      setDetail((current) => current?.id === cancelled.id ? cancelled : current)
+      onToast('任务已取消；已经生成的部分结果会保留', 'info')
+    } catch (cause) {
+      onToast(cause instanceof Error ? cause.message : '取消任务失败', 'warning')
+    }
+  }
+
+  const replaceTask = (next: TaskRecord) => {
+    setTasks((current) => current.map((item) => item.id === next.id ? next : item))
+    setDetail((current) => current?.id === next.id ? next : current)
+  }
+
+  const togglePausedTask = async (task: TaskRecord) => {
+    try {
+      const next = task.status === 'paused' ? await resumeTask(task.id) : await pauseTask(task.id)
+      replaceTask(next)
+      onToast(task.status === 'paused' ? '任务已继续' : '任务已暂停', 'info')
+    } catch (cause) {
+      onToast(cause instanceof Error ? cause.message : '任务状态更新失败', 'warning')
+    }
+  }
+
+  const raisePriority = async (task: TaskRecord) => {
+    try {
+      const next = await setTaskPriority(task.id, Math.min(100, task.priority + 10))
+      replaceTask(next)
+      onToast(`优先级已调整为 ${next.priority}`, 'success')
+    } catch (cause) {
+      onToast(cause instanceof Error ? cause.message : '优先级调整失败', 'warning')
     }
   }
 
@@ -113,6 +180,8 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
       else if (size) out.push(`${size}×${size}`)
       const refCount = Number(task.input.referenceImageCount ?? 0)
       if (refCount > 0) out.push(`参考图 ${refCount}`)
+      const count = Number(task.input.requestedCount ?? task.input.count ?? 0)
+      if (count > 1) out.push(`${count} 张`)
       const model = task.input.model
       if (model) out.push(`模型 ${String(model)}`)
     } else if (task.kind === 'text') {
@@ -190,7 +259,11 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
         <div className="pa-segmented" aria-label="状态筛选">
           <button type="button" data-active={statusFilter === 'all'} onClick={() => setStatusFilter('all')}>全部状态</button>
           <button type="button" data-active={statusFilter === 'success'} onClick={() => setStatusFilter('success')}>成功</button>
+          <button type="button" data-active={statusFilter === 'queued'} onClick={() => setStatusFilter('queued')}>排队中</button>
+          <button type="button" data-active={statusFilter === 'running'} onClick={() => setStatusFilter('running')}>进行中</button>
+          <button type="button" data-active={statusFilter === 'paused'} onClick={() => setStatusFilter('paused')}>已暂停</button>
           <button type="button" data-active={statusFilter === 'failed'} onClick={() => setStatusFilter('failed')}>失败</button>
+          <button type="button" data-active={statusFilter === 'cancelled'} onClick={() => setStatusFilter('cancelled')}>已取消</button>
         </div>
       </div>
 
@@ -214,14 +287,26 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
                   </div>
                   <div className="pa-task-row__meta">
                     <span>{formatTime(task.createdAt)}</span>
+                    {taskElapsed(task) && <span>用时 {taskElapsed(task)}</span>}
                     {task.modelId && <span>{task.modelId}</span>}
+                    {task.priority !== 0 && <span>优先级 {task.priority}</span>}
+                    {task.maxAttempts > 1 && <span>执行 {task.attempt} 次 · 自动重试 {task.retryCount}/{task.maxAttempts - 1}</span>}
+                    {taskProgress(task) && <span>{taskProgress(task)!.paused ? '已暂停' : '进度'} {taskProgress(task)!.completed}/{taskProgress(task)!.total}</span>}
                     {paramSummary(task).map((s) => <span key={s} className="pa-task-row__param">{s}</span>)}
-                    {task.status === 'failed' && task.errorMessage && <span className="pa-task-row__error">{task.errorMessage}</span>}
+                    {(task.status === 'failed' || task.status === 'cancelled') && task.errorMessage && <span className="pa-task-row__error">{task.errorMessage}</span>}
                   </div>
                 </div>
                 <div className="pa-task-row__actions">
                   <button type="button" className="pa-icon-button" title="查看详情" onClick={() => openDetail(task)}><Eye aria-hidden="true" size={17} /></button>
-                  <button type="button" className="pa-secondary-button" onClick={() => onResume(task)}><ArrowClockwise aria-hidden="true" size={14} />继续修改</button>
+                  {task.status === 'queued' || task.status === 'running' || task.status === 'paused' ? (
+                    <>
+                      {task.status !== 'running' && <button type="button" className="pa-secondary-button" onClick={() => void raisePriority(task)}>提高优先级</button>}
+                      <button type="button" className="pa-secondary-button" onClick={() => void togglePausedTask(task)}>{task.status === 'paused' ? '继续任务' : '暂停任务'}</button>
+                      <button type="button" className="pa-secondary-button" onClick={() => void cancelRunningTask(task)}><XCircle aria-hidden="true" size={14} />取消任务</button>
+                    </>
+                  ) : (
+                    <button type="button" className="pa-secondary-button" onClick={() => onResume(task)}><ArrowClockwise aria-hidden="true" size={14} />{task.status === 'success' ? '继续修改' : '回到原处重试'}</button>
+                  )}
                 </div>
               </li>
             )
@@ -249,6 +334,8 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
                 <span className="pa-status-badge" data-status={detail.status}>{STATUS_LABEL[detail.status]}</span>
                 <span>{KIND_LABEL[detail.kind]}</span>
                 <span>{formatTime(detail.createdAt)}</span>
+                {taskElapsed(detail) && <span>总用时：{taskElapsed(detail)}</span>}
+                {taskProgress(detail) && <span>{taskProgress(detail)!.paused ? '已暂停' : '生成进度'}：{taskProgress(detail)!.completed}/{taskProgress(detail)!.total}</span>}
                 {detail.modelId && <span>模型：{detail.modelId}</span>}
               </div>
 
@@ -283,27 +370,24 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
                 </dl>
               </section>
 
-              {detail.status === 'failed' ? (
+              {(detail.status === 'failed' || detail.status === 'cancelled') && (
                 <section className="pa-task-detail__section">
-                  <h4>错误信息</h4>
+                  <h4>{detail.status === 'cancelled' ? '取消信息' : '错误信息'}</h4>
                   <div className="pa-task-detail__error">
                     {detail.errorCode && <span className="pa-task-detail__error-code">{detail.errorCode}</span>}
                     <p>{detail.errorMessage ?? '（无详细信息）'}</p>
                   </div>
                 </section>
-              ) : detail.kind === 'text' && resultText(detail) !== null ? (
-                <section className="pa-task-detail__section">
-                  <h4>返回文字</h4>
-                  <pre>{resultText(detail)}</pre>
-                </section>
-              ) : detail.kind === 'image' && resultImageIds(detail).length > 0 ? (
+              )}
+
+              {detail.kind === 'image' && resultImageIds(detail).length > 0 ? (
                 <section className="pa-task-detail__section">
                   <h4>返回图片（{resultImageIds(detail).length}）</h4>
                   <div className="pa-task-detail__images">
                     {resultImageIds(detail).map((id, idx) => (
                       <figure key={id} className="pa-task-detail__image">
                         <button type="button" className="pa-task-detail__image-btn" onClick={() => setLightbox({ ids: resultImageIds(detail), index: idx })} title="点击查看大图">
-                          <img src={assetUrl(id)} alt={`生成图 ${id}`} loading="lazy" />
+                          <img src={assetUrl(id)} alt={`生成图 ${idx + 1}`} loading="lazy" />
                         </button>
                         <figcaption>
                           <button type="button" className="pa-link-button" onClick={() => setLightbox({ ids: resultImageIds(detail), index: idx })}>查看大图</button>
@@ -312,6 +396,11 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
                       </figure>
                     ))}
                   </div>
+                </section>
+              ) : (detail.status === 'failed' || detail.status === 'cancelled') ? null : detail.kind === 'text' && resultText(detail) !== null ? (
+                <section className="pa-task-detail__section">
+                  <h4>返回文字</h4>
+                  <pre>{resultText(detail)}</pre>
                 </section>
               ) : detail.kind === 'video' && resultVideoId(detail) ? (
                 <section className="pa-task-detail__section">
@@ -329,7 +418,11 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
               )}
             </div>
             <div className="pa-modal__footer">
-              <button type="button" className="pa-secondary-button" onClick={() => { const t = detail; setDetail(null); onResume(t) }}>继续修改</button>
+              {detail.status === 'running' ? (
+                <button type="button" className="pa-secondary-button" onClick={() => void cancelRunningTask(detail)}>取消任务</button>
+              ) : (
+                <button type="button" className="pa-secondary-button" onClick={() => { const t = detail; setDetail(null); onResume(t) }}>{detail.status === 'success' ? '继续修改' : '回到原处重试'}</button>
+              )}
               <button type="button" className="pa-secondary-button" onClick={() => setDetail(null)}>关闭</button>
             </div>
           </div>

@@ -2,6 +2,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Bell,
+  CaretLeft,
   CaretRight,
   FileText,
   FilmSlate,
@@ -13,7 +14,7 @@ import {
   Sparkle,
   X,
 } from '@phosphor-icons/react'
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { navigation, pageMeta, type PageId, type StudioId } from './data'
 import type { CreationRecord } from './workspaceStore'
 import { formatLocalTime, studioLabels, type ToastState } from './primitives'
@@ -169,9 +170,115 @@ export function Topbar({
   )
 }
 
-export function Hero({ onStart }: { onStart: () => void }) {
+export function Hero({ onStart, images, intervalMs }: { onStart: () => void; images?: string[]; intervalMs?: number }) {
+  const slides = useMemo(() => {
+    if (!images || images.length === 0) return [HERO_BG]
+    return images
+  }, [images])
+
+  const [active, setActive] = useState(0)
+  const multi = slides.length > 1
+
+  // 拖拽/触摸滑动切换
+  const dragRef = useRef<{ startX: number; startY: number; moved: boolean } | null>(null)
+
+  const goNext = () => setActive((current) => (current + 1) % slides.length)
+  const goPrev = () => setActive((current) => (current - 1 + slides.length) % slides.length)
+
+  // 自动轮播：用户交互后短暂暂停由「交互时重置定时器」实现。
+  const [interactKey, setInteractKey] = useState(0)
+  const interact = () => setInteractKey((k) => k + 1)
+
+  useEffect(() => {
+    if (!multi) return
+    const timer = window.setInterval(() => {
+      setActive((current) => (current + 1) % slides.length)
+    }, intervalMs && intervalMs > 0 ? intervalMs : 5000)
+    return () => window.clearInterval(timer)
+    // 用户交互会重置定时器（interactKey 变化触发重建），避免刚切完又被自动切走。
+  }, [multi, slides.length, intervalMs, interactKey])
+
+  const onPointerDown = (event: React.PointerEvent<HTMLElement>) => {
+    if (!multi) return
+    dragRef.current = { startX: event.clientX, startY: event.clientY, moved: false }
+  }
+
+  const onPointerUp = (event: React.PointerEvent<HTMLElement>) => {
+    const drag = dragRef.current
+    dragRef.current = null
+    if (!drag || !drag.moved) return
+    const dx = event.clientX - drag.startX
+    if (Math.abs(dx) < 40) return
+    interact()
+    if (dx < 0) goNext()
+    else goPrev()
+  }
+
+  const onPointerMove = (event: React.PointerEvent<HTMLElement>) => {
+    const drag = dragRef.current
+    if (!drag) return
+    const dx = event.clientX - drag.startX
+    const dy = event.clientY - drag.startY
+    if (Math.abs(dx) > 6 || Math.abs(dy) > 6) drag.moved = true
+    // 水平滑动为主时阻止图片默认拖拽
+    if (Math.abs(dx) > Math.abs(dy) && drag.moved) {
+      event.preventDefault()
+    }
+  }
+
   return (
-    <section className="pa-hero" style={{ backgroundImage: `url(${HERO_BG})` }}>
+    <section
+      className="pa-hero"
+      aria-label="首页轮播图"
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerLeave={() => { dragRef.current = null }}
+    >
+      {slides.map((src, index) => (
+        <img
+          key={`${index}-${src.slice(0, 48)}`}
+          src={src}
+          alt={index === 0 ? '首页背景图' : `首页轮播图 ${index + 1}`}
+          className="pa-hero__slide"
+          data-active={index === active}
+          aria-hidden={index !== active}
+          draggable={false}
+        />
+      ))}
+      {multi && (
+        <>
+          <button
+            type="button"
+            className="pa-hero__arrow pa-hero__arrow--prev"
+            aria-label="上一张"
+            onClick={() => { interact(); goPrev() }}
+          >
+            <CaretLeft aria-hidden="true" size={20} />
+          </button>
+          <button
+            type="button"
+            className="pa-hero__arrow pa-hero__arrow--next"
+            aria-label="下一张"
+            onClick={() => { interact(); goNext() }}
+          >
+            <CaretRight aria-hidden="true" size={20} />
+          </button>
+          <div className="pa-hero__dots" role="tablist" aria-label="轮播图切换">
+            {slides.map((src, index) => (
+              <button
+                key={index}
+                type="button"
+                role="tab"
+                aria-selected={index === active}
+                aria-label={`切换到第 ${index + 1} 张`}
+                data-active={index === active}
+                onClick={() => { interact(); setActive(index) }}
+              />
+            ))}
+          </div>
+        </>
+      )}
       <div className="pa-hero__shade" />
       <div className="pa-hero__content">
         <span className="pa-overline">PAIPIANGE CREATIVE STUDIO</span>

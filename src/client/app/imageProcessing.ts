@@ -52,6 +52,8 @@ export interface ImageProcessOptions {
   format?: 'image/jpeg' | 'image/png' | 'image/webp'
   /** 可选文字水印，绘制在右下角。 */
   watermark?: string
+  /** 在图片顶部覆盖奶油白标题区，确保发布版中文准确可读。 */
+  titleOverlay?: string
 }
 
 export function loadImage(src: string): Promise<HTMLImageElement> {
@@ -67,7 +69,7 @@ export function loadImage(src: string): Promise<HTMLImageElement> {
 /** 按选项处理一张图片，返回新的 Blob。 */
 export async function processImage(src: string, options: ImageProcessOptions): Promise<Blob> {
   const img = await loadImage(src)
-  const { cover, maxWidth, quality = 0.85, format = 'image/jpeg', watermark } = options
+  const { cover, maxWidth, quality = 0.85, format = 'image/jpeg', watermark, titleOverlay } = options
 
   const srcW = img.naturalWidth
   const srcH = img.naturalHeight
@@ -101,6 +103,10 @@ export async function processImage(src: string, options: ImageProcessOptions): P
   if (!ctx) throw new Error('无法创建画布')
   ctx.drawImage(img, sx, sy, sw, sh, 0, 0, dw, dh)
 
+  if (titleOverlay?.trim()) {
+    drawTitleOverlay(ctx, titleOverlay.trim(), dw, dh)
+  }
+
   if (watermark) {
     ctx.fillStyle = 'rgba(255,255,255,0.72)'
     ctx.strokeStyle = 'rgba(0,0,0,0.25)'
@@ -118,4 +124,46 @@ export async function processImage(src: string, options: ImageProcessOptions): P
       else reject(new Error('图片导出失败'))
     }, format, quality)
   })
+}
+
+function drawTitleOverlay(ctx: CanvasRenderingContext2D, text: string, width: number, height: number): void {
+  const areaHeight = Math.max(100, Math.min(Math.round(height * 0.19), 260))
+  const horizontalPadding = Math.max(24, Math.round(width * 0.055))
+  const fontSize = Math.max(24, Math.min(52, Math.round(width * 0.044)))
+  const lineHeight = Math.round(fontSize * 1.45)
+  ctx.save()
+  ctx.fillStyle = 'rgba(255, 249, 239, 0.97)'
+  ctx.fillRect(0, 0, width, areaHeight)
+  ctx.fillStyle = '#5f3a24'
+  ctx.font = `700 ${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  const lines = wrapCanvasText(ctx, text, width - horizontalPadding * 2, 3)
+  const totalHeight = lines.length * lineHeight
+  const startY = Math.max(lineHeight / 2, (areaHeight - totalHeight) / 2 + lineHeight / 2)
+  lines.forEach((line, index) => ctx.fillText(line, width / 2, startY + index * lineHeight))
+  ctx.restore()
+}
+
+function wrapCanvasText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines: number): string[] {
+  const characters = Array.from(text.replace(/\s+/g, ' ').trim())
+  const lines: string[] = []
+  let current = ''
+  for (const character of characters) {
+    const candidate = current + character
+    if (current && ctx.measureText(candidate).width > maxWidth) {
+      lines.push(current)
+      current = character
+      if (lines.length === maxLines - 1) break
+    } else {
+      current = candidate
+    }
+  }
+  const consumed = lines.join('').length + current.length
+  if (consumed < characters.length && current) {
+    while (current.length > 1 && ctx.measureText(`${current}…`).width > maxWidth) current = current.slice(0, -1)
+    current = `${current}…`
+  }
+  if (current) lines.push(current)
+  return lines.slice(0, maxLines)
 }

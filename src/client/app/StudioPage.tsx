@@ -2,6 +2,7 @@ import {
   ArrowLeft,
   Copy,
   DownloadSimple,
+  Fire,
   FloppyDisk,
   PaperPlaneTilt,
   PencilSimple,
@@ -14,14 +15,17 @@ import type { StudioId } from './data'
 import { loadStudioDraft, saveStudioDraft, type CreationDraft, type CreationRecord, type CreationStatus } from './workspaceStore'
 import { ImageGenPanel } from './ImageGenPanel'
 import { MarkdownEditor } from './MarkdownEditor'
-import { assetUrl, exportCreation, generateTextStream, generateVideoStream, listBackends, type Backend } from './hostClient'
+import { assetUrl, cancelTask, enqueueTextGeneration, enqueueVideoGeneration, exportCreation, fetchVideoStyles, listBackends, waitForTask, VIDEO_VOICES, type Backend, type TaskRecord, type VideoStyleLibrary } from './hostClient'
 import { GroupedModelPicker, backendToGroup, decodePick, type ModelGroup } from './GroupedModelPicker'
 import { extractImageFilesFromClipboard, readImageAsDataUrl } from './pasteImages'
 import { SectionHeading, studioLabels, type ToastState } from './primitives'
+import { storedTaskOrigin } from './taskResume'
 
-export function StudioPage({ studio, initialCreation, onBack, onSave, onToast }: {
+export function StudioPage({ studio, initialCreation, resumeTask = null, onResumeConsumed, onBack, onSave, onToast }: {
   studio: StudioId
   initialCreation: CreationRecord | null
+  resumeTask?: TaskRecord | null
+  onResumeConsumed?: () => void
   onBack: () => void
   onSave: (draft: CreationDraft) => Promise<CreationRecord | null>
   onToast: (message: string, tone?: ToastState['tone']) => void
@@ -32,26 +36,65 @@ export function StudioPage({ studio, initialCreation, onBack, onSave, onToast }:
   const [content, setContent] = useState(initialCreation?.content ?? '')
   const [style, setStyle] = useState(initialCreation?.style ?? '')
   const [requirement, setRequirement] = useState(initialCreation?.requirement ?? '')
+  const [platform, setPlatform] = useState('微信公众号')
   const [tags, setTags] = useState(initialCreation?.tags ?? [])
   const [referenceImages, setReferenceImages] = useState<string[]>([])
   const [generating, setGenerating] = useState(false)
   const [textBackends, setTextBackends] = useState<Backend[]>([])
   const [textPick, setTextPick] = useState('')
   const abortRef = useRef<AbortController | null>(null)
+  const clientRequestIdRef = useRef<string | null>(null)
+  const handledResumeTaskRef = useRef<string | null>(null)
   const isVideo = studio === 'video'
   const isImage = studio === 'image'
   const isText = !isVideo && !isImage
+  const isHeadline = studio === 'headline'
 
   // ---- Video studio state ----
   const [videoAspect, setVideoAspect] = useState<'16:9' | '9:16' | '1:1'>('16:9')
   const [videoDuration, setVideoDuration] = useState(5)
   const [videoFps, setVideoFps] = useState(24)
-  const [videoEngine, setVideoEngine] = useState<'llm' | 'comfyui'>('llm')
+  const [videoEngine, setVideoEngine] = useState<'llm' | 'comfyui' | 'remotion'>('llm')
   const [videoBackendId, setVideoBackendId] = useState('')
+  const [videoStyleId, setVideoStyleId] = useState('')
+  const [videoMultiScene, setVideoMultiScene] = useState(false)
+  const [videoSceneCount, setVideoSceneCount] = useState(3)
+  const [videoVoice, setVideoVoice] = useState('zh-CN-XiaoxiaoNeural')
+  const [videoMusic, setVideoMusic] = useState(true)
+  const [videoStyleLibrary, setVideoStyleLibrary] = useState<VideoStyleLibrary>({ categories: [], styles: [] })
   const [comfyBackends, setComfyBackends] = useState<Backend[]>([])
   const [videoProgress, setVideoProgress] = useState<{ stage: string; text: string }>({ stage: 'idle', text: '' })
   const [videoResultId, setVideoResultId] = useState<string | null>(null)
   const [videoUsedFallback, setVideoUsedFallback] = useState(false)
+
+  useEffect(() => {
+    if (!resumeTask || isImage || handledResumeTaskRef.current === resumeTask.id) return
+    handledResumeTaskRef.current = resumeTask.id
+    const state = storedTaskOrigin(resumeTask)?.state ?? {}
+    setTitle(String(state.title ?? ''))
+    setTopic(String(state.topic ?? resumeTask.input.topic ?? ''))
+    setContent(String(state.content ?? resumeTask.result.text ?? resumeTask.input.subtitle ?? ''))
+    setStyle(String(state.style ?? resumeTask.input.style ?? ''))
+    setRequirement(String(state.requirement ?? resumeTask.input.requirement ?? ''))
+    setTags(Array.isArray(state.tags) ? state.tags.filter((item): item is string => typeof item === 'string') : [])
+    if (typeof state.textPick === 'string') setTextPick(state.textPick)
+    if (typeof state.platform === 'string' && state.platform) setPlatform(state.platform)
+    if (studio === 'video') {
+      if (state.videoAspect === '16:9' || state.videoAspect === '9:16' || state.videoAspect === '1:1') setVideoAspect(state.videoAspect)
+      if (Number.isFinite(Number(state.videoDuration))) setVideoDuration(Number(state.videoDuration))
+      if (Number.isFinite(Number(state.videoFps))) setVideoFps(Number(state.videoFps))
+      if (state.videoEngine === 'llm' || state.videoEngine === 'comfyui' || state.videoEngine === 'remotion') setVideoEngine(state.videoEngine)
+      if (typeof state.videoBackendId === 'string') setVideoBackendId(state.videoBackendId)
+      if (typeof state.videoStyleId === 'string') setVideoStyleId(state.videoStyleId)
+      if (typeof state.videoMultiScene === 'boolean') setVideoMultiScene(state.videoMultiScene)
+      if (Number.isFinite(Number(state.videoSceneCount))) setVideoSceneCount(Number(state.videoSceneCount))
+      if (typeof resumeTask.result.assetId === 'string') {
+        setVideoResultId(resumeTask.result.assetId)
+        setVideoProgress({ stage: 'done', text: '已恢复上次生成的视频' })
+      }
+    }
+    onResumeConsumed?.()
+  }, [isImage, onResumeConsumed, resumeTask, studio])
 
   const handlePasteReference = async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const files = extractImageFilesFromClipboard(event.clipboardData)
@@ -88,6 +131,11 @@ export function StudioPage({ studio, initialCreation, onBack, onSave, onToast }:
         setStyle(cached.style)
         setRequirement(cached.requirement)
         setTags(cached.tags)
+        if (cached.videoStyleId) setVideoStyleId(cached.videoStyleId)
+        setVideoMultiScene(cached.videoMultiScene === true)
+        if (Number.isFinite(cached.videoSceneCount)) setVideoSceneCount(cached.videoSceneCount as number)
+        if (cached.videoVoice) setVideoVoice(cached.videoVoice)
+        setVideoMusic(cached.videoMusic !== false)
       }
     }
   }, [initialCreation, studio])
@@ -110,6 +158,12 @@ export function StudioPage({ studio, initialCreation, onBack, onSave, onToast }:
       if (comfy.length) setVideoBackendId((prev) => (comfy.some((b) => b.id === prev) ? prev : comfy[0].id))
     }).catch(() => {
       if (!cancelled) setTextBackends([])
+    })
+    // 拉取视频风格资产库（99 种原创风格），供风格选择器渲染。
+    fetchVideoStyles().then((lib) => {
+      if (!cancelled) setVideoStyleLibrary(lib)
+    }).catch(() => {
+      /* 风格库拉取失败时静默降级：选择器为空，多幕/风格注入不生效。 */
     })
     return () => {
       cancelled = true
@@ -151,8 +205,8 @@ export function StudioPage({ studio, initialCreation, onBack, onSave, onToast }:
   // has been saved and given an id.
   useEffect(() => {
     if (!title.trim() && !topic.trim() && !content.trim()) return
-    saveStudioDraft(studio, { title, topic, content, style, requirement, tags })
-  }, [title, topic, content, style, requirement, tags, studio])
+    saveStudioDraft(studio, { title, topic, content, style, requirement, tags, videoStyleId, videoMultiScene, videoSceneCount, videoVoice, videoMusic })
+  }, [title, topic, content, style, requirement, tags, studio, videoStyleId, videoMultiScene, videoSceneCount, videoVoice, videoMusic])
 
   const save = async (status: CreationStatus = initialCreation?.status ?? 'draft') => {
     if (isVideo) {
@@ -194,16 +248,17 @@ export function StudioPage({ studio, initialCreation, onBack, onSave, onToast }:
     // Text studios: stream a real generation from the Harness llm service.
     if (generating) {
       abortRef.current?.abort()
+      if (clientRequestIdRef.current) void cancelTask({ clientRequestId: clientRequestIdRef.current }).catch(() => undefined)
       return
     }
     const controller = new AbortController()
     abortRef.current = controller
+    const clientRequestId = crypto.randomUUID()
+    clientRequestIdRef.current = clientRequestId
     setGenerating(true)
     setContent('')
-    let accumulated = ''
     try {
-      await generateTextStream(
-        {
+      const queued = await enqueueTextGeneration({
           provider: currentTextBackend?.text?.provider ?? '',
           model: textModelId || (currentTextBackend?.text?.model ?? ''),
           baseUrl: currentTextBackend?.text?.baseUrl ?? '',
@@ -213,17 +268,21 @@ export function StudioPage({ studio, initialCreation, onBack, onSave, onToast }:
           topic: topic.trim(),
           style,
           requirement,
-        },
-        (event) => {
-          if (event.delta) {
-            accumulated += event.delta
-            setContent(accumulated)
-          } else if (event.error) {
-            onToast(event.error, 'warning')
-          }
-        },
-        controller.signal,
-      )
+          platform: isHeadline ? platform : undefined,
+          images: isHeadline && referenceImages.length > 0 ? referenceImages : undefined,
+          origin: {
+            kind: 'studio',
+            id: studio,
+            label: studioLabels[studio],
+            state: { title, topic, content, style, requirement, tags, textPick, platform },
+          },
+          clientRequestId,
+          sourceCreationId: creationId,
+      })
+      const completed = await waitForTask(queued.id, (task) => {
+        if (typeof task.result.text === 'string') setContent(task.result.text)
+      }, controller.signal)
+      if (typeof completed.result.text === 'string') setContent(completed.result.text)
       onToast('生成完成，内容已填入画布', 'success')
     } catch (cause) {
       if (controller.signal.aborted) {
@@ -233,6 +292,7 @@ export function StudioPage({ studio, initialCreation, onBack, onSave, onToast }:
       }
     } finally {
       if (abortRef.current === controller) abortRef.current = null
+      if (clientRequestIdRef.current === clientRequestId) clientRequestIdRef.current = null
       setGenerating(false)
     }
   }
@@ -270,21 +330,29 @@ export function StudioPage({ studio, initialCreation, onBack, onSave, onToast }:
   const submitVideo = async () => {
     if (generating) {
       abortRef.current?.abort()
+      if (clientRequestIdRef.current) void cancelTask({ clientRequestId: clientRequestIdRef.current }).catch(() => undefined)
       return
     }
     const controller = new AbortController()
     abortRef.current = controller
+    const clientRequestId = crypto.randomUUID()
+    clientRequestIdRef.current = clientRequestId
     setGenerating(true)
     setVideoResultId(null)
     setVideoUsedFallback(false)
     const isComfy = videoEngine === 'comfyui'
-    setVideoProgress({ stage: 'coding', text: isComfy ? '正在由 ComfyUI 生成视频帧序列…' : '正在由模型编写视频动画…' })
+    const isRemotion = videoEngine === 'remotion'
+    setVideoProgress({ stage: 'coding', text: isComfy ? '正在由 ComfyUI 生成视频帧序列…' : isRemotion ? '正在由 Remotion 双引擎生成视频…' : '正在由模型编写视频动画…' })
     try {
-      await generateVideoStream(
-        {
+      const queued = await enqueueVideoGeneration({
           topic: topic.trim(),
           subtitle: content.trim() || undefined,
           style,
+          styleId: videoStyleId || undefined,
+          multiScene: videoMultiScene,
+          sceneCount: videoMultiScene ? videoSceneCount : undefined,
+          voice: videoMultiScene ? videoVoice : undefined,
+          music: videoMultiScene ? videoMusic : undefined,
           aspectRatio: videoAspect,
           durationSec: videoDuration,
           fps: videoFps,
@@ -292,20 +360,38 @@ export function StudioPage({ studio, initialCreation, onBack, onSave, onToast }:
           model: textModelId || (currentTextBackend?.text?.model ?? ''),
           engine: videoEngine,
           backendId: isComfy ? (videoBackendId || undefined) : undefined,
-        },
-        (event) => {
-          if (event.error) {
-            onToast(event.error, 'warning')
-            setVideoProgress({ stage: 'error', text: event.error })
-            return
-          }
-          if (event.result) {
-            setVideoResultId(event.result.assetId)
-            setVideoUsedFallback(event.result.usedFallback)
-            setVideoProgress({ stage: 'done', text: '视频生成完成' })
-            return
-          }
-          switch (event.stage) {
+          remotionStyle: isRemotion ? (videoStyleId || style || 'tech') : undefined,
+          remotionQuality: isRemotion ? '1080p' : undefined,
+          origin: {
+            kind: 'studio',
+            id: 'video',
+            label: studioLabels.video,
+            state: {
+              title,
+              topic,
+              content,
+              style,
+              requirement,
+              tags,
+              textPick,
+              videoAspect,
+              videoDuration,
+              videoFps,
+              videoEngine,
+              videoBackendId,
+              videoStyleId,
+              videoMultiScene,
+              videoSceneCount,
+              videoVoice,
+              videoMusic,
+            },
+          },
+          clientRequestId,
+          sourceCreationId: creationId,
+      })
+      const completed = await waitForTask(queued.id, (task) => {
+          const event = task.result.progress as { stage?: string; message?: string; round?: number; frame?: number; total?: number } | undefined
+          switch (event?.stage) {
             case 'coding':
               setVideoProgress({ stage: 'coding', text: event.message ?? (isComfy ? '正在生成帧序列…' : '正在编写动画…') })
               break
@@ -322,11 +408,13 @@ export function StudioPage({ studio, initialCreation, onBack, onSave, onToast }:
               setVideoProgress({ stage: 'encode', text: event.message ?? '正在合成 MP4…' })
               break
             default:
+              if (task.status === 'queued') setVideoProgress({ stage: 'coding', text: '任务已进入后台队列，等待执行…' })
               break
           }
-        },
-        controller.signal,
-      )
+      }, controller.signal)
+      if (typeof completed.result.assetId === 'string') setVideoResultId(completed.result.assetId)
+      setVideoUsedFallback(completed.result.usedFallback === true)
+      setVideoProgress({ stage: 'done', text: '视频生成完成' })
       onToast('视频生成完成', 'success')
     } catch (cause) {
       if (controller.signal.aborted) {
@@ -337,6 +425,7 @@ export function StudioPage({ studio, initialCreation, onBack, onSave, onToast }:
       }
     } finally {
       if (abortRef.current === controller) abortRef.current = null
+      if (clientRequestIdRef.current === clientRequestId) clientRequestIdRef.current = null
       setGenerating(false)
     }
   }
@@ -386,6 +475,75 @@ export function StudioPage({ studio, initialCreation, onBack, onSave, onToast }:
     URL.revokeObjectURL(url)
   }
 
+  if (isHeadline) {
+    return (
+      <div className="pa-page pa-studio-page">
+        <div className="pa-studio-heading">
+          <button type="button" className="pa-icon-button" aria-label="返回 AI 创作" onClick={onBack}><ArrowLeft aria-hidden="true" size={19} /></button>
+          <div><span className="pa-overline">CREATION STUDIO</span><h1>{studioLabels[studio]}</h1><p>粘贴文字或图文，选择平台与模型，一键生成 10 个高点击爆款标题。</p></div>
+        </div>
+        <div className="pa-studio-layout">
+          <form className="pa-panel pa-studio-form pa-headline-form" onSubmit={submit}>
+            <SectionHeading title="创作参数" />
+            <label className="pa-field">
+              <span>模型</span>
+              <GroupedModelPicker
+                groups={textModelGroups}
+                value={textPick}
+                onChange={setTextPick}
+                placeholder="选择文字模型"
+                emptyHint="暂无可用的文字后端"
+              />
+              {textBackends.length === 0 && <small>未配置文字后端，将使用 Harness 默认模型。可在「设置中心 → 后端管理」添加。</small>}
+            </label>
+            <label className="pa-field">
+              <span>发布平台</span>
+              <select value={platform} onChange={(event) => setPlatform(event.target.value)}>
+                <option value="微信公众号">微信公众号</option>
+                <option value="小红书">小红书</option>
+                <option value="抖音">抖音</option>
+                <option value="今日头条">今日头条</option>
+              </select>
+            </label>
+            <label className="pa-field">
+              <span>图文内容 <b aria-hidden="true">*</b></span>
+              <textarea value={topic} onChange={(event) => setTopic(event.target.value)} onPaste={handlePasteReference} rows={9} placeholder={'粘贴或输入你想写标题的图文内容…\n\n支持直接粘贴图片（Ctrl+V），图片会与文字一起发给多模态模型理解。'} />
+              <small>{topic.length} 字{referenceImages.length > 0 ? ` · ${referenceImages.length} 张参考图` : ''}</small>
+            </label>
+            {referenceImages.length > 0 && (
+              <div className="pa-imagegen-panel__ref-list">
+                {referenceImages.map((img, index) => (
+                  <div key={index} className="pa-imagegen-panel__ref-item">
+                    <img src={img} alt={`参考图 ${index + 1}`} className="pa-imagegen-panel__ref-preview" />
+                    <button type="button" className="pa-icon-button pa-imagegen-panel__ref-remove" aria-label={`移除参考图 ${index + 1}`} title="移除" onClick={() => setReferenceImages((prev) => prev.filter((_, i) => i !== index))}><X aria-hidden="true" size={14} /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {referenceImages.length > 0 && <small>图片将作为多模态内容发给模型（需选用支持视觉的文字后端）。</small>}
+            <button type="submit" className="pa-primary-button pa-studio-submit" disabled={generating}>
+              <Sparkle aria-hidden="true" size={18} weight="fill" />{generating ? '停止生成' : '生成爆款标题'}
+            </button>
+            <p className="pa-form-notice">默认按所选平台风格生成，模型会从 15 个候选里筛选出 10 个可直接发布的标题。</p>
+          </form>
+          <section className="pa-panel pa-studio-canvas">
+            <div className="pa-studio-canvas__toolbar">
+              <span>标题生成结果</span>
+              <div><button type="button" className="pa-icon-button" aria-label="复制" onClick={copyContent}><Copy aria-hidden="true" size={18} /></button></div>
+            </div>
+            {generating ? (
+              <div className="pa-studio-canvas__empty"><Sparkle aria-hidden="true" size={40} weight="duotone" /><strong>正在生成爆款标题…</strong><p>模型正在深度理解图文，挖掘传播切入点。</p></div>
+            ) : content.trim() ? (
+              <div className="pa-headline-result">{content}</div>
+            ) : (
+              <div className="pa-studio-canvas__empty"><Fire aria-hidden="true" size={40} weight="duotone" /><strong>还没有生成结果</strong><p>在左侧粘贴图文、选择平台与模型，点击「生成爆款标题」。</p></div>
+            )}
+          </section>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="pa-page pa-studio-page">
       <div className="pa-studio-heading">
@@ -403,7 +561,7 @@ export function StudioPage({ studio, initialCreation, onBack, onSave, onToast }:
               {creationId && <span className="pa-form-notice">已关联草稿，生成图可一键设为封面。</span>}
             </div>
           </form> */}
-          <ImageGenPanel onToast={onToast} creationId={creationId} />
+          <ImageGenPanel onToast={onToast} creationId={creationId} resumeTask={resumeTask} onResumeConsumed={onResumeConsumed} />
         </div>
       ) : (
       <div className="pa-studio-layout">
@@ -437,7 +595,7 @@ export function StudioPage({ studio, initialCreation, onBack, onSave, onToast }:
           <label className="pa-field"><span>内容风格</span><select value={style} onChange={(event) => setStyle(event.target.value)}><option value="">不指定（自由发挥）</option><option value="cinematic">电影感叙事</option><option value="poetic">东方诗意</option><option value="clear">清晰专业</option><option value="lively">轻松活泼</option></select></label>
           {isVideo && (
             <>
-              <label className="pa-field"><span>生成引擎</span><select value={videoEngine} onChange={(event) => setVideoEngine(event.target.value as 'llm' | 'comfyui')}><option value="llm">模型写动画（LLM → 逐帧渲染）</option><option value="comfyui">ComfyUI 出帧（本机/远程模型）</option></select></label>
+              <label className="pa-field"><span>生成引擎</span><select value={videoEngine} onChange={(event) => setVideoEngine(event.target.value as 'llm' | 'comfyui' | 'remotion')}><option value="llm">模型写动画（LLM → 逐帧渲染）</option><option value="comfyui">ComfyUI 出帧（本机/远程模型）</option><option value="remotion">Remotion 双引擎（3D + 节拍卡点）</option></select></label>
               {videoEngine === 'comfyui' && (
                 <label className="pa-field"><span>ComfyUI 后端</span><select value={videoBackendId} onChange={(event) => setVideoBackendId(event.target.value)}>
                   {comfyBackends.length === 0 && <option value="">（未配置，去「设置中心 → 后端管理」添加 ComfyUI）</option>}
@@ -445,6 +603,44 @@ export function StudioPage({ studio, initialCreation, onBack, onSave, onToast }:
                     <option key={b.id} value={b.id}>{b.name}{b.comfyui?.server ? ` · ${b.comfyui.server}` : ''}</option>
                   ))}
                 </select></label>
+              )}
+              {videoEngine !== 'comfyui' && videoStyleLibrary.styles.length > 0 && (
+                <label className="pa-field"><span>影片风格</span><select value={videoStyleId} onChange={(event) => setVideoStyleId(event.target.value)}>
+                  <option value="">不指定（自由发挥）</option>
+                  {videoStyleLibrary.categories.map((cat) => {
+                    const members = videoStyleLibrary.styles.filter((s) => s.category === cat.id)
+                    if (members.length === 0) return null
+                    return (
+                      <optgroup key={cat.id} label={cat.cn}>
+                        {members.map((s) => (
+                          <option key={s.id} value={s.id}>{s.cn} · {s.en}</option>
+                        ))}
+                      </optgroup>
+                    )
+                  })}
+                </select></label>
+              )}
+              {videoEngine === 'llm' && (
+                <div className="pa-studio-form-row">
+                  <label className="pa-toggle-row">
+                    <input type="checkbox" checked={videoMultiScene} onChange={(event) => setVideoMultiScene(event.target.checked)} />
+                    <span><strong>多幕叙事</strong><small>导演脚本分段渲染（钩子→展开→转折→落点）</small></span>
+                  </label>
+                  {videoMultiScene && (
+                    <label className="pa-field"><span>幕数</span><input type="number" min={2} max={6} value={videoSceneCount} onChange={(event) => setVideoSceneCount(Math.min(6, Math.max(2, Number(event.target.value) || 3)))} /></label>
+                  )}
+                </div>
+              )}
+              {videoEngine === 'llm' && videoMultiScene && (
+                <>
+                  <label className="pa-field"><span>旁白音色</span><select value={videoVoice} onChange={(event) => setVideoVoice(event.target.value)}>
+                    {VIDEO_VOICES.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
+                  </select><small>由导演脚本的旁白文案合成语音（edge-tts，需联网）</small></label>
+                  <label className="pa-toggle-row">
+                    <input type="checkbox" checked={videoMusic} onChange={(event) => setVideoMusic(event.target.checked)} />
+                    <span><strong>背景配乐</strong><small>程序化合成氛围配乐，旁白出现时自动压低（本机离线）</small></span>
+                  </label>
+                </>
               )}
               <label className="pa-field"><span>画面比例</span><select value={videoAspect} onChange={(event) => setVideoAspect(event.target.value as '16:9' | '9:16' | '1:1')}><option value="16:9">横屏 16:9（1280×720）</option><option value="9:16">竖屏 9:16（720×1280）</option><option value="1:1">方屏 1:1（720×720）</option></select></label>
               <div className="pa-studio-form-row">
@@ -479,9 +675,9 @@ export function StudioPage({ studio, initialCreation, onBack, onSave, onToast }:
                 </div>
               </div>
             ) : generating ? (
-              <div className="pa-studio-canvas__empty"><Sparkle aria-hidden="true" size={40} weight="duotone" /><strong>{videoProgress.text || '正在生成视频…'}</strong><p>{videoEngine === 'comfyui' ? 'ComfyUI 出帧序列 → FFmpeg 合成，请稍候。' : '模型编写动画 → 本机逐帧渲染 → FFmpeg 合成，请稍候。'}</p></div>
+              <div className="pa-studio-canvas__empty"><Sparkle aria-hidden="true" size={40} weight="duotone" /><strong>{videoProgress.text || '正在生成视频…'}</strong><p>{videoEngine === 'comfyui' ? 'ComfyUI 出帧序列 → FFmpeg 合成，请稍候。' : videoEngine === 'remotion' ? 'Remotion 双引擎（3D / 节拍卡点 / 多 TTS）本地出片，请稍候。' : '模型编写动画 → 本机逐帧渲染 → FFmpeg 合成，请稍候。'}</p></div>
             ) : (
-              <div className="pa-studio-canvas__empty"><VideoCamera aria-hidden="true" size={40} weight="duotone" /><strong>本地视频生成已就绪</strong><p>在左侧填写主题，选择生成引擎（模型写动画 / ComfyUI 出帧），点击「开始生成视频」。</p></div>
+              <div className="pa-studio-canvas__empty"><VideoCamera aria-hidden="true" size={40} weight="duotone" /><strong>本地视频生成已就绪</strong><p>在左侧填写主题，选择生成引擎（模型写动画 / ComfyUI 出帧 / Remotion 双引擎），点击「开始生成视频」。</p></div>
             )
           ) : (
             <div className="pa-manual-editor">

@@ -3,7 +3,7 @@
  */
 
 import { BASE, HostError, apiFetch } from './client'
-import type { TextGenConfig, TextGenProgress, TextGenProviders, TextStudio } from './types'
+import type { GenerationOrigin, TaskRecord, TextGenConfig, TextGenProgress, TextGenProviders, TextStudio } from './types'
 
 /**
  * Streams a text generation from the Host's Harness `llm` service over SSE.
@@ -18,9 +18,13 @@ export async function generateTextStream(
     topic: string
     style?: string
     requirement?: string
+    platform?: string
+    images?: string[]
     baseUrl?: string
     apiKey?: string
     backendId?: string
+    origin?: GenerationOrigin
+    clientRequestId?: string
   },
   onEvent: (event: TextGenProgress) => void,
   signal?: AbortSignal,
@@ -95,6 +99,18 @@ export async function generateTextStream(
   }
 
   return text
+}
+
+export async function enqueueTextGeneration(input: Parameters<typeof generateTextStream>[0] & {
+  sourceCreationId?: string
+  priority?: number
+  maxAttempts?: number
+}): Promise<TaskRecord> {
+  const data = await apiFetch<{ task: TaskRecord }>('.textgen.enqueue', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return data.task
 }
 
 // ---- Text-gen config ----

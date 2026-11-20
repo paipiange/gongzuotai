@@ -60,6 +60,8 @@ export function HomePage({
   inspirationIndex,
   activeCategory,
   creations,
+  carouselImages,
+  carouselIntervalMs,
   onCategory,
   onShuffle,
   onOpenStudio,
@@ -70,6 +72,8 @@ export function HomePage({
   inspirationIndex: number
   activeCategory: string
   creations: CreationRecord[]
+  carouselImages?: string[]
+  carouselIntervalMs?: number
   onCategory: (category: string) => void
   onShuffle: () => void
   onOpenStudio: (studio: StudioId) => void
@@ -85,7 +89,7 @@ export function HomePage({
   return (
     <div className="pa-home">
       <div className="pa-home__hero-grid">
-        <Hero onStart={() => onOpenStudio('article')} />
+        <Hero onStart={() => onOpenStudio('article')} images={carouselImages} intervalMs={carouselIntervalMs} />
         <InspirationCard index={inspirationIndex} onShuffle={onShuffle} onCreate={() => onOpenStudio('article')} />
       </div>
 

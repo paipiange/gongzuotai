@@ -17,8 +17,12 @@ export interface VideoCoderInput {
   topic: string
   /** 副标题（可选） */
   subtitle?: string
-  /** 视觉风格 */
+  /** 视觉风格（自由文本） */
   style?: string
+  /** 风格 id（可选，命中风格库时注入结构化风格约束） */
+  styleId?: string
+  /** 注入的额外风格约束文本（由风格库 styleToPrompt 生成） */
+  stylePrompt?: string
   width: number
   height: number
   fps: number
@@ -86,8 +90,8 @@ export function scanHtmlSandbox(html: string): string[] {
 }
 
 /** 构建引导 LLM 生成视频 HTML 的 system prompt。 */
-function buildSystemPrompt(): string {
-  return [
+function buildSystemPrompt(stylePrompt?: string): string {
+  const base = [
     '你是一个前端动画工程师，负责把一段中文主题文案编译成一个自包含的 HTML 动画页面，用于逐帧渲染成短视频。',
     '',
     '严格要求：',
@@ -97,7 +101,11 @@ function buildSystemPrompt(): string {
     '4. 禁止使用 Math.random、Date、fetch、XMLHttpRequest、WebSocket、require、process 等任何会破坏确定性或访问环境的能力。',
     '5. 动画要围绕「标题 → 副标题 → 落款」三幕叙事，画面美观、有电影感，背景用深色暖棕金色调（契合品牌国风）。',
     '6. HTML 字符串内的双引号必须转义为 \\"，换行可用 \\n，确保 JSON 可解析。',
-  ].join('\n')
+  ]
+  if (stylePrompt) {
+    base.push('', '【本片视觉风格约束（必须严格遵循）】', stylePrompt)
+  }
+  return base.join('\n')
 }
 
 /** 构建 user prompt。 */
@@ -125,7 +133,7 @@ export async function authorVideoHtml(
   input: VideoCoderInput,
   options: { signal?: AbortSignal; onRound?: (round: number) => void } = {},
 ): Promise<VideoCoderResult | null> {
-  const system = buildSystemPrompt()
+  const system = buildSystemPrompt(input.stylePrompt)
   let user = buildUserPrompt(input)
   let html = ''
 

@@ -10,6 +10,8 @@ import type { AnalyticsRepository } from '../../storage/AnalyticsRepository'
 import type { ExportService } from '../../storage/exportService'
 import type { ImageGenService } from '../../imagegen/ImageGenService'
 import type { LlmService } from '../../textgen/types'
+import type { WechatPublishService } from '../../publish/WechatPublishService'
+import type { GenerationQueue } from '../../queue/GenerationQueue'
 
 /**
  * Shared types and helpers for the Host HTTP API route modules. Kept separate
@@ -25,8 +27,10 @@ export type ApiDeps = {
   publish: PublishRepository
   exports: ExportService
   tasks: TaskRepository
+  queue: GenerationQueue
   graphicSessions: GraphicSessionRepository
   analytics: AnalyticsRepository
+  wechat: WechatPublishService
   /** Builds a fresh image-gen service so a newly saved backend takes effect without a restart. */
   buildImageGen: () => ImageGenService
   /** Harness `llm` service (for AI inspiration suggestion). Optional. */

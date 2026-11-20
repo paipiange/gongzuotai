@@ -57,6 +57,51 @@ function runFfmpeg(args: string[]): Promise<void> {
   })
 }
 
+/**
+ * 把多段已编码的 MP4 按顺序 concat 拼接成一段。
+ * 使用 concat demuxer（-f concat -safe 0），要求各段编码参数一致（同 fps/分辨率/编码）。
+ * 供多幕分段渲染路径复用：每幕独立出片后拼成完整视频。
+ */
+export async function concatMp4s(options: {
+  mp4Paths: string[]
+  outMp4Path: string
+  ffmpegPath?: string
+}): Promise<void> {
+  const { mp4Paths, outMp4Path } = options
+  if (mp4Paths.length === 0) throw new Error('没有可拼接的视频片段')
+  if (mp4Paths.length === 1) {
+    // 单段直接拷贝
+    const { copyFileSync } = await import('node:fs')
+    copyFileSync(mp4Paths[0], outMp4Path)
+    return
+  }
+  const ffmpeg = options.ffmpegPath ?? findFfmpeg().ffmpeg
+  const listPath = join(outMp4Path + '.concat.txt')
+  const listContent = mp4Paths.map((p) => `file '${p.replace(/'/g, "'\\''")}'`).join('\n')
+  writeFileSync(listPath, listContent, 'utf8')
+
+  const args = [
+    '-y',
+    '-f', 'concat',
+    '-safe', '0',
+    '-i', listPath,
+    '-c', 'copy',
+    '-movflags', '+faststart',
+    outMp4Path,
+  ]
+
+  try {
+    await runFfmpeg([ffmpeg, ...args])
+  } finally {
+    try {
+      const { rmSync } = await import('node:fs')
+      rmSync(listPath, { force: true })
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 /** 把 MJPEG 流编码为 H.264 MP4。 */
 export async function encodeMjpegToMp4(options: EncodeOptions): Promise<void> {
   const { mjpegPath, totalFrames, fps, outMp4Path, audioPath } = options
@@ -153,4 +198,101 @@ export async function encodeFramesToMp4(options: {
       /* ignore */
     }
   }
+}
+
+/**
+ * 把一条外部音频轨（如 TTS 旁白）混入已有的 MP4。
+ * 视频流直接 copy，音频流重编码为 AAC。用于「多幕视频拼接完成后再配音」的路径。
+ *
+ * @returns 生成的新 MP4 路径（与 outMp4Path 相同）
+ */
+export async function muxAudioTrack(options: {
+  videoPath: string
+  audioPath: string
+  outMp4Path: string
+  ffmpegPath?: string
+}): Promise<void> {
+  const { videoPath, audioPath, outMp4Path } = options
+  const ffmpeg = options.ffmpegPath ?? findFfmpeg().ffmpeg
+
+  const args = [
+    '-y',
+    '-i', videoPath,
+    '-i', audioPath,
+    '-map', '0:v:0',
+    '-map', '1:a:0',
+    '-c:v', 'copy',
+    '-c:a', 'aac',
+    '-b:a', '192k',
+    '-shortest',
+    '-movflags', '+faststart',
+    outMp4Path,
+  ]
+
+  await runFfmpeg([ffmpeg, ...args])
+}
+
+/**
+ * 多轨混音：视频 + 旁白 + 配乐合成带完整音轨的 MP4（P2）。
+ *
+ * 处理链：
+ * - 旁白为主音轨（清晰、不被压缩）
+ * - 配乐做侧链闪避（sidechaincompress）：旁白出声时配乐自动压低，旁白停时配乐回升
+ * - 两轨 amix 后 loudnorm 归一化到 -14 LUFS（短视频平台通用响度）
+ *
+ * 配乐/旁白任一条缺失时降级：有旁白无配乐走 muxAudioTrack；有配乐无旁白直接混配乐；
+ * 都没有则直接 copy 视频（保持原静音轨）。
+ *
+ * @returns 生成的新 MP4 路径（与 outMp4Path 相同）
+ */
+export async function mixVideoWithNarrationAndMusic(options: {
+  videoPath: string
+  narrationPath?: string | null
+  musicPath?: string | null
+  outMp4Path: string
+  ffmpegPath?: string
+}): Promise<void> {
+  const { videoPath, narrationPath, musicPath, outMp4Path } = options
+  const ffmpeg = options.ffmpegPath ?? findFfmpeg().ffmpeg
+  const hasNarration = !!narrationPath && existsSync(narrationPath)
+  const hasMusic = !!musicPath && existsSync(musicPath)
+
+  // 都没有 → 直接 copy 视频
+  if (!hasNarration && !hasMusic) {
+    await runFfmpeg([ffmpeg, '-y', '-i', videoPath, '-c', 'copy', '-movflags', '+faststart', outMp4Path])
+    return
+  }
+
+  // 只有旁白 → 走简单混入
+  if (hasNarration && !hasMusic) {
+    await muxAudioTrack({ videoPath, audioPath: narrationPath!, outMp4Path, ffmpegPath: ffmpeg })
+    return
+  }
+
+  // 只有配乐 → 简单混入配乐
+  if (!hasNarration && hasMusic) {
+    await muxAudioTrack({ videoPath, audioPath: musicPath!, outMp4Path, ffmpegPath: ffmpeg })
+    return
+  }
+
+  // 旁白 + 配乐 → 侧链闪避 + 混音 + loudnorm
+  const args = [
+    '-y',
+    '-i', videoPath,
+    '-i', narrationPath!,
+    '-i', musicPath!,
+    '-filter_complex',
+    // [1:a] 旁白为侧链信号，[2:a] 配乐被闪避，然后两轨混音 + 响度归一化
+    '[2:a][1:a]sidechaincompress=threshold=0.03:ratio=8:attack=20:release=400[duck];'
+      + '[1:a][duck]amix=inputs=2:duration=first:dropout_transition=3,loudnorm=I=-14:TP=-1.5:LRA=11[aout]',
+    '-map', '0:v:0',
+    '-map', '[aout]',
+    '-c:v', 'copy',
+    '-c:a', 'aac',
+    '-b:a', '192k',
+    '-movflags', '+faststart',
+    outMp4Path,
+  ]
+
+  await runFfmpeg([ffmpeg, ...args])
 }

@@ -1,6 +1,6 @@
 import { ImageSquare, Sparkle, ArrowClockwise, DownloadSimple, CheckCircle, UploadSimple, CaretRight, ArrowSquareOut, X } from '@phosphor-icons/react'
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { generateImages, listBackends, setCreationCover, assetUrl, type Backend, type GeneratedImageResult } from './hostClient'
+import { cancelTask, enqueueImages, listBackends, setCreationCover, assetUrl, waitForTask, type Backend, type GeneratedImageResult, type TaskRecord } from './hostClient'
 import { buildImagePrompt, buildPromptSummary } from './promptBuilder'
 import { StylePicker } from './StylePicker'
 import { LayoutPicker } from './LayoutPicker'
@@ -15,6 +15,7 @@ import {
   type StylePreset,
   type ColorPreset,
 } from './stylePresets'
+import { storedTaskOrigin, taskResultImages } from './taskResume'
 
 interface Toast {
   (message: string, tone?: 'info' | 'success' | 'warning'): void
@@ -27,7 +28,12 @@ interface Toast {
  * 后端来自「后端管理」里配置的图片后端（图片 API / 本机 ComfyUI），
  * 生成时按所选后端 id 调用。
  */
-export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creationId?: string }) {
+export function ImageGenPanel({ onToast, creationId, resumeTask = null, onResumeConsumed }: {
+  onToast: Toast
+  creationId?: string
+  resumeTask?: TaskRecord | null
+  onResumeConsumed?: () => void
+}) {
   const [topic, setTopic] = useState('')
   const [styleId, setStyleId] = useState('')
   const [layoutId, setLayoutId] = useState('')
@@ -48,6 +54,26 @@ export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creatio
   const [colorPickerOpen, setColorPickerOpen] = useState(false)
   const [lightboxId, setLightboxId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const handledResumeTaskRef = useRef<string | null>(null)
+  const activeRequestRef = useRef<{ controller: AbortController; clientRequestId: string; taskId?: string } | null>(null)
+  const [generationProgress, setGenerationProgress] = useState<{ completed: number; total: number; status: string } | null>(null)
+
+  useEffect(() => {
+    if (!resumeTask || handledResumeTaskRef.current === resumeTask.id) return
+    handledResumeTaskRef.current = resumeTask.id
+    const state = storedTaskOrigin(resumeTask)?.state ?? {}
+    setTopic(String(state.topic ?? resumeTask.input.prompt ?? ''))
+    if (typeof state.styleId === 'string') setStyleId(state.styleId)
+    if (typeof state.layoutId === 'string') setLayoutId(state.layoutId)
+    if (typeof state.colorId === 'string') setColorId(state.colorId)
+    if (Number.isFinite(Number(state.size))) setSize(Number(state.size))
+    if (Number.isFinite(Number(state.count))) setCount(Math.max(1, Math.min(4, Number(state.count))))
+    if (typeof state.modelPick === 'string') setModelPick(state.modelPick)
+    if (Number.isFinite(Number(state.denoise))) setDenoise(Number(state.denoise))
+    setLastPrompt(String(resumeTask.input.prompt ?? ''))
+    setResults(taskResultImages(resumeTask))
+    onResumeConsumed?.()
+  }, [onResumeConsumed, resumeTask])
 
   useEffect(() => {
     let cancelled = false
@@ -95,12 +121,23 @@ export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creatio
     }
 
     const prompt = buildImagePrompt({ topic, style, layout, color })
+    const controller = new AbortController()
+    const clientRequestId = crypto.randomUUID()
+    activeRequestRef.current = { controller, clientRequestId }
     setLastPrompt(prompt)
     setBusy(true)
+    setGenerationProgress({ completed: 0, total: 1, status: '排队中' })
     setCoverId(null)
     try {
-      const images = await generateImages({
+      const queued = await enqueueImages({
         backendId: currentBackend.id,
+        origin: {
+          kind: 'studio',
+          id: 'image',
+          label: 'AI 图片生成',
+          state: { topic, styleId, layoutId, colorId, size, count, modelPick, denoise },
+        },
+        clientRequestId,
         request: {
           prompt,
           count,
@@ -110,12 +147,37 @@ export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creatio
         },
         sourceCreationId: creationId,
       })
+      if (activeRequestRef.current?.clientRequestId === clientRequestId) activeRequestRef.current.taskId = queued.id
+      const completed = await waitForTask(queued.id, (task) => {
+        const progress = task.result.progress as { completed?: number; total?: number } | undefined
+        setGenerationProgress({
+          completed: Number(progress?.completed) || (task.status === 'success' ? 1 : 0),
+          total: Number(progress?.total) || 1,
+          status: task.status === 'queued' ? '排队中' : task.status === 'paused' ? '已暂停' : task.status === 'running' ? `生成中（第 ${task.attempt}/${task.maxAttempts} 次）` : '已完成',
+        })
+        const partial = taskResultImages(task)
+        if (partial.length) setResults(partial)
+      }, controller.signal)
+      const images = taskResultImages(completed)
       setResults(images)
       onToast(`已生成 ${images.length} 张图片`, 'success')
     } catch (cause) {
-      onToast(cause instanceof Error ? cause.message : '生成失败', 'warning')
+      onToast(controller.signal.aborted ? '已取消生成' : cause instanceof Error ? cause.message : '生成失败', controller.signal.aborted ? 'info' : 'warning')
     } finally {
+      if (activeRequestRef.current?.clientRequestId === clientRequestId) activeRequestRef.current = null
       setBusy(false)
+      setGenerationProgress(null)
+    }
+  }
+
+  const cancelGeneration = async () => {
+    const active = activeRequestRef.current
+    if (!active) return
+    active.controller.abort()
+    try {
+      await cancelTask(active.taskId ? { id: active.taskId } : { clientRequestId: active.clientRequestId })
+    } catch {
+      // 请求可能在 Host 建立任务前被取消；AbortController 仍会终止客户端等待。
     }
   }
 
@@ -331,10 +393,17 @@ export function ImageGenPanel({ onToast, creationId }: { onToast: Toast; creatio
           <button type="submit" className="pa-primary-button" disabled={busy || !canGenerate}>
             <Sparkle aria-hidden="true" size={18} weight="fill" />{busy ? '生成中…' : '开始生成'}
           </button>
+          {busy && <button type="button" className="pa-secondary-button" onClick={() => void cancelGeneration()}><X aria-hidden="true" size={16} />取消生成</button>}
           <span className="pa-imagegen-panel__hint">
             {backends.length ? (style || layout || color ? `预设：${buildPromptSummary({ topic, style, layout, color })}` : '未选择风格预设') : '请先在「设置中心 → 后端管理」添加图片后端'}
           </span>
         </div>
+        {busy && generationProgress && (
+          <div className="pa-generation-progress" role="status" aria-live="polite">
+            <div><span>{generationProgress.status}</span><b>{generationProgress.completed}/{generationProgress.total}</b></div>
+            <progress value={generationProgress.completed} max={generationProgress.total} />
+          </div>
+        )}
       </form>
 
       {lastPrompt && (

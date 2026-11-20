@@ -10,9 +10,11 @@ import { AnalyticsPage } from './AnalyticsPage'
 import { BackendManager } from './BackendManager'
 import { BackupSettings } from './BackupSettings'
 import { ThemeSettings } from './ThemeSettings'
+import { HomeCarouselSettings } from './HomeCarouselSettings'
 import { TemplateManager } from './TemplateManager'
 import { TemplateUsePanel } from './TemplateUsePanel'
 import { UpdateCheck } from './UpdateCheck'
+import { WechatSettings } from './WechatSettings'
 
 export function CreateHub({ onOpenStudio }: { onOpenStudio: (studio: StudioId) => void }) {
   return (
@@ -33,7 +35,7 @@ export function CreateHub({ onOpenStudio }: { onOpenStudio: (studio: StudioId) =
   )
 }
 
-export function WorkspacePage({ page, creations, storageSource, onNavigate, onOpenStudio, onOpenCreation, onStatus, onDelete, onToast, onRefresh, theme, onThemeChange, onResumeTask }: {
+export function WorkspacePage({ page, creations, storageSource, onNavigate, onOpenStudio, onOpenCreation, onStatus, onDelete, onToast, onRefresh, theme, onThemeChange, onResumeTask, templateResumeTask, onTemplateResumeConsumed }: {
   page: Exclude<PageId, 'home' | 'create'>
   creations: CreationRecord[]
   storageSource: 'host' | 'local' | 'loading'
@@ -47,6 +49,8 @@ export function WorkspacePage({ page, creations, storageSource, onNavigate, onOp
   theme: string
   onThemeChange: (theme: string) => void
   onResumeTask: (task: TaskRecord) => void
+  templateResumeTask: TaskRecord | null
+  onTemplateResumeConsumed: () => void
 }) {
   const meta = pageMeta[page]
 
@@ -69,7 +73,7 @@ export function WorkspacePage({ page, creations, storageSource, onNavigate, onOp
     return (
       <div className="pa-page">
         <PageIntro title={meta.title} description={meta.description} />
-        <TemplateUsePanel onToast={onToast} />
+        <TemplateUsePanel onToast={onToast} resumeTask={templateResumeTask} onResumeConsumed={onTemplateResumeConsumed} />
       </div>
     )
   }
@@ -80,6 +84,8 @@ export function WorkspacePage({ page, creations, storageSource, onNavigate, onOp
         <PageIntro title={meta.title} description={meta.description} />
         <div className="pa-settings-grid">
           <BackendManager onToast={onToast} />
+          <WechatSettings onToast={onToast} />
+          <HomeCarouselSettings onToast={onToast} />
           <BackupSettings onToast={onToast} />
           <ThemeSettings theme={theme} onThemeChange={onThemeChange} />
           <TemplateManager onToast={onToast} />

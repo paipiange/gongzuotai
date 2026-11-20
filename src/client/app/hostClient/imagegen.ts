@@ -4,7 +4,7 @@
  */
 
 import { apiFetch } from './client'
-import type { Backend, BackendKind, BackendTestResult, FetchModelsResult, GeneratedImageResult, ImageGenSummary } from './types'
+import type { Backend, BackendKind, BackendTestResult, FetchModelsResult, GeneratedImageResult, GenerationOrigin, ImageGenSummary, TaskRecord } from './types'
 
 // ---- Image-gen config ----
 
@@ -50,17 +50,123 @@ export async function generateImages(input: {
     /** Repaint strength 0–1 when image is present. */
     denoise?: number
   }
+  /** false 时不单独创建生成记录，供批次任务逐张调用。 */
+  recordTask?: boolean
+  /** recordTask=false 时绑定的图片批次任务。 */
+  batchTaskId?: string
+  origin?: GenerationOrigin
+  clientRequestId?: string
   sourceCreationId?: string
   /** 公众号分镜：第几页（用于后台任务恢复时回填到对应页）。 */
   pageIndex?: number
   /** 公众号分镜：本次拆页的 run id（用于匹配进行中/已完成的生图任务）。 */
   sessionId?: string
-}): Promise<GeneratedImageResult[]> {
+}, signal?: AbortSignal): Promise<GeneratedImageResult[]> {
   const data = await apiFetch<{ images: GeneratedImageResult[] }>('.imagegen.generate', {
     method: 'POST',
     body: JSON.stringify(input),
+    signal,
   })
   return data.images
+}
+
+export type QueueImageRequest = Parameters<typeof generateImages>[0]['request']
+
+export async function enqueueImages(input: {
+  provider?: 'llm' | 'comfyui'
+  backendId?: string
+  request?: QueueImageRequest
+  requests?: QueueImageRequest[]
+  origin?: GenerationOrigin
+  clientRequestId?: string
+  sourceCreationId?: string
+  priority?: number
+  maxAttempts?: number
+  pageIndex?: number
+  sessionId?: string
+  source?: 'template'
+  templateId?: string
+  templateName?: string
+  templateCategory?: string
+  templateKind?: 'comic'
+  theme?: string
+  roleChoice?: 'female' | 'male' | 'both'
+  overlayText?: string
+}): Promise<TaskRecord> {
+  const data = await apiFetch<{ task: TaskRecord }>('.imagegen.enqueue', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return data.task
+}
+
+export async function startImageBatch(input: {
+  provider?: 'llm' | 'comfyui'
+  backendId?: string
+  prompt: string
+  prompts?: string[]
+  requestedCount: number
+  width?: number
+  height?: number
+  size?: number
+  model?: string
+  referenceImageCount?: number
+  sourceCreationId?: string
+  source?: 'template'
+  templateId?: string
+  templateName?: string
+  templateCategory?: string
+  templateKind?: 'comic'
+  theme?: string
+  roleChoice?: 'female' | 'male' | 'both'
+  overlayText?: string
+  origin?: GenerationOrigin
+  clientRequestId?: string
+}): Promise<string> {
+  const data = await apiFetch<{ taskId: string }>('.imagegen.batch.start', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return data.taskId
+}
+
+export async function finishImageBatch(input: {
+  taskId: string
+  imageIds: string[]
+  elapsedMs: number
+  requestedCount: number
+}): Promise<void> {
+  await apiFetch<{ ok: boolean }>('.imagegen.batch.finish', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export async function failImageBatch(input: {
+  taskId: string
+  errorMessage: string
+  imageIds: string[]
+  elapsedMs: number
+  requestedCount: number
+}): Promise<void> {
+  await apiFetch<{ ok: boolean }>('.imagegen.batch.fail', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export async function updateImageBatchProgress(input: {
+  taskId: string
+  completed: number
+  total: number
+  imageIds: string[]
+  elapsedMs: number
+  paused?: boolean
+}): Promise<void> {
+  await apiFetch<{ ok: boolean }>('.imagegen.batch.progress', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
 }
 
 // ---- Multi-backend management (CRUD) ----

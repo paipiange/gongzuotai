@@ -2,7 +2,44 @@
  * Video generation (local: LLM → HTML → headless render → FFmpeg) over SSE.
  */
 
-import { BASE, HostError } from './client'
+import { BASE, HostError, apiFetch } from './client'
+import type { GenerationOrigin, TaskRecord } from './types'
+
+/** 视频风格分类（与 host 端 styles/types.ts 的 StyleCategory 对应）。 */
+export interface VideoStyleCategory {
+  id: string
+  en: string
+  cn: string
+}
+
+/** 视频风格元信息（供风格选择器渲染，规则字段不外泄）。 */
+export interface VideoStyleMeta {
+  id: string
+  en: string
+  cn: string
+  category: string
+  essence: string
+}
+
+/** 风格库（分类 + 风格列表），由 /api/paipiange.video.styles 返回。 */
+export interface VideoStyleLibrary {
+  categories: VideoStyleCategory[]
+  styles: VideoStyleMeta[]
+}
+
+/** 常用中文旁白音色（edge-tts），供前端音色下拉渲染。 */
+export const VIDEO_VOICES: { id: string; label: string }[] = [
+  { id: 'zh-CN-XiaoxiaoNeural', label: '晓晓（女·温暖·讲解）' },
+  { id: 'zh-CN-XiaoyiNeural', label: '晓伊（女·活泼）' },
+  { id: 'zh-CN-YunxiNeural', label: '云希（男·阳光）' },
+  { id: 'zh-CN-YunyangNeural', label: '云扬（男·专业·新闻）' },
+  { id: 'zh-CN-YunjianNeural', label: '云健（男·激情）' },
+]
+
+/** 拉取视频风格资产库（99 种原创风格），供前端风格选择器渲染。 */
+export async function fetchVideoStyles(): Promise<VideoStyleLibrary> {
+  return apiFetch<VideoStyleLibrary>('/.video.styles')
+}
 
 export interface VideoGenProgress {
   stage: 'coding' | 'repair' | 'render' | 'comfy' | 'encode' | 'done'
@@ -24,14 +61,36 @@ export interface VideoGenInput {
   topic: string
   subtitle?: string
   style?: string
+  /** 视频风格 id（99 种原创风格库，如 "ink-wash"），命中后注入风格约束。 */
+  styleId?: string
+  /** 是否启用多幕导演脚本（钩子→展开→转折→落点）。 */
+  multiScene?: boolean
+  /** 多幕幕数（multiScene=true 时生效，默认 3）。 */
+  sceneCount?: number
+  /** TTS 旁白音色 id（edge-tts）。仅多幕模式生效。 */
+  voice?: string
+  /** TTS 代理地址，为空时直连（默认走本机 Clash 7890）。 */
+  ttsProxy?: string
+  /** 是否生成程序化配乐（多幕模式默认 true）。 */
+  music?: boolean
   aspectRatio?: '16:9' | '9:16' | '1:1'
   durationSec?: number
   fps?: number
   provider?: string
   model?: string
-  engine?: 'llm' | 'comfyui'
+  engine?: 'llm' | 'comfyui' | 'remotion'
+  /** Remotion 双引擎画面风格（如 "tech" / "ink-wash"）。 */
+  remotionStyle?: string
+  /** Remotion 双引擎配乐方案（auto / 纯音乐卡点等）。 */
+  remotionBgmMode?: string
+  /** Remotion 双引擎旁白音色 id。 */
+  remotionVoiceId?: string
+  /** Remotion 双引擎画质（720p / 1080p / 2K / 4K）。 */
+  remotionQuality?: string
   backendId?: string
   sourceCreationId?: string
+  origin?: GenerationOrigin
+  clientRequestId?: string
 }
 
 /**
@@ -111,4 +170,16 @@ export async function generateVideoStream(
 
   if (!finalResult) throw new HostError('生成未返回结果', 0)
   return finalResult
+}
+
+export async function enqueueVideoGeneration(input: Parameters<typeof generateVideoStream>[0] & {
+  sourceCreationId?: string
+  priority?: number
+  maxAttempts?: number
+}): Promise<TaskRecord> {
+  const data = await apiFetch<{ task: TaskRecord }>('.video.enqueue', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return data.task
 }

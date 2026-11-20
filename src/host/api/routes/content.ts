@@ -209,24 +209,124 @@ export function registerContentRoutes(deps: ApiDeps, register: RegisterRoute) {
       const body = await request.json().catch(() => null) as { status?: string; externalUrl?: string } | null
       if (!body || !body.status) return error('缺少 status')
       if (!['draft', 'ready', 'exported', 'published'].includes(body.status)) return error('无效状态')
+      const current = publish.getById(id)
+      if (!current) return error('发布项不存在', 404)
+      const creation = creations.getById(current.creationId)
+      if (creation) recordPublishVersion(publish, current.id, creation, 'manual_status')
+      const attempt = publish.createAttempt({
+        publishItemId: current.id,
+        platform: current.platform,
+        action: 'manual_status',
+        retryNo: current.retryCount,
+        request: { status: body.status },
+      })
       const updated = publish.update(id, {
         status: body.status as PublishStatus,
         ...(body.externalUrl !== undefined ? { externalUrl: body.externalUrl } : {}),
       })
+      publish.finishAttempt(attempt.id, { status: 'success', itemStatus: body.status as PublishStatus, result: { externalUrl: body.externalUrl ?? null } })
       return updated ? json({ item: updated }) : error('发布项不存在', 404)
   })
 
+  register('/api/paipiange.publish.detail', ['GET'], async (request) => {
+      const id = new URL(request.url).searchParams.get('id') ?? ''
+      if (!id) return error('缺少 id')
+      const item = publish.getById(id)
+      if (!item) return error('发布项不存在', 404)
+      const creation = creations.getById(item.creationId)
+      return json({
+        item,
+        attempts: publish.listAttempts(id),
+        versions: publish.listVersions(id),
+        checklist: buildPublishChecklist(item, creation, settings.getWechatChannelSummary().configured),
+      })
+  })
+
+  register('/api/paipiange.publish.attempts', ['GET'], async (request) => {
+      const url = new URL(request.url)
+      const id = url.searchParams.get('id')
+      const limit = Number(url.searchParams.get('limit') ?? '100') || 100
+      return json({ attempts: publish.listAttempts(id, limit) })
+  })
+
+  register('/api/paipiange.publish.refresh', ['POST'], async (request) => {
+      const body = await request.json().catch(() => null) as { id?: string } | null
+      if (!body?.id) return error('缺少 id')
+      const item = publish.getById(body.id)
+      if (!item) return error('发布项不存在', 404)
+      const attempt = publish.createAttempt({ publishItemId: item.id, platform: item.platform, action: 'status_refresh', retryNo: item.retryCount })
+      try {
+        let result: Record<string, unknown> = { localStatus: item.status }
+        if (item.platform === 'wechat' && item.externalId) result = { ...await deps.wechat.refreshDraft(item.externalId) }
+        publish.finishAttempt(attempt.id, { status: 'success', checked: true, result })
+        return json({ item: publish.getById(item.id), result })
+      } catch (cause) {
+        const message = cause instanceof Error ? cause.message : '状态刷新失败'
+        publish.finishAttempt(attempt.id, { status: 'failed', errorMessage: message, checked: true })
+        return error(message, 502)
+      }
+  })
+
+  register('/api/paipiange.publish.retry', ['POST'], async (request) => {
+      const body = await request.json().catch(() => null) as { id?: string } | null
+      if (!body?.id) return error('缺少 id')
+      const item = publish.getById(body.id)
+      if (!item) return error('发布项不存在', 404)
+      if (item.platform === 'wechat' && item.externalId) {
+        const attempt = publish.createAttempt({ publishItemId: item.id, platform: item.platform, action: 'status_refresh', retryNo: item.retryCount + 1 })
+        try {
+          const result = await deps.wechat.refreshDraft(item.externalId)
+          publish.finishAttempt(attempt.id, { status: 'success', checked: true, result: { ...result } })
+          return json({ item: publish.getById(item.id), attempt: publish.getAttempt(attempt.id) })
+        } catch (cause) {
+          const message = cause instanceof Error ? cause.message : '重试失败'
+          publish.finishAttempt(attempt.id, { status: 'failed', errorMessage: message, checked: true })
+          return error(message, 502)
+        }
+      }
+      if (item.platform === 'wechat') {
+        return error('为保护隐私，系统不会保存公众号上传所需的图片二进制；请回到原发布面板重新同步草稿', 409)
+      }
+      const creation = creations.getById(item.creationId)
+      if (!creation) return error('创作记录不存在', 404)
+      recordPublishVersion(publish, item.id, creation, 'retry_export')
+      const attempt = publish.createAttempt({ publishItemId: item.id, platform: item.platform, action: 'export', retryNo: item.retryCount + 1 })
+      try {
+        const result = exports.exportForPlatform({
+          title: creation.title, bodyMd: creation.bodyMd, bodyHtml: creation.bodyHtml,
+          topic: creation.summary, tags: creation.tags,
+        }, item.platform)
+        publish.finishAttempt(attempt.id, { status: 'success', itemStatus: 'exported', exportPath: result.relativePath, result: { fileName: result.fileName } })
+        return json({ item: publish.getById(item.id), attempt: publish.getAttempt(attempt.id) })
+      } catch (cause) {
+        const message = cause instanceof Error ? cause.message : '重试导出失败'
+        publish.finishAttempt(attempt.id, { status: 'failed', errorMessage: message })
+        return error(message, 500)
+      }
+  })
+
   register('/api/paipiange.export', ['POST'], async (request) => {
-      const body = await request.json().catch(() => null) as { creationId?: string; format?: string; platform?: string } | null
+      const body = await request.json().catch(() => null) as { creationId?: string; format?: string; platform?: string; publishItemId?: string } | null
       if (!body || !body.creationId) return error('缺少 creationId')
       const format = body.format ?? 'markdown'
       if (!['markdown', 'html', 'zip', 'text'].includes(format)) return error('不支持的导出格式')
       const creation = creations.getById(body.creationId)
       if (!creation) return error('创作记录不存在', 404)
       const { readFileSync } = await import('node:fs')
+      const publishItem = body.publishItemId ? publish.getById(body.publishItemId) : null
+      if (body.publishItemId && (!publishItem || publishItem.creationId !== creation.id)) return error('发布项与创作记录不匹配', 409)
+      if (publishItem) recordPublishVersion(publish, publishItem.id, creation, 'export')
+      const attempt = publishItem ? publish.createAttempt({
+        publishItemId: publishItem.id,
+        platform: publishItem.platform,
+        action: format === 'zip' ? 'delivery_bundle' : 'export',
+        retryNo: publishItem.retryCount,
+        request: { format, platform: body.platform ?? publishItem.platform },
+      }) : null
 
-      // Platform-adapted plain-text export.
-      if (format === 'text') {
+      try {
+        // Platform-adapted plain-text export.
+        if (format === 'text') {
         const platform = ['wechat', 'xiaohongshu', 'zhihu', 'toutiao', 'other'].includes(body.platform ?? '') ? body.platform as 'wechat' | 'xiaohongshu' | 'zhihu' | 'toutiao' | 'other' : 'other'
         const result = exports.exportForPlatform(
           {
@@ -238,6 +338,7 @@ export function registerContentRoutes(deps: ApiDeps, register: RegisterRoute) {
           },
           platform,
         )
+        if (attempt) publish.finishAttempt(attempt.id, { status: 'success', itemStatus: 'exported', exportPath: result.relativePath, result: { fileName: result.fileName } })
         const absolute = exports.resolveAbsolute(result.relativePath)
         const buffer = readFileSync(absolute)
         return new Response(new Uint8Array(buffer), {
@@ -247,20 +348,65 @@ export function registerContentRoutes(deps: ApiDeps, register: RegisterRoute) {
             'Cache-Control': 'no-store',
           },
         })
-      }
+        }
 
-      const result = exports.export(
+        const result = exports.export(
         { title: creation.title, bodyMd: creation.bodyMd, bodyHtml: creation.bodyHtml },
         format as ExportFormat,
-      )
-      const absolute = exports.resolveAbsolute(result.relativePath)
-      const buffer = readFileSync(absolute)
-      return new Response(new Uint8Array(buffer), {
-        headers: {
-          'Content-Type': format === 'markdown' ? 'text/markdown' : format === 'html' ? 'text/html' : 'application/zip',
-          'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(result.fileName)}`,
-          'Cache-Control': 'no-store',
-        },
-      })
+        )
+        if (attempt) publish.finishAttempt(attempt.id, { status: 'success', itemStatus: 'exported', exportPath: result.relativePath, result: { fileName: result.fileName } })
+        const absolute = exports.resolveAbsolute(result.relativePath)
+        const buffer = readFileSync(absolute)
+        return new Response(new Uint8Array(buffer), {
+          headers: {
+            'Content-Type': format === 'markdown' ? 'text/markdown' : format === 'html' ? 'text/html' : 'application/zip',
+            'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(result.fileName)}`,
+            'Cache-Control': 'no-store',
+          },
+        })
+      } catch (cause) {
+        const message = cause instanceof Error ? cause.message : '导出失败'
+        if (attempt) publish.finishAttempt(attempt.id, { status: 'failed', errorMessage: message })
+        return error(message, 500)
+      }
   })
+}
+
+function recordPublishVersion(
+  publish: ApiDeps['publish'],
+  publishItemId: string,
+  creation: NonNullable<ReturnType<ApiDeps['creations']['getById']>>,
+  action: string,
+) {
+  return publish.recordVersion(publishItemId, {
+    title: creation.title,
+    bodyMd: creation.bodyMd,
+    bodyHtml: creation.bodyHtml,
+    snapshot: { action, summary: creation.summary, tags: creation.tags, updatedAt: creation.updatedAt },
+  })
+}
+
+function buildPublishChecklist(
+  item: ReturnType<ApiDeps['publish']['getById']> extends infer T ? NonNullable<T> : never,
+  creation: ReturnType<ApiDeps['creations']['getById']>,
+  wechatConfigured: boolean,
+) {
+  if (!creation) return [{ key: 'creation', label: '创作记录仍然存在', passed: false, message: '原始创作已删除' }]
+  const content = creation.bodyMd.trim() || creation.summary.trim()
+  const checks = [
+    { key: 'title', label: '标题已填写', passed: Boolean(creation.title.trim()), message: creation.title.trim() ? '' : '请补充标题' },
+    { key: 'content', label: '正文已填写', passed: Boolean(content), message: content ? '' : '请补充正文或主题' },
+    { key: 'platform', label: '发布平台已选择', passed: item.platform !== 'other', message: item.platform === 'other' ? '建议选择明确平台' : '' },
+  ]
+  if (item.platform === 'wechat') {
+    checks.push(
+      { key: 'wechat-title', label: '公众号标题不超过 64 字', passed: creation.title.trim().length <= 64, message: creation.title.trim().length <= 64 ? '' : '请缩短标题' },
+      { key: 'cover', label: '公众号封面已设置', passed: Boolean(creation.coverAssetId), message: creation.coverAssetId ? '' : '请先设置封面' },
+      { key: 'channel', label: '公众号凭据已配置', passed: wechatConfigured, message: wechatConfigured ? '' : '请在设置中心配置公众号' },
+    )
+  }
+  if (item.platform === 'xiaohongshu') {
+    checks.push({ key: 'xiaohongshu-title', label: '小红书标题建议不超过 20 字', passed: creation.title.trim().length <= 20, message: creation.title.trim().length <= 20 ? '' : '建议缩短标题' })
+  }
+  return checks
 }

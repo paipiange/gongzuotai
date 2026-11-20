@@ -1,13 +1,33 @@
 import type Database from 'better-sqlite3'
 import type { Backend, ComfyUiConfig, LlmImageConfig } from '../imagegen/types'
+import type { WechatChannelConfig } from '../publish/WechatPublishService'
 
 const IMAGE_LLM_KEY = 'imagegen.llm'
 const IMAGE_COMFYUI_KEY = 'imagegen.comfyui'
 const TEXTGEN_KEY = 'textgen'
+const WECHAT_CHANNEL_KEY = 'channel.wechat'
+const BACKUP_POLICY_KEY = 'backup.policy'
+const HOME_CAROUSEL_KEY = 'home.carousel'
+
+export interface BackupPolicy {
+  enabled: boolean
+  intervalDays: number
+  retention: number
+  lastRunAt: string | null
+}
 
 export interface TextGenConfig {
   provider: string
   model: string
+}
+
+/** 首页轮播图配置：一组素材库图片 asset id，可勾选是否把内置默认图也纳入轮播。 */
+export interface HomeCarouselConfig {
+  assetIds: string[]
+  /** 单张停留时长（毫秒）。 */
+  intervalMs: number
+  /** 是否把内置默认图作为轮播第一张（默认 true）。 */
+  includeDefault: boolean
 }
 
 interface SettingsRow {
@@ -87,6 +107,99 @@ export class SettingsRepository {
 
   setTextGenConfig(config: TextGenConfig): void {
     writeJson(this.db, TEXTGEN_KEY, config)
+  }
+
+  /** Full secret-bearing config. Host-only: never return this object to the client. */
+  getWechatChannelConfig(): WechatChannelConfig | null {
+    const value = readJson(this.db, WECHAT_CHANNEL_KEY) as Partial<WechatChannelConfig> | undefined
+    if (!value?.appId?.trim() || !value.appSecret?.trim()) return null
+    return {
+      appId: value.appId.trim(),
+      appSecret: value.appSecret.trim(),
+      defaultAuthor: value.defaultAuthor?.trim() || '',
+    }
+  }
+
+  setWechatChannelConfig(config: WechatChannelConfig): void {
+    writeJson(this.db, WECHAT_CHANNEL_KEY, {
+      appId: config.appId.trim(),
+      appSecret: config.appSecret.trim(),
+      defaultAuthor: config.defaultAuthor?.trim() || '',
+    })
+  }
+
+  clearWechatChannelConfig(): void {
+    this.db.prepare('DELETE FROM app_settings WHERE key = ?').run(WECHAT_CHANNEL_KEY)
+  }
+
+  /** Safe projection for settings UI; AppSecret is never exposed. */
+  getWechatChannelSummary(): { configured: boolean; appId: string; defaultAuthor: string; hasAppSecret: boolean } {
+    const config = this.getWechatChannelConfig()
+    return {
+      configured: Boolean(config),
+      appId: config?.appId ?? '',
+      defaultAuthor: config?.defaultAuthor ?? '',
+      hasAppSecret: Boolean(config?.appSecret),
+    }
+  }
+
+  getBackupPolicy(): BackupPolicy {
+    const value = readJson(this.db, BACKUP_POLICY_KEY) as Partial<BackupPolicy> | undefined
+    return {
+      enabled: value?.enabled !== false,
+      intervalDays: Math.min(30, Math.max(1, Math.round(Number(value?.intervalDays) || 7))),
+      retention: Math.min(20, Math.max(1, Math.round(Number(value?.retention) || 5))),
+      lastRunAt: typeof value?.lastRunAt === 'string' ? value.lastRunAt : null,
+    }
+  }
+
+  setBackupPolicy(input: Partial<BackupPolicy>): BackupPolicy {
+    const current = this.getBackupPolicy()
+    const intervalInput = Number(input.intervalDays ?? current.intervalDays)
+    const retentionInput = Number(input.retention ?? current.retention)
+    const next: BackupPolicy = {
+      enabled: input.enabled ?? current.enabled,
+      intervalDays: Math.min(30, Math.max(1, Math.round(Number.isFinite(intervalInput) ? intervalInput : 7))),
+      retention: Math.min(20, Math.max(1, Math.round(Number.isFinite(retentionInput) ? retentionInput : 5))),
+      lastRunAt: input.lastRunAt === undefined ? current.lastRunAt : input.lastRunAt,
+    }
+    writeJson(this.db, BACKUP_POLICY_KEY, next)
+    return next
+  }
+
+  /** 首页轮播图配置；未配置时返回空数组，客户端据此回退默认图。 */
+  getHomeCarousel(): HomeCarouselConfig {
+    const value = readJson(this.db, HOME_CAROUSEL_KEY) as Partial<HomeCarouselConfig> | undefined
+    const assetIds = Array.isArray(value?.assetIds)
+      ? value.assetIds.filter((item): item is string => typeof item === 'string' && item.length > 0)
+      : []
+    const interval = Math.round(Number(value?.intervalMs) || 0)
+    return {
+      assetIds,
+      intervalMs: interval > 0 ? Math.min(30000, Math.max(2000, interval)) : 5000,
+      includeDefault: value?.includeDefault !== false,
+    }
+  }
+
+  setHomeCarousel(input: Partial<HomeCarouselConfig>): HomeCarouselConfig {
+    const current = this.getHomeCarousel()
+    const next: HomeCarouselConfig = {
+      assetIds: Array.isArray(input.assetIds)
+        ? input.assetIds.filter((item): item is string => typeof item === 'string' && item.length > 0)
+        : current.assetIds,
+      intervalMs: current.intervalMs,
+      includeDefault: input.includeDefault ?? current.includeDefault,
+    }
+    if (input.intervalMs !== undefined) {
+      const iv = Math.round(Number(input.intervalMs) || 0)
+      next.intervalMs = iv > 0 ? Math.min(30000, Math.max(2000, iv)) : 5000
+    }
+    writeJson(this.db, HOME_CAROUSEL_KEY, next)
+    return next
+  }
+
+  clearHomeCarousel(): void {
+    this.db.prepare('DELETE FROM app_settings WHERE key = ?').run(HOME_CAROUSEL_KEY)
   }
 
   /** Non-secret summary for the client to know what backends are configured. */

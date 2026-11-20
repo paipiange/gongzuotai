@@ -19,6 +19,9 @@ import { GraphicStudioPage } from './graphicStudio/GraphicStudioPage'
 import { ErrorBoundary } from './ErrorBoundary'
 import type { TaskRecord } from './hostClient'
 import type { ToastState } from './primitives'
+import { resolveTaskResume, storedTaskOrigin } from './taskResume'
+import { assetUrl, getHomeCarousel } from './hostClient'
+import { HERO_BG } from './heroBackground'
 
 export function PaipiangeRoot() {
   const [activePage, setActivePage] = useState<PageId>('home')
@@ -30,11 +33,15 @@ export function PaipiangeRoot() {
   const [inspirationIndex, setInspirationIndex] = useState(0)
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [carouselImages, setCarouselImages] = useState<string[]>([])
+  const [carouselIntervalMs, setCarouselIntervalMs] = useState<number | undefined>(undefined)
   const [theme, setTheme] = useState<string>(() => {
     if (typeof window === 'undefined') return 'amber'
     return window.localStorage.getItem('paipiange.theme') ?? 'amber'
   })
   const [toast, setToast] = useState<ToastState | null>(null)
+  const [templateResumeTask, setTemplateResumeTask] = useState<TaskRecord | null>(null)
+  const [studioResumeTask, setStudioResumeTask] = useState<TaskRecord | null>(null)
   const mainRef = useRef<HTMLElement>(null)
 
   const showToast = (message: string, tone: ToastState['tone'] = 'info') => setToast({ message, tone })
@@ -62,6 +69,29 @@ export function PaipiangeRoot() {
       setCreations(loaded)
       setStorageSource(source)
     })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Load home carousel config (Host asset ids → image URLs). Falls back to default hero.
+  useEffect(() => {
+    let cancelled = false
+    getHomeCarousel()
+      .then((config) => {
+        if (cancelled) return
+        const custom = config.assetIds.map((id) => assetUrl(id))
+        // 默认图是否纳入轮播：includeDefault 为 true 时默认图作为第一张；
+        // 关闭且没有自定义图时，仍回退默认图，保证首页不空白。
+        const images = config.includeDefault || custom.length === 0
+          ? [HERO_BG, ...custom]
+          : custom
+        setCarouselImages(images)
+        setCarouselIntervalMs(config.intervalMs)
+      })
+      .catch(() => {
+        // 未连接 Host 时保留默认图，不做处理。
+      })
     return () => {
       cancelled = true
     }
@@ -96,6 +126,8 @@ export function PaipiangeRoot() {
     setActivePage('create')
     setStudio(id)
     setSelectedCreation(null)
+    setStudioResumeTask(null)
+    setTemplateResumeTask(null)
     setMobileOpen(false)
   }
 
@@ -103,59 +135,50 @@ export function PaipiangeRoot() {
     setActivePage('create')
     setStudio(creation.studio)
     setSelectedCreation(creation)
+    setStudioResumeTask(null)
+    setTemplateResumeTask(null)
     setMobileOpen(false)
   }
 
   /** Resume a generation task: re-fill the matching studio form and open it. */
   const resumeTask = (task: TaskRecord) => {
-    if (task.kind === 'text') {
-      const studio = (typeof task.input.studio === 'string' && ['article', 'headline', 'marketing', 'xiaohongshu'].includes(task.input.studio))
-        ? task.input.studio as 'article' | 'headline' | 'marketing' | 'xiaohongshu'
-        : 'article'
-      saveStudioDraft(studio, {
-        title: '',
-        topic: String(task.input.topic ?? ''),
-        content: String(task.result.text ?? ''),
-        style: String(task.input.style ?? 'cinematic'),
-        requirement: String(task.input.requirement ?? ''),
-        tags: [],
-      })
+    const destination = resolveTaskResume(task)
+    const resumeState = storedTaskOrigin(task)?.state ?? {}
+    if (destination.kind === 'template') {
       setSelectedCreation(null)
-      setActivePage('create')
-      setStudio(studio)
+      setStudio(null)
+      setStudioResumeTask(null)
+      setTemplateResumeTask(task)
+      setActivePage('templates')
       setMobileOpen(false)
-      showToast('已回填到创作画布，可继续修改', 'success')
-    } else if (task.kind === 'video') {
-      // Video task: restore the topic as the video topic and reopen the studio.
-      saveStudioDraft('video', {
-        title: '',
-        topic: String(task.input.topic ?? ''),
-        content: '',
-        style: String(task.input.style ?? 'cinematic'),
-        requirement: String(task.input.requirement ?? ''),
-        tags: [],
-      })
-      setSelectedCreation(null)
-      setActivePage('create')
-      setStudio('video')
-      setMobileOpen(false)
-      showToast('已回填到视频工作台，可继续修改', 'success')
-    } else {
-      // Image task: restore the prompt as the image topic.
-      saveStudioDraft('image', {
-        title: '',
-        topic: String(task.input.prompt ?? ''),
-        content: '',
-        style: 'cinematic',
-        requirement: '',
-        tags: [],
-      })
-      setSelectedCreation(null)
-      setActivePage('create')
-      setStudio('image')
-      setMobileOpen(false)
-      showToast('已回填到图片创作画布，可继续修改', 'success')
+      showToast('已回到原模板，可继续创作', 'success')
+      return
     }
+    if (destination.kind === 'graphic') {
+      setSelectedCreation(null)
+      setActivePage('create')
+      setStudio('graphic')
+      setStudioResumeTask(task)
+      setMobileOpen(false)
+      showToast('已回到公众号创作工作台', 'success')
+      return
+    }
+    const studio = destination.studio
+    saveStudioDraft(studio, {
+      title: String(resumeState.title ?? ''),
+      topic: String(resumeState.topic ?? task.input.topic ?? task.input.prompt ?? ''),
+      content: String(resumeState.content ?? task.result.text ?? ''),
+      style: String(resumeState.style ?? task.input.style ?? 'cinematic'),
+      requirement: String(resumeState.requirement ?? task.input.requirement ?? ''),
+      tags: Array.isArray(resumeState.tags) ? resumeState.tags.filter((item): item is string => typeof item === 'string') : [],
+    })
+    setSelectedCreation(null)
+    setTemplateResumeTask(null)
+    setStudioResumeTask(task)
+    setActivePage('create')
+    setStudio(studio)
+    setMobileOpen(false)
+    showToast('已回到原创作工作台，可继续修改', 'success')
   }
 
   const saveCreation = async (draft: CreationDraft): Promise<CreationRecord | null> => {
@@ -251,11 +274,11 @@ export function PaipiangeRoot() {
         )}
         <main id="pa-main-content" className="pa-content" ref={mainRef} tabIndex={-1}>
           <ErrorBoundary resetKey={`${activePage}:${studio ?? ''}`}>
-            {activePage === 'home' && !studio && <HomePage inspirationIndex={inspirationIndex} activeCategory={activeCategory} creations={creations} onCategory={setActiveCategory} onShuffle={shuffleInspiration} onOpenStudio={openStudio} onOpenCreation={openCreation} onNavigate={navigate} onToast={showToast} />}
+            {activePage === 'home' && !studio && <HomePage inspirationIndex={inspirationIndex} activeCategory={activeCategory} creations={creations} carouselImages={carouselImages} carouselIntervalMs={carouselIntervalMs} onCategory={setActiveCategory} onShuffle={shuffleInspiration} onOpenStudio={openStudio} onOpenCreation={openCreation} onNavigate={navigate} onToast={showToast} />}
             {activePage === 'create' && !studio && <CreateHub onOpenStudio={openStudio} />}
-            {studio === 'graphic' && <GraphicStudioPage onBack={() => { setStudio(null); setSelectedCreation(null) }} onToast={showToast} />}
-            {studio && studio !== 'graphic' && <StudioPage studio={studio} initialCreation={selectedCreation} onBack={() => { setStudio(null); setSelectedCreation(null) }} onSave={saveCreation} onToast={showToast} />}
-            {activePage !== 'home' && activePage !== 'create' && !studio && <WorkspacePage page={activePage} creations={creations} storageSource={storageSource} onNavigate={navigate} onOpenStudio={openStudio} onOpenCreation={openCreation} onStatus={setCreationStatus} onDelete={deleteCreation} onToast={showToast} onRefresh={refreshCreations} theme={theme} onThemeChange={changeTheme} onResumeTask={resumeTask} />}
+            {studio === 'graphic' && <GraphicStudioPage onBack={() => { setStudio(null); setSelectedCreation(null); setStudioResumeTask(null) }} onToast={showToast} />}
+            {studio && studio !== 'graphic' && <StudioPage studio={studio} initialCreation={selectedCreation} resumeTask={studioResumeTask} onResumeConsumed={() => setStudioResumeTask(null)} onBack={() => { setStudio(null); setSelectedCreation(null); setStudioResumeTask(null) }} onSave={saveCreation} onToast={showToast} />}
+            {activePage !== 'home' && activePage !== 'create' && !studio && <WorkspacePage page={activePage} creations={creations} storageSource={storageSource} onNavigate={navigate} onOpenStudio={openStudio} onOpenCreation={openCreation} onStatus={setCreationStatus} onDelete={deleteCreation} onToast={showToast} onRefresh={refreshCreations} theme={theme} onThemeChange={changeTheme} onResumeTask={resumeTask} templateResumeTask={templateResumeTask} onTemplateResumeConsumed={() => setTemplateResumeTask(null)} />}
           </ErrorBoundary>
         </main>
       </div>

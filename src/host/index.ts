@@ -1,6 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { spawn } from 'node:child_process'
 import { PaipiangeDatabase } from './storage/database'
@@ -22,6 +22,11 @@ import { generateText, generateTextDirect } from './textgen/textGenService'
 import type { TextGenRequest } from './textgen/textGenService'
 import type { LlmService } from './textgen/types'
 import { startSse } from './textgen/sse'
+import { WechatPublishService } from './publish/WechatPublishService'
+import { normalizeTaskOrigin } from './taskOrigin'
+import type { BackupPolicy } from './storage/SettingsRepository'
+import { GenerationQueue } from './queue/GenerationQueue'
+import { registerGenerationHandlers } from './queue/generationHandlers'
 
 export const name = 'paipiange'
 
@@ -38,14 +43,9 @@ export interface Config {
   dataRoot?: string
   /** Absolute path to a PowerShell script that restarts the dsh desktop app. */
   restartScript?: string
+  /** Maximum number of durable generation jobs running at the same time. */
+  queueConcurrency?: number
 }
-
-/**
- * Default restart script path (developer machine). Used by the "restore backup"
- * flow to relaunch dsh so the restored database takes effect. Override via
- * `config.restartScript` when deploying to another machine.
- */
-const DEFAULT_RESTART_SCRIPT = 'D:/code/zmt/工作台/scripts/restart-dsh.ps1'
 
 /** The official Harness web-server route shape (`kind: 'exact'`). */
 interface WebServerService {
@@ -90,12 +90,19 @@ export async function apply(ctx: Context, config: Config = {}) {
     // 内置参考图 seed 失败属于非致命问题，忽略并继续启动。
   }
 
+  try {
+    await runAutomaticBackup(storage, settings)
+  } catch {
+    // 自动备份失败不阻断插件启动；用户仍可在设置中手动创建备份。
+  }
+
   const inspirations = new InspirationRepository(storage.db)
   const publish = new PublishRepository(storage.db)
   const exports = new ExportService(storage.paths)
   const tasks = new TaskRepository(storage.db)
   const graphicSessions = new GraphicSessionRepository(storage.db)
   const analytics = new AnalyticsRepository(storage.db)
+  const wechat = new WechatPublishService(() => settings.getWechatChannelConfig())
 
   // The image-gen service is rebuilt on demand from the latest saved config so
   // a newly saved backend takes effect without a plugin restart.
@@ -105,6 +112,11 @@ export async function apply(ctx: Context, config: Config = {}) {
       comfyui: settings.getComfyUiConfig() ?? undefined,
       backends: settings.listBackendsWithSecrets(),
     })
+
+  const generationQueue = registerGenerationHandlers(
+    new GenerationQueue(tasks, { concurrency: config.queueConcurrency ?? 2 }),
+    { assets, settings, buildImageGen, llm: host.llm },
+  )
 
   // Trust gate: when the `connection` service exposes `requestRejection`, use it
   // to reject any request the host does not trust. When absent, fall back to the
@@ -145,6 +157,71 @@ export async function apply(ctx: Context, config: Config = {}) {
     )
 
     // ---- Backups: create / list / download (private data safety net) ----
+
+    disposers.push(
+      webServer.register({
+        kind: 'exact',
+        path: '/api/paipiange.backup.policy',
+        async handler(req, res) {
+          if (trust) {
+            const rejection = trust(req)
+            if (rejection !== undefined) {
+              await sendWebResponse(res, Response.json({ error: '未授权' }, { status: 401 }))
+              return
+            }
+          }
+          if (req.method === 'GET') {
+            await sendWebResponse(res, Response.json({ policy: settings.getBackupPolicy() }))
+            return
+          }
+          if (req.method !== 'PATCH') {
+            await sendWebResponse(res, Response.json({ error: '方法不允许' }, { status: 405 }))
+            return
+          }
+          const request = await toWebRequest(req)
+          const body = await request.json().catch(() => null) as Partial<BackupPolicy> | null
+          if (!body) {
+            await sendWebResponse(res, Response.json({ error: '请求体无效' }, { status: 400 }))
+            return
+          }
+          await sendWebResponse(res, Response.json({ policy: settings.setBackupPolicy(body) }))
+        },
+      }),
+    )
+
+    // ---- Home carousel: get / set the home page hero carousel images ----
+
+    disposers.push(
+      webServer.register({
+        kind: 'exact',
+        path: '/api/paipiange.home.carousel',
+        async handler(req, res) {
+          if (trust) {
+            const rejection = trust(req)
+            if (rejection !== undefined) {
+              await sendWebResponse(res, Response.json({ error: '未授权' }, { status: 401 }))
+              return
+            }
+          }
+          if (req.method === 'GET') {
+            await sendWebResponse(res, Response.json({ carousel: settings.getHomeCarousel() }))
+            return
+          }
+          if (req.method !== 'PATCH') {
+            await sendWebResponse(res, Response.json({ error: '方法不允许' }, { status: 405 }))
+            return
+          }
+          const request = await toWebRequest(req)
+          const body = await request.json().catch(() => null) as Partial<{ assetIds: string[]; intervalMs: number; includeDefault: boolean }> | null
+          if (!body) {
+            await sendWebResponse(res, Response.json({ error: '请求体无效' }, { status: 400 }))
+            return
+          }
+          const carousel = settings.setHomeCarousel(body)
+          await sendWebResponse(res, Response.json({ carousel }))
+        },
+      }),
+    )
 
     // Create a consistent SQLite backup snapshot.
     disposers.push(
@@ -292,9 +369,9 @@ export async function apply(ctx: Context, config: Config = {}) {
             await sendWebResponse(res, Response.json({ error: '方法不允许' }, { status: 405 }))
             return
           }
-          const script = config.restartScript ?? DEFAULT_RESTART_SCRIPT
-          if (!existsSync(script)) {
-            await sendWebResponse(res, Response.json({ error: `重启脚本不存在：${script}` }, { status: 500 }))
+          const script = config.restartScript?.trim() || process.env.PAIPIANGE_RESTART_SCRIPT?.trim() || ''
+          if (!script || !existsSync(script)) {
+            await sendWebResponse(res, Response.json({ error: '未配置可用的重启脚本，请手动重启 Harness，或在插件配置中设置 restartScript' }, { status: 500 }))
             return
           }
           await sendWebResponse(res, Response.json({ ok: true }))
@@ -313,6 +390,33 @@ export async function apply(ctx: Context, config: Config = {}) {
 
     // Text-gen provider discovery: list the routes the Harness `llm` service has
     // registered so the client can offer a picker instead of a free-text field.
+    disposers.push(
+      webServer.register({
+        kind: 'exact',
+        path: '/api/paipiange.video.styles',
+        async handler(req, res) {
+          if (trust) {
+            const rejection = trust(req)
+            if (rejection !== undefined) {
+              await sendWebResponse(res, Response.json({ error: '未授权' }, { status: 401 }))
+              return
+            }
+          }
+          // 返回风格资产库（分类 + 风格元信息），供前端视频风格选择器消费。
+          const { listCategories, listStyles } = await import('./videogen/styles/index')
+          const categories = listCategories()
+          const styles = listStyles().map((s) => ({
+            id: s.id,
+            en: s.en,
+            cn: s.cn,
+            category: s.category,
+            essence: s.essence,
+          }))
+          await sendWebResponse(res, Response.json({ categories, styles }))
+        },
+      }),
+    )
+
     disposers.push(
       webServer.register({
         kind: 'exact',
@@ -373,7 +477,7 @@ export async function apply(ctx: Context, config: Config = {}) {
           let task: ReturnType<TaskRepository['start']> | null = null
           try {
             const request = await toWebRequest(req)
-            const body = await request.json().catch(() => null) as (TextGenRequest & { baseUrl?: string; apiKey?: string; backendId?: string }) | null
+            const body = await request.json().catch(() => null) as (TextGenRequest & { baseUrl?: string; apiKey?: string; backendId?: string; origin?: unknown; clientRequestId?: string }) | null
             if (!body || !body.topic) {
               send('error', { message: '缺少 topic' })
               send('done', '')
@@ -383,6 +487,7 @@ export async function apply(ctx: Context, config: Config = {}) {
             // Record this generation attempt (success or failure) for later review.
             task = tasks.start({
               kind: 'text',
+              clientRequestId: body.clientRequestId,
               modelId: body.model?.trim() || null,
               input: {
                 studio: body.studio,
@@ -393,6 +498,7 @@ export async function apply(ctx: Context, config: Config = {}) {
                 model: body.model,
                 backendId: body.backendId,
                 direct: !!(body.baseUrl?.trim()),
+                origin: normalizeTaskOrigin(body.origin),
               },
             })
 
@@ -431,6 +537,7 @@ export async function apply(ctx: Context, config: Config = {}) {
                 text: result.text,
                 usage: result.usage,
                 finishReason: result.finishReason,
+                elapsedMs: task.startedAt ? Date.now() - new Date(task.startedAt).getTime() : 0,
               }, directModel)
               send('usage', result.usage)
               send('finish', { reason: result.finishReason })
@@ -478,6 +585,7 @@ export async function apply(ctx: Context, config: Config = {}) {
               text: result.text,
               usage: result.usage,
               finishReason: result.finishReason,
+              elapsedMs: task.startedAt ? Date.now() - new Date(task.startedAt).getTime() : 0,
             }, model)
             send('usage', result.usage)
             send('finish', { reason: result.finishReason })
@@ -487,7 +595,10 @@ export async function apply(ctx: Context, config: Config = {}) {
             const message = error instanceof Error ? error.message : String(error)
             if (task) {
               try {
-                tasks.markFailed(task.id, 'textgen', message)
+                if (/取消|aborted/i.test(message)) tasks.markCancelled(task.id)
+                else tasks.markFailed(task.id, 'textgen', message, {
+                  elapsedMs: task.startedAt ? Date.now() - new Date(task.startedAt).getTime() : 0,
+                })
               } catch {
                 // task recording must never break the stream
               }
@@ -529,16 +640,28 @@ export async function apply(ctx: Context, config: Config = {}) {
             topic?: string
             subtitle?: string
             style?: string
+            styleId?: string
+            multiScene?: boolean
+            sceneCount?: number
+            voice?: string
+            ttsProxy?: string
+            music?: boolean
             aspectRatio?: '16:9' | '9:16' | '1:1'
             durationSec?: number
             fps?: number
             provider?: string
             model?: string
             backendId?: string
-            engine?: 'llm' | 'comfyui'
+            engine?: 'llm' | 'comfyui' | 'remotion'
+            remotionStyle?: string
+            remotionBgmMode?: string
+            remotionVoiceId?: string
+            remotionQuality?: string
             baseUrl?: string
             apiKey?: string
             sourceCreationId?: string
+            origin?: unknown
+            clientRequestId?: string
           } | null
           if (!body || !body.topic?.trim()) {
             send('error', { message: '缺少主题文案 topic' })
@@ -548,7 +671,8 @@ export async function apply(ctx: Context, config: Config = {}) {
 
           let task: ReturnType<TaskRepository['start']> | null = null
           try {
-            const engine: 'llm' | 'comfyui' = body.engine === 'comfyui' ? 'comfyui' : 'llm'
+            const engine: 'llm' | 'comfyui' | 'remotion' =
+              body.engine === 'comfyui' ? 'comfyui' : body.engine === 'remotion' ? 'remotion' : 'llm'
 
             // Resolve the ComfyUI backend config when engine=comfyui.
             let comfyuiConfig: { server: string; checkpoint?: string; unet?: string; clip?: string; vae?: string } | undefined
@@ -575,6 +699,7 @@ export async function apply(ctx: Context, config: Config = {}) {
 
             task = tasks.start({
               kind: 'video',
+              clientRequestId: body.clientRequestId,
               creationId: body.sourceCreationId ?? null,
               modelId: body.model?.trim() || null,
               input: {
@@ -586,6 +711,9 @@ export async function apply(ctx: Context, config: Config = {}) {
                 fps: body.fps ?? 24,
                 provider: body.provider ?? '',
                 model: body.model ?? '',
+                backendId: body.backendId ?? '',
+                engine,
+                origin: normalizeTaskOrigin(body.origin),
               },
             })
 
@@ -613,6 +741,12 @@ export async function apply(ctx: Context, config: Config = {}) {
                 topic: body.topic.trim(),
                 subtitle: body.subtitle?.trim(),
                 style: body.style?.trim(),
+                styleId: body.styleId?.trim(),
+                multiScene: body.multiScene === true,
+                sceneCount: body.sceneCount,
+                voice: body.voice?.trim() || undefined,
+                ttsProxy: body.ttsProxy?.trim() || undefined,
+                music: body.music,
                 aspectRatio: body.aspectRatio,
                 durationSec: body.durationSec,
                 fps: body.fps,
@@ -620,6 +754,10 @@ export async function apply(ctx: Context, config: Config = {}) {
                 model,
                 engine,
                 comfyui: comfyuiConfig,
+                remotionStyle: body.remotionStyle?.trim() || undefined,
+                remotionBgmMode: body.remotionBgmMode?.trim() || undefined,
+                remotionVoiceId: body.remotionVoiceId?.trim() || undefined,
+                remotionQuality: body.remotionQuality?.trim() || undefined,
               },
               {
                 signal: request.signal,
@@ -636,6 +774,9 @@ export async function apply(ctx: Context, config: Config = {}) {
                       break
                     case 'comfy':
                       send('progress', { stage: 'comfy', frame: p.frame, total: p.total })
+                      break
+                    case 'scene':
+                      send('progress', { stage: 'scene', scene: p.scene, total: p.total, message: p.message })
                       break
                     case 'encode':
                       send('progress', { stage: 'encode', message: p.message })
@@ -669,6 +810,7 @@ export async function apply(ctx: Context, config: Config = {}) {
                 totalFrames: result.totalFrames,
                 usedFallback: result.usedFallback,
                 rounds: result.rounds,
+                elapsedMs: task.startedAt ? Date.now() - new Date(task.startedAt).getTime() : 0,
               },
               model,
             )
@@ -678,7 +820,10 @@ export async function apply(ctx: Context, config: Config = {}) {
             const message = error instanceof Error ? error.message : String(error)
             if (task) {
               try {
-                tasks.markFailed(task.id, 'videogen', message)
+                if (/取消|aborted/i.test(message)) tasks.markCancelled(task.id)
+                else tasks.markFailed(task.id, 'videogen', message, {
+                  elapsedMs: task.startedAt ? Date.now() - new Date(task.startedAt).getTime() : 0,
+                })
               } catch {
                 // recording must not mask the real error
               }
@@ -691,7 +836,7 @@ export async function apply(ctx: Context, config: Config = {}) {
     )
 
     registerApiRoutes(
-      { creations, settings, assets, templates, inspirations, publish, exports, tasks, graphicSessions, analytics, buildImageGen, llm: host.llm },
+      { creations, settings, assets, templates, inspirations, publish, exports, tasks, queue: generationQueue, graphicSessions, analytics, wechat, buildImageGen, llm: host.llm },
       (path, methods, handler) => {
         disposers.push(
           webServer.register({
@@ -732,7 +877,10 @@ export async function apply(ctx: Context, config: Config = {}) {
     throw error
   }
 
+  generationQueue.start()
+
   ctx.effect(() => () => {
+    generationQueue.stop()
     for (const dispose of disposers.reverse()) {
       try {
         dispose()
@@ -742,4 +890,23 @@ export async function apply(ctx: Context, config: Config = {}) {
     }
     storage.close()
   }, 'paipiange.sqlite')
+}
+
+async function runAutomaticBackup(storage: PaipiangeDatabase, settings: SettingsRepository): Promise<void> {
+  const policy = settings.getBackupPolicy()
+  if (!policy.enabled) return
+  const lastRun = policy.lastRunAt ? Date.parse(policy.lastRunAt) : 0
+  const intervalMs = policy.intervalDays * 24 * 60 * 60 * 1000
+  if (lastRun > 0 && Date.now() - lastRun < intervalMs) return
+
+  await storage.createBackup('paipiange-auto')
+  settings.setBackupPolicy({ lastRunAt: new Date().toISOString() })
+
+  const automatic = readdirSync(storage.paths.backups)
+    .filter((filename) => filename.startsWith('paipiange-auto-') && filename.endsWith('.sqlite'))
+    .map((filename) => ({ filename, mtime: statSync(join(storage.paths.backups, filename)).mtimeMs }))
+    .sort((a, b) => b.mtime - a.mtime)
+  for (const stale of automatic.slice(policy.retention)) {
+    rmSync(join(storage.paths.backups, stale.filename), { force: true })
+  }
 }

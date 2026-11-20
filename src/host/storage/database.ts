@@ -53,8 +53,9 @@ export class PaipiangeDatabase {
     }
   }
 
-  async createBackup() {
-    const filename = `paipiange-backup-${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID()}.sqlite`
+  async createBackup(prefix = 'paipiange-backup') {
+    const safePrefix = prefix.replace(/[^a-zA-Z0-9-]/g, '-').replace(/^-+|-+$/g, '') || 'paipiange-backup'
+    const filename = `${safePrefix}-${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID()}.sqlite`
     const destination = resolvePrivatePath(this.paths.backups, filename)
     await this.db.backup(destination)
     return { filename: basename(destination), path: destination }

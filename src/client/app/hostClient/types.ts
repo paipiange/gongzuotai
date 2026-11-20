@@ -62,6 +62,16 @@ export interface GeneratedImageResult {
   sizeBytes: number
 }
 
+export type GenerationOriginKind = 'studio' | 'template' | 'graphic'
+
+/** Stable resume contract persisted with every generation task. Never contains credentials or image data URLs. */
+export interface GenerationOrigin {
+  kind: GenerationOriginKind
+  id: string
+  label?: string
+  state?: Record<string, unknown>
+}
+
 export interface TemplateRecord {
   id: string
   category: string
@@ -98,10 +108,88 @@ export interface PublishItem {
   status: PublishStatus
   exportPath: string | null
   externalUrl: string | null
+  externalId: string | null
+  lastError: string | null
+  retryCount: number
+  lastCheckedAt: string | null
   exportedAt: string | null
   publishedAt: string | null
   createdAt: string
   updatedAt: string
+}
+
+export interface PublishAttempt {
+  id: string
+  publishItemId: string | null
+  platform: PublishPlatform
+  action: string
+  status: 'running' | 'success' | 'failed'
+  mediaId: string | null
+  errorMessage: string | null
+  retryNo: number
+  request: Record<string, unknown>
+  result: Record<string, unknown>
+  startedAt: string
+  finishedAt: string | null
+  createdAt: string
+}
+
+export interface PublishVersion {
+  id: string
+  publishItemId: string
+  versionNo: number
+  title: string
+  bodyMd: string
+  bodyHtml: string
+  snapshot: Record<string, unknown>
+  createdAt: string
+}
+
+export interface PublishChecklistItem {
+  key: string
+  label: string
+  passed: boolean
+  message: string
+}
+
+export interface PublishDetail {
+  item: PublishItem
+  attempts: PublishAttempt[]
+  versions: PublishVersion[]
+  checklist: PublishChecklistItem[]
+}
+
+export interface WechatChannelSummary {
+  configured: boolean
+  appId: string
+  defaultAuthor: string
+  hasAppSecret: boolean
+}
+
+export interface ComicPublishImage {
+  dataUrl: string
+  caption: string
+}
+
+export interface WechatDraftInput {
+  title: string
+  author?: string
+  digest?: string
+  footer?: string
+  images: ComicPublishImage[]
+  coverDataUrl: string
+  publishItemId?: string
+}
+
+export interface WechatStickerInput {
+  title: string
+  images: ComicPublishImage[]
+  publishItemId?: string
+}
+
+export interface WechatDraftResult {
+  mediaId: string
+  imageCount: number
 }
 
 export interface AssetRecord {
@@ -115,6 +203,7 @@ export interface AssetRecord {
   tags: string[]
   sourceCreationId: string | null
   createdAt: string
+  deletedAt?: string | null
 }
 
 export type TextStudio = 'article' | 'headline' | 'marketing' | 'xiaohongshu'
@@ -225,10 +314,16 @@ export interface GraphicSession {
 }
 
 export interface AssetStorageStats {
+  activeCount: number
+  activeBytes: number
+  byKind: Record<'image' | 'file' | 'prompt' | 'document', { count: number; bytes: number }>
   deletedCount: number
   deletedBytes: number
   orphanCount: number
   orphanBytes: number
+  duplicateGroupCount: number
+  duplicateCount: number
+  duplicateBytes: number
 }
 
 export interface BackupRecord {
@@ -237,8 +332,23 @@ export interface BackupRecord {
   createdAt: string
 }
 
+export interface BackupPolicy {
+  enabled: boolean
+  intervalDays: number
+  retention: number
+  lastRunAt: string | null
+}
+
+/** 首页轮播图配置（客户端投影）。assetIds 为空表示未配置，回退默认图。 */
+export interface HomeCarouselConfig {
+  assetIds: string[]
+  intervalMs: number
+  /** 是否把内置默认图纳入轮播（默认 true）。 */
+  includeDefault: boolean
+}
+
 export type TaskKind = 'text' | 'image' | 'video'
-export type TaskStatus = 'running' | 'success' | 'failed'
+export type TaskStatus = 'queued' | 'running' | 'paused' | 'success' | 'failed' | 'cancelled'
 
 export interface TaskRecord {
   id: string
@@ -251,6 +361,12 @@ export interface TaskRecord {
   errorMessage: string | null
   input: Record<string, unknown>
   result: Record<string, unknown>
+  priority: number
+  attempt: number
+  retryCount: number
+  maxAttempts: number
+  availableAt: string | null
+  heartbeatAt: string | null
   startedAt: string | null
   finishedAt: string | null
   createdAt: string

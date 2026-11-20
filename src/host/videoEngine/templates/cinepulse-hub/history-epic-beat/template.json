@@ -1,0 +1,93 @@
+{
+  "id": "history-epic-beat",
+  "order": 1,
+  "name": "历史高燃卡点 · 赭金剪影战神史诗（霍去病同款）",
+  "category": "history-theater",
+  "genre": "history-theater",
+  "genreLabel": "历史剪影高燃卡点动画",
+  "style": "cinematic",
+  "engine": "remotion",
+  "narrationMode": "subtitle-mv",
+  "pacingMode": "dynamic",
+  "subtitleStyle": "cinematic",
+  "aspectRatio": "16:9",
+  "fps": 30,
+  "shotCount": 53,
+  "durationSec": 123.3,
+  "avgShotSec": 2.33,
+  "bpm": 90,
+  "description": "53 镜纯音乐高燃历史卡点模板（免配音旁白）：赭金逆光日轮、汉军骑兵冲锋、国号赤旗、红黑战局推进地图、弯月刀光与冲击波特效，90 BPM 精准 0.5~4 拍快切 + 193 处 48kHz 战斗打击音效，一键替换为任意历史名将/帝王题材。",
+  "tags": [
+    "历史高燃",
+    "纯音乐卡点",
+    "53 镜快剪",
+    "90 BPM",
+    "剪影骑兵地图"
+  ],
+  "colorPalette": {
+    "background": "#140F13",
+    "primary": "#B65330",
+    "accent": "#D8B365",
+    "highlight": "#FFF0BC"
+  },
+  "vfxSignature": [
+    "日轮光晕与扇形放射光束，配合橙红至紫灰天空的分层渐变",
+    "兵器交击处的白金放射火星、短促斩击亮线与少量红色命中粒子",
+    "跨画面的金色斜向剑光与落点亮斑，强调骑兵冲锋的方向和力量",
+    "稀疏浮尘、夜空星点与地表薄雾，结合前中后景差速移动制造空间"
+  ],
+  "transitionSignature": [
+    "slash-wipe",
+    "flash-cut",
+    "zoom-punch"
+  ],
+  "replicationPrompt": "制作154.05秒、1280×720、30fps的秦统一主题二维剪影历史短片。以黑色君王、持戈士兵、骑兵、车驾和旗阵为主体，采用分件骨骼动画、循环步态及前后景差速平移，禁止写实三维。背景使用赭红夕照、紫灰远山、扁平横云、巨大日轮与扇形光束；交战加入白金火星、斜向剑光和少量红色粒子。按地图、灭国、追击、称帝、文字统一、长城、巡行、竹牌总结推进。全片约45镜，平均3.42秒，安排8次不足1秒的短切，最短约0.66秒；以斩切、亮闪和短促推近作复刻转场。按90BPM组织旁白与配乐，规划4处高潮，位置由内容决定，不冒充实测时间点。底部单行粗宋体米白字幕，朱红标国家与转折，金黄标制度关键词；高潮快切，解释段留足阅读时间。",
+  "audioProfile": {
+    "profileName": "朔风铁骑·汉旌雷鼓",
+    "sampleRateHz": 48000,
+    "beatCutIntensity": "high",
+    "cameraBeatIntensity": 0.95,
+    "targetLufs": -14.5,
+    "bgmDuckRatio": 2.6,
+    "duckingEnabled": false,
+    "voiceTrackEnabled": false,
+    "sfxMix": "保留原BGM起音与高潮结构 音效短促叠加 不以旁白触发压低配乐",
+    "sfxPalette": {
+      "opener": [
+        "hit",
+        "shimmer_swell"
+      ],
+      "drop": [
+        "sub_drop",
+        "crash_cym",
+        "hit"
+      ],
+      "action": [
+        "whoosh",
+        "slash",
+        "swoosh"
+      ],
+      "data": [
+        "counter",
+        "tick",
+        "stamp"
+      ],
+      "neutral": [
+        "whoosh",
+        "pop_soft"
+      ],
+      "internal": [
+        "sparkle",
+        "bell_warm"
+      ],
+      "preCut": [
+        "riser",
+        "suck"
+      ]
+    }
+  },
+  "author": "Merziller",
+  "plaza": "影核广场 · CinePulse Hub",
+  "coverFile": "cover.png",
+  "updatedAt": "2026-11-19T19:50:19.576Z"
+}

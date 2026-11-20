@@ -1,5 +1,5 @@
 import type { GeneratedImage, ImageGenProvider, ImageGenRequest, LlmImageConfig } from './types'
-import { downscaleDataUrlIfNeeded } from './pngCompose'
+import { composeSideBySide, downscaleDataUrlIfNeeded } from './pngCompose'
 
 /** 单次图生图请求（一次尝试）的上限。OpenAI 兼容网关实测 40~70s，设 90s 覆盖正常慢请求、又不会干等挂死。 */
 const IMAGE_GEN_TIMEOUT_MS = 90_000
@@ -31,8 +31,22 @@ export class OpenAICompatImageProvider implements ImageGenProvider {
     const count = Math.max(1, Math.min(request.count ?? 1, 4))
     const base = this.config.baseUrl.replace(/\/+$/, '')
     // 参考图过大时先等比缩小，降低上游网关图生图接口的处理耗时与超时概率。
-    const references = (request.images?.length ? request.images : request.image ? [request.image] : [])
+    let references = (request.images?.length ? request.images : request.image ? [request.image] : [])
       .map((ref) => downscaleDataUrlIfNeeded(ref, REFERENCE_MAX_DIM))
+
+    // OpenAI-compatible edit endpoints standardize on one `image` field. Some
+    // gateways accept `image2`, but two independent edit inputs make the
+    // upstream render substantially slower and can cross Cloudflare's 504
+    // deadline. The couple template already supplies two PNG identity anchors,
+    // so merge that exact pair into one reference, matching the ComfyUI path.
+    if (references.length === 2) {
+      try {
+        references = [composeSideBySide(references[0], references[1])]
+      } catch {
+        // Non-PNG or unsupported PNG variants retain the existing multi-part
+        // behavior instead of dropping either user-provided reference.
+      }
+    }
 
     if (references.length) {
       return this.generateEditWithRetry(base, references, request, count, signal)

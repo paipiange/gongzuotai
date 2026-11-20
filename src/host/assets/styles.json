@@ -1,0 +1,4052 @@
+{
+  "categories": [
+    {
+      "id": "3d-and-miniature",
+      "en": "3D & Miniature",
+      "cn": "立体微缩"
+    },
+    {
+      "id": "cartoons",
+      "en": "Cartoons",
+      "cn": "卡通动画"
+    },
+    {
+      "id": "data-and-maps",
+      "en": "Data & Maps",
+      "cn": "数据地图"
+    },
+    {
+      "id": "edit-and-documentary",
+      "en": "Edit & Documentary",
+      "cn": "剪辑纪实"
+    },
+    {
+      "id": "film-and-tape",
+      "en": "Film & Tape",
+      "cn": "胶片录像"
+    },
+    {
+      "id": "games",
+      "en": "Games",
+      "cn": "电子游戏"
+    },
+    {
+      "id": "graphic-and-type",
+      "en": "Graphic & Type",
+      "cn": "平面排版"
+    },
+    {
+      "id": "instruments-and-evidence",
+      "en": "Instruments & Evidence",
+      "cn": "仪器实证"
+    },
+    {
+      "id": "light-and-lines",
+      "en": "Light & Lines",
+      "cn": "发光线条"
+    },
+    {
+      "id": "line-diagrams",
+      "en": "Line Diagrams",
+      "cn": "线稿图解"
+    },
+    {
+      "id": "painting-and-illustration",
+      "en": "Painting & Illustration",
+      "cn": "绘画插画"
+    },
+    {
+      "id": "print-and-printmaking",
+      "en": "Print & Printmaking",
+      "cn": "印刷版画"
+    },
+    {
+      "id": "screens-and-interfaces",
+      "en": "Screens & Interfaces",
+      "cn": "屏幕界面"
+    },
+    {
+      "id": "sketch-and-board",
+      "en": "Sketch & Board",
+      "cn": "速写板书"
+    },
+    {
+      "id": "traditional-crafts",
+      "en": "Traditional Crafts",
+      "cn": "传统工艺"
+    }
+  ],
+  "styles": [
+    {
+      "id": "archive-lighttable",
+      "en": "Archive Light Table",
+      "cn": "档案看片台",
+      "category": "instruments-and-evidence",
+      "essence": "电报说最长飞了 57 秒；放大镜下，莱特兄弟的底片和档案说是 59 秒。",
+      "uses": [
+        "Brand history",
+        "Archive stories",
+        "Museums"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "art-deco",
+      "en": "Art Deco",
+      "cn": "装饰艺术",
+      "category": "graphic-and-type",
+      "essence": "装饰艺术（Art Deco）风格的几何奢华：对称放射、金色描边、扇形和阶梯，像《了不起的盖茨比》片头。",
+      "uses": [
+        "高端品牌宣传",
+        "发布会开场",
+        "复古奢华氛围"
+      ],
+      "essenceTraits": [
+        "标志性元素：放射线、扇形、阶梯形、对称几何、金色与黑色",
+        "奢华、精致、复古的 1920s 摩登感",
+        "对称构图是核心，几何图案严格对称",
+        "金属质感（金、银、铜）+ 深色底，有光泽感"
+      ],
+      "notThese": [
+        "不是包豪斯（Art Deco 更华丽、更装饰），不是新艺术（Art Deco 更几何、更硬朗），不是现代极简"
+      ],
+      "materials": [
+        "金色、金属质感的描边和图案，有光泽和反光",
+        "深色底（黑、深绿、深紫、酒红）衬托金色",
+        "几何图案：放射线、扇形、锯齿、阶梯、菱形",
+        "字体是 Art Deco 风格的细长几何字"
+      ],
+      "colorLogic": [
+        "黑/深色底 + 金/银/铜金属色为主",
+        "点缀色用深红、翠绿、宝蓝等宝石色",
+        "强烈的明暗对比，突出金属光泽"
+      ],
+      "typeRules": [
+        "Art Deco 风格字体：细长、几何、有装饰性",
+        "标题大字居中或对称排列",
+        "文字可做金色描边或金属质感"
+      ],
+      "motion": [
+        "几何图案对称展开、放射，有仪式感",
+        "金色描边「描绘」出来，图案生长",
+        "镜头缓慢推近，突出奢华细节"
+      ],
+      "camera": [
+        "对称构图，镜头居中推拉",
+        "旋转对称图案，展示几何美感",
+        "缓慢运镜，体现优雅节奏"
+      ],
+      "sound": [
+        "爵士乐、摇摆乐，有 1920s 的奢华感",
+        "金属质感的音效（叮、铛）",
+        "整体华丽、优雅"
+      ],
+      "nativeMoves": [
+        "放射展开：从中心向四周放射出几何图案",
+        "描边生长：金色线条一笔笔描绘出图案",
+        "镜面展开：图案对称地左右/上下展开"
+      ],
+      "pitfalls": [
+        "几何不够对称，丢失 Art Deco 的秩序感",
+        "配色太俗（金色滥用到刺眼）",
+        "字体不是 Art Deco 风格，破坏统一"
+      ],
+      "variation": [
+        "主题：片头、海报、邀请函均可",
+        "配色（金+黑 / 银+深蓝等）可调",
+        "图案密度可调"
+      ]
+    },
+    {
+      "id": "ascii-crt",
+      "en": "CRT ASCII Terminal",
+      "cn": "CRT 字符终端",
+      "category": "film-and-tape",
+      "essence": "月球基地的 AI 沉睡 40 年后被唤醒，用字符画出“家”来回复。",
+      "uses": [
+        "Developer tools",
+        "Sci-fi",
+        "Tech brands"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "assembly-line-diagram",
+      "en": "Assembly-Line Diagram",
+      "cn": "流水线图解",
+      "category": "line-diagrams",
+      "essence": "把人体剖成一座倒着开的工厂：12:30 的一份三明治被一站一站拆开，六小时后变成追公交车的力气。",
+      "uses": [
+        "How a process works",
+        "Biology and medicine",
+        "Supply chains and pipelines"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "backrooms",
+      "en": "Liminal Found Footage",
+      "cn": "后室录像带",
+      "category": "film-and-tape",
+      "essence": "新夜班员工拍下入职第一晚：无尽的黄色办公空间，和墙上的员工守则。",
+      "uses": [
+        "Horror",
+        "Mystery & ARG",
+        "Game teasers"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "bauhaus-shapes",
+      "en": "Bauhaus Shapes",
+      "cn": "包豪斯几何",
+      "category": "graphic-and-type",
+      "essence": "包豪斯风格的几何构成：圆形、三角、方形的理性排列，三原色 + 黑白，功能主义美学。",
+      "uses": [
+        "设计/艺术类宣传",
+        "品牌视觉",
+        "现代主义讲解"
+      ],
+      "essenceTraits": [
+        "核心元素：圆、三角、方形三种基本几何形的理性构成",
+        "标志性配色：红、黄、蓝三原色 + 黑、白",
+        "功能主义、理性、秩序，反对过度装饰",
+        "网格化排版，几何形严格对齐"
+      ],
+      "notThese": [
+        "不是 Art Deco（包豪斯更简洁理性），不是孟菲斯（包豪斯更克制），不是蒙德里安（虽然同源但包豪斯更设计化）"
+      ],
+      "materials": [
+        "纯色几何形：圆、三角、方，边缘清晰锐利",
+        "三原色（红黄蓝）+ 黑白的平涂色块",
+        "网格、线条、尺度标注等设计元素",
+        "简洁的无衬线字体（如几何无衬线）"
+      ],
+      "colorLogic": [
+        "红、黄、蓝三原色 + 黑、白，绝不混色",
+        "色块平涂、边界清晰，无渐变",
+        "大面积留白，几何形是焦点"
+      ],
+      "typeRules": [
+        "几何无衬线字体，理性简洁",
+        "文字参与构图，与几何形对齐",
+        "可有大字排版，体现现代主义"
+      ],
+      "motion": [
+        "几何形滑动、旋转、对齐，有机械理性感",
+        "元素按网格「就位」，体现秩序",
+        "节奏克制，不花哨"
+      ],
+      "camera": [
+        "正面对称构图为主",
+        "几何形平移、旋转，展示构成",
+        "镜头稳定，突出理性秩序"
+      ],
+      "sound": [
+        "电子、极简配乐，有现代感",
+        "几何形就位时的清脆音效",
+        "整体克制、理性"
+      ],
+      "nativeMoves": [
+        "构成落位：几何形逐个滑入网格就位",
+        "旋转对齐：几何形旋转到精确角度",
+        "三色切换：元素在红黄蓝之间切换"
+      ],
+      "pitfalls": [
+        "配色超出三原色+黑白，破坏包豪斯纯粹",
+        "几何形不对齐，丢失秩序感",
+        "加过度装饰，违背功能主义"
+      ],
+      "variation": [
+        "构图：海报、封面、界面均可",
+        "几何形组合方式可调",
+        "是否加网格/标注可切换"
+      ]
+    },
+    {
+      "id": "blueprint",
+      "en": "Blueprint",
+      "cn": "工程蓝图",
+      "category": "line-diagrams",
+      "essence": "深蓝底上的白色工程图纸，用精确的线、标注、尺寸和符号展示构造，像一张放大的蓝图。",
+      "uses": [
+        "结构/流程讲解",
+        "工程原理科普",
+        "产品设计说明"
+      ],
+      "essenceTraits": [
+        "深蓝底（蓝图蓝）+ 白线，这是蓝图的灵魂配色，任何东西画在白线上立刻有工程感",
+        "线是精确的：直线、圆、弧、虚线，有明确的尺寸标注和符号",
+        "信息分层：轮廓实线、辅助虚线、标注线、尺寸数字各有规范",
+        "有「图纸」的仪式感：标题栏、比例尺、图号、边框"
+      ],
+      "notThese": [
+        "不是白底黑线的普通线稿，不是自由手绘草图（要保持工程精度），不是 CAD 软件的原始界面"
+      ],
+      "materials": [
+        "蓝底是深蓝到藏蓝的渐变，带轻微的纸张颗粒",
+        "白线是主角，可以用不同粗细区分轮廓/辅助/标注",
+        "尺寸线带箭头、延长线和数字，符号（圆、叉、三角）规范",
+        "局部可加淡青色高亮，标出当前讲解的区域"
+      ],
+      "colorLogic": [
+        "主色只有两种：深蓝图底 + 白线",
+        "强调色用淡青/黄，只用于高亮当前讲解对象",
+        "禁止引入其他彩色，保持蓝图纯粹"
+      ],
+      "typeRules": [
+        "数字和标注用等宽字体，像图签里的字",
+        "尺寸数字、图号、比例尺都是图纸的一部分",
+        "文字水平放置，避免旋转，保持工程规范"
+      ],
+      "motion": [
+        "线条「绘制」出来，像绘图仪在画线，从起点到终点生长",
+        "标注依次出现，尺寸线展开、数字落定",
+        "高亮区域扫过，聚焦当前讲解部分"
+      ],
+      "camera": [
+        "镜头像在图纸上平移，跟随讲解顺序",
+        "推近看局部细节，拉远看整体结构",
+        "转场用「换一张图纸」的翻页感"
+      ],
+      "sound": [
+        "绘图仪画线的机械声、纸张翻动声",
+        "标注落定的轻微「嗒」声",
+        "安静、专注，符合工程制图的气质"
+      ],
+      "nativeMoves": [
+        "线条生长：白线从起点到终点一笔画成",
+        "尺寸展开：延长线拉出，尺寸数字浮现",
+        "爆炸展开：零件从装配体沿轴线分离，展示装配关系"
+      ],
+      "pitfalls": [
+        "线画得随意、不精确，丢失工程感",
+        "颜色乱入，破坏蓝图的纯粹配色",
+        "标注过多导致画面拥挤"
+      ],
+      "variation": [
+        "图纸类型：机械、建筑、电路均可",
+        "蓝底深浅可调",
+        "是否用爆炸图、剖面图可切换"
+      ]
+    },
+    {
+      "id": "brick-toy",
+      "en": "Brick Toy",
+      "cn": "积木玩具",
+      "category": "3d-and-miniature",
+      "essence": "积木宇航员用零件拼出火箭，飞向积木月亮。",
+      "uses": [
+        "Toys & kids",
+        "Product builds",
+        "Space"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "briefing-board",
+      "en": "Engineering Briefing Board",
+      "cn": "工程简报板",
+      "category": "instruments-and-evidence",
+      "essence": "一条河要架桥，四种桥型在一面简报墙上逐个受检，拍板的是桥下要过的船。",
+      "uses": [
+        "Engineering",
+        "Option comparisons",
+        "Briefings"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "caption-news",
+      "en": "Caption News",
+      "cn": "字幕新闻",
+      "category": "edit-and-documentary",
+      "essence": "大字标题字幕压住真实画面，画面关掉声音也能看懂，数字带来源证据，钩子在前 4 帧砸下。",
+      "uses": [
+        "资讯/科普短片",
+        "数据新闻发布",
+        "社会议题传播"
+      ],
+      "essenceTraits": [
+        "先关声音：每个信息点靠画面+字幕就能懂，旁白只加节奏",
+        "字幕即镜头：一行大字分两三块砸入，一个关键词用黄底块",
+        "证据上屏：每个数字带来源标签，关键数字先在原始文档里高亮",
+        "第 4 帧钩子：全片最大数字在开头 0.15s 内滚到目标值",
+        "一个反转：坏消息钩子被一个改变其意义的事实回应"
+      ],
+      "notThese": [
+        "不是数据叙事（图表是镜头间的短插，不是整片不是仪表盘）；不是电视新闻包装（无主播、无下沿滚动、无演播室）；不是幻灯片（无标题页无翻页）"
+      ],
+      "materials": [
+        "真实画面素材垫底，字幕大字压在画面上",
+        "来源标签滑入，画面角落带「Video:」式来源",
+        "数字在原始文档中先高亮再放大",
+        "关键词黄底块突出"
+      ],
+      "colorLogic": [
+        "字幕以黑/白为主，关键词用单一强调色（黄）",
+        "画面本身的色彩即素材色彩，不加滤镜堆色",
+        "强调色只留给最关键的词和数字"
+      ],
+      "typeRules": [
+        "中文字幕大字（一行），英文一行在下",
+        "数字巨大，是视觉主角",
+        "来源标签小字，克制"
+      ],
+      "motion": [
+        "字幕分块「砸」入，有冲击力",
+        "数字滚动到目标值，是核心动效",
+        "节奏快，一镜一个新事实"
+      ],
+      "camera": [
+        "镜头以素材剪辑为主，字幕带动节奏",
+        "关键数字推近高亮",
+        "转场用字幕切换、画面快切"
+      ],
+      "sound": [
+        "旁白加节奏不加信息",
+        "关键数字落点配强调音效",
+        "节奏感强的配乐"
+      ],
+      "nativeMoves": [
+        "大数字砸屏：全片最大数字开场滚出",
+        "证据高亮：数字在原始文档中圈出",
+        "反转落地：一个事实翻转坏消息"
+      ],
+      "pitfalls": [
+        "字幕和画面信息重复冗余",
+        "数字没有来源，丢失可信度",
+        "做成满屏图表，丢失「字幕压画面」的冲击"
+      ],
+      "variation": [
+        "题材：任何有数字和事实的议题",
+        "字幕字号、强调色位置",
+        "素材来源与节奏"
+      ]
+    },
+    {
+      "id": "cel-anime-80s",
+      "en": "80s Cel Anime",
+      "cn": "80 年代赛璐璐动画",
+      "category": "cartoons",
+      "essence": "快递少女骑车穿过雨后霓虹都市，赶在黎明发射前送到一盘磁带。",
+      "uses": [
+        "Music videos",
+        "Game trailers",
+        "Nostalgia"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "chalkboard",
+      "en": "Chalkboard",
+      "cn": "黑板粉笔",
+      "category": "sketch-and-board",
+      "essence": "深绿色哑光黑板上，粉笔按笔画顺序书写，白色为主+一支强调色粉笔，知识在教室黑板上一笔一划呈现。",
+      "uses": [
+        "教育讲解",
+        "知识科普",
+        "复古课堂风"
+      ],
+      "essenceTraits": [
+        "干净刚擦过的黑板，深绿哑光，有细腻颗粒",
+        "粉笔按笔画顺序书写，有起笔压力和收笔",
+        "最多三种粉笔：白（结构）+ 一个强调色 + 一支淡色",
+        "真实教室物件：木框、粉笔槽、田字格、滑板",
+        "字少而大，讲解靠口述"
+      ],
+      "notThese": [
+        "不是白板（那是光面彩色马克笔+磁贴+旧痕）；不是幻灯片（没有排版淡入）"
+      ],
+      "materials": [
+        "深绿哑光板面，细腻颗粒和极慢的斑驳",
+        "粉笔书写：沿中线按笔顺，起笔重、收笔轻、捺脚散开、钩甩出",
+        "木框、粉笔槽、粉笔头、田字格",
+        "粉笔灰的细微颗粒感"
+      ],
+      "colorLogic": [
+        "白色粉笔为主，一个强调色（如黄/红）标记关键",
+        "板面深绿是背景，粉笔色是主角",
+        "粉笔色纯度高但不刺眼"
+      ],
+      "typeRules": [
+        "粉笔手写体，字大而清晰",
+        "关键词放大，辅助小字",
+        "田字格、板书结构"
+      ],
+      "motion": [
+        "粉笔按笔顺书写，是核心动效",
+        "擦写：擦掉旧的写新的",
+        "节奏舒缓，像上课"
+      ],
+      "camera": [
+        "镜头正对黑板，书写时微移",
+        "推近看笔迹细节，拉远看整板",
+        "转场用擦写过渡"
+      ],
+      "sound": [
+        "粉笔在黑板上书写的「嗒嗒」声",
+        "板擦声、粉笔断裂声",
+        "旁白（教学口吻）"
+      ],
+      "nativeMoves": [
+        "笔顺书写：粉笔一笔一划按顺序写",
+        "擦写重写：擦掉旧内容重写",
+        "粉笔落灰：写时粉笔灰飘落"
+      ],
+      "pitfalls": [
+        "做成彩色马克笔的白板，丢失粉笔质感",
+        "字太小太密，丢失「少而大」",
+        "粉笔书写没有笔顺和压力，显得假"
+      ],
+      "variation": [
+        "讲解主题任意",
+        "板面颜色深浅、强调色",
+        "教室环境物件"
+      ]
+    },
+    {
+      "id": "circuit-board",
+      "en": "Circuit Board",
+      "cn": "电路板",
+      "category": "light-and-lines",
+      "essence": "江河变成电路板上的走线，电流从水坝跑 2,080 公里进手机充电器。",
+      "uses": [
+        "Energy",
+        "Supply chains",
+        "Devices"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "city-symphony",
+      "en": "City Symphony",
+      "cn": "城市交响曲",
+      "category": "edit-and-documentary",
+      "essence": "纽约的一天：延时光河、踩着十六分音符的网格，1899 年和今天并排。",
+      "uses": [
+        "City films",
+        "Music montages",
+        "Openers"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "colored-pencil",
+      "en": "Colored-Pencil Science Illustration",
+      "cn": "彩铅科普插画",
+      "category": "painting-and-illustration",
+      "essence": "彩色铅笔科普插画，精细的排线和渐变，剖面图展示内部结构，科学图鉴的严谨美感。",
+      "uses": [
+        "科普讲解",
+        "自然/生物题材",
+        "教育短片"
+      ],
+      "essenceTraits": [
+        "彩色铅笔的精细排线和渐变",
+        "剖面图（cutaway）是标志性构图",
+        "科学图鉴的严谨和美感",
+        "细腻、克制、有耐心"
+      ],
+      "notThese": [
+        "不是水彩（无晕染，色调靠排线）；不是蜡笔（彩铅精细，蜡笔粗粝）；不是城市速写（无墨线+淡彩）"
+      ],
+      "materials": [
+        "彩铅排线，色调靠排线密度",
+        "剖面图：地上景观+地下切面",
+        "精细的渐变和层次",
+        "纸张纹理"
+      ],
+      "colorLogic": [
+        "彩铅的柔和色调",
+        "排线叠加出丰富层次",
+        "克制配色，一个重点色"
+      ],
+      "typeRules": [
+        "文字如手写标注，科学图鉴风",
+        "标题清晰，标注严谨",
+        "字幕说明结构"
+      ],
+      "motion": [
+        "彩铅排线逐层叠加",
+        "剖面图揭开，展现内部",
+        "节奏舒缓，讲解感"
+      ],
+      "camera": [
+        "镜头推近看排线细节",
+        "剖面图的展开",
+        "转场用铅笔画过过渡"
+      ],
+      "sound": [
+        "铅笔在纸上的沙沙声",
+        "轻柔配乐",
+        "旁白讲解"
+      ],
+      "nativeMoves": [
+        "排线成色：彩铅排线叠出颜色",
+        "剖面揭开：切面展开显内部",
+        "标注浮现：科学标注逐条出现"
+      ],
+      "pitfalls": [
+        "做成水彩晕染，丢失排线质感",
+        "颜色太艳太满，丢失克制",
+        "剖面图不清晰，丢失科普性"
+      ],
+      "variation": [
+        "题材：生物、地质、机械",
+        "排线密度",
+        "配色方案"
+      ]
+    },
+    {
+      "id": "comic-history",
+      "en": "Comic History Cartoon",
+      "cn": "搞笑历史卡通",
+      "category": "cartoons",
+      "essence": "阿尔萨斯-洛林在 1871 到 1945 年间四次换主人：每次都有人撕下那块纸、贴上新的，住在上面的她一步没挪。",
+      "uses": [
+        "Territorial changes in history",
+        "Light explainers on geopolitics",
+        "Market share and turf-war stories"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "countdown",
+      "en": "Live Countdown Split-screen",
+      "cn": "实时倒计时分屏",
+      "category": "edit-and-documentary",
+      "essence": "阿尔忒弥斯二号发射的最后一分钟，一秒不剪：格子从 1 开到 9，点火合成 1。",
+      "uses": [
+        "Launches",
+        "Countdowns",
+        "Live events"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "crayon-book",
+      "en": "Crayon Picture Book",
+      "cn": "蜡笔儿童绘本",
+      "category": "painting-and-illustration",
+      "essence": "蜡笔儿童绘本，粗粝的蜡笔涂色，稚拙的线条，温暖天真的童趣世界。",
+      "uses": [
+        "儿童教育",
+        "温馨叙事",
+        "童趣品牌"
+      ],
+      "essenceTraits": [
+        "蜡笔的粗粝涂色，笔触明显",
+        "稚拙的线条，天真烂漫",
+        "温暖明亮的配色",
+        "儿童绘本的构图和叙事"
+      ],
+      "notThese": [
+        "不是彩铅（彩铅精细，蜡笔粗粝）；不是水彩（无晕染，蜡笔涂色）；不是成人插画（有稚拙感）"
+      ],
+      "materials": [
+        "蜡笔粗粝涂色，笔触可见",
+        "稚拙线条，不规则",
+        "纸张纹理、蜡笔颗粒",
+        "儿童绘本的简单构图"
+      ],
+      "colorLogic": [
+        "温暖明亮的配色",
+        "蜡笔的柔和色调",
+        "颜色涂不满，留白透气"
+      ],
+      "typeRules": [
+        "文字如儿童手写体，稚拙",
+        "标题可爱，绘本风",
+        "字幕简单温馨"
+      ],
+      "motion": [
+        "蜡笔涂色逐笔涂满",
+        "稚拙的动画节奏",
+        "温馨缓慢"
+      ],
+      "camera": [
+        "镜头如翻绘本页",
+        "推近看蜡笔笔触",
+        "转场用翻页过渡"
+      ],
+      "sound": [
+        "蜡笔涂色的沙沙声",
+        "八音盒、童趣音乐",
+        "旁白讲故事"
+      ],
+      "nativeMoves": [
+        "涂色成画：蜡笔逐笔涂满",
+        "翻页成景：绘本翻页换景",
+        "稚拙动起来：涂色人物动起来"
+      ],
+      "pitfalls": [
+        "做成彩铅的精细排线，丢失蜡笔粗粝",
+        "颜色太成熟，丢失童趣",
+        "线条太规整，丢失稚拙"
+      ],
+      "variation": [
+        "题材：童话、日常、自然",
+        "蜡笔颜色",
+        "稚拙程度"
+      ]
+    },
+    {
+      "id": "crayon-world",
+      "en": "Crayon World 3D",
+      "cn": "蜡笔立体世界",
+      "category": "3d-and-miniature",
+      "essence": "第一人称飞过蜡笔画的村子，落在老人花园里的一朵花上；最后换成他的眼睛，和他说的一句话。",
+      "uses": [
+        "Short stories",
+        "Tributes",
+        "Journeys"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "dark-documentary",
+      "en": "Radar Sweep Documentary",
+      "cn": "雷达扫描纪录片",
+      "category": "instruments-and-evidence",
+      "essence": "1969 年 7 月 21 日帕克斯的风暴里，一面放倒到极限的 64 米天线顶住了风，替全世界接住了登月直播。",
+      "uses": [
+        "History of science and engineering",
+        "Archaeology, sites and reconstructions",
+        "Astronomy, deep space and survey"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "dark-keynote",
+      "en": "Dark Tech Keynote",
+      "cn": "暗色科技发布",
+      "category": "screens-and-interfaces",
+      "essence": "深色舞台上，聚光灯下的发布会讲台，大字口号 + 产品特写 + 数据翻牌，科技大厂的发布现场感。",
+      "uses": [
+        "产品发布会/宣传片",
+        "科技品牌片",
+        "融资/路演短片"
+      ],
+      "essenceTraits": [
+        "深色背景（黑/深灰）+ 舞台聚光，主体被光打亮",
+        "大字标语是视觉主角，节奏感强",
+        "产品特写镜头，材质光泽细腻",
+        "数据翻牌、数字滚动、图表浮现"
+      ],
+      "notThese": [
+        "不是浅色商务 PPT（那是幻灯片页）；不是扁平 MG 动画（有舞台纵深和光）；不是全息科幻（没有过度的发光 UI）"
+      ],
+      "materials": [
+        "深色舞台，聚光灯、体积光、烟雾粒子",
+        "产品材质：金属、玻璃、哑光，高光细腻",
+        "大字标语排版精良，字重和间距考究",
+        "数据可视化：翻牌、柱状、折线浮现"
+      ],
+      "colorLogic": [
+        "背景深黑，主体靠聚光提亮",
+        "主色一个品牌色（如蓝/金），点缀在关键数据",
+        "高光白 + 品牌色 + 深黑三色体系"
+      ],
+      "typeRules": [
+        "大字标语是主角，巨大、居中或偏左",
+        "数据数字大而清晰，单位小字",
+        "中文用无衬线黑体，英文配衬线或几何体"
+      ],
+      "motion": [
+        "标语逐字浮现、产品缓缓旋转",
+        "数据翻牌滚动、图表生长",
+        "镜头推拉配合节奏，有呼吸感",
+        "转场用光斑、烟雾、粒子过渡"
+      ],
+      "camera": [
+        "镜头缓缓推近讲台，或环绕产品特写",
+        "大远景建立舞台，特写看细节",
+        "灯光切换带动镜头切换"
+      ],
+      "sound": [
+        "低音铺底 + 渐强的节奏鼓点",
+        "产品落位、数据翻牌的清脆音效",
+        "人声旁白（发布会口吻）"
+      ],
+      "nativeMoves": [
+        "标语揭幕：大字从暗处点亮",
+        "产品登场：产品从阴影旋出",
+        "数据翻牌：关键数字滚动定格"
+      ],
+      "pitfalls": [
+        "做成浅色商务 PPT 翻页，丢失舞台纵深",
+        "过度发光 UI，混同科幻全息",
+        "数据太多太密，丢失大标语冲击"
+      ],
+      "variation": [
+        "产品类型：硬件、软件、服务",
+        "品牌色与舞台氛围",
+        "标语与数据的比重"
+      ]
+    },
+    {
+      "id": "data-physical",
+      "en": "Data Physical",
+      "cn": "数据实物化",
+      "category": "data-and-maps",
+      "essence": "把抽象数据变成真实可触摸的实物（积木、硬币、小球），用物理世界的物体数量、高度、大小来表达数据。",
+      "uses": [
+        "数据科普、对比演示",
+        "调查报告讲解",
+        "概念可视化"
+      ],
+      "essenceTraits": [
+        "数据用「实物」表达：积木堆叠、硬币排列、小球数量、液体高度",
+        "实物是真实质感的（木头、金属、玻璃），而非抽象图表",
+        "通过实物的数量、大小、高低直观对比数据",
+        "有「手作」的温度感，像实验演示"
+      ],
+      "notThese": [
+        "不是传统的柱状图/饼图（虽然原理类似，但用实物表达），不是纯数字动画，不是写实广告片"
+      ],
+      "materials": [
+        "实物：积木、硬币、小球、液体、纸张等，有真实材质",
+        "物理规律：堆叠、倾倒、倒入、排列，有真实物理感",
+        "桌面/工作台背景，有实验或手作氛围",
+        "光影真实，物体有投影和倒影"
+      ],
+      "colorLogic": [
+        "实物的自然材质色（木色、金属色）+ 少量强调色",
+        "背景干净，突出实物",
+        "数据对比靠实物的颜色或大小区分"
+      ],
+      "typeRules": [
+        "数据标签简洁，标注在实物旁",
+        "文字像实验记录或手写标签",
+        "避免复杂排版，保持「演示」感"
+      ],
+      "motion": [
+        "实物逐块堆叠、排列，展示数据增长",
+        "液体倒入、硬币投下，有真实物理动效",
+        "镜头展示实物的对比（高低、多少）"
+      ],
+      "camera": [
+        "俯视或 45° 角展示桌面实物",
+        "推近看单个实物的细节",
+        "平移对比不同组的实物"
+      ],
+      "sound": [
+        "实物碰撞的清脆声（积木、硬币）",
+        "液体倒入、纸张翻动声",
+        "有「手作」的亲切感"
+      ],
+      "nativeMoves": [
+        "积木堆叠：一块块积木堆高，直观表达增长",
+        "硬币倾倒：一把硬币倒入容器，展示数量",
+        "液体升降：液面随数据升降"
+      ],
+      "pitfalls": [
+        "实物质感做假，丢失「真实可触摸」感",
+        "物理规律错误（堆积、倾倒不合理）",
+        "数据表达不直观，观众看不懂"
+      ],
+      "variation": [
+        "实物类型：积木、硬币、小球、液体均可",
+        "数据主题可调",
+        "场景（桌面/工作台）可调"
+      ]
+    },
+    {
+      "id": "dataviz",
+      "en": "Data Storytelling",
+      "cn": "数据叙事",
+      "category": "data-and-maps",
+      "essence": "图表就是影片本身：每一个标记都是真实数字，每一次运动都是有意义的图表操作，用一支铅笔把数据一笔笔画出来讲成故事。",
+      "uses": [
+        "数据报告、行业洞察",
+        "财报解读、涨跌分析",
+        "科普讲解、调研结论"
+      ],
+      "essenceTraits": [
+        "画面主体永远是图表，数字是真实的、可追溯的，改的是「叙事框架」而不是数字本身",
+        "每个标记落地、坐标轴生长、刻度变化、序列变形，都是一次有语义的图表操作",
+        "三个叙事层让它成为「故事」而非「信息图」：人的尺度（手写批注钉在标记旁）、表演者（一支真实铅笔画出每个标记）、数据可听化（每个标记是一个音高）",
+        "一次只讲一个观点，绝不做仪表盘式的信息轰炸"
+      ],
+      "notThese": [
+        "不是仪表盘（多图堆叠），不是带图表的演示文稿（没有分页），不是装饰性的假图表"
+      ],
+      "materials": [
+        "纸是暖米色、固定种子的纤维噪声 + 淡淡的点阵网格，墨是暖黑（轴线/系列）+ 淡暖灰（网格/零线）",
+        "数据点带一圈细墨环，让浅色值在米色纸上依然可见",
+        "手写体文字带逐字抖动和石墨颗粒，像铅笔尖在字高上跳舞写出来",
+        "一支红蓝双色铅笔：笔身六角、蓝半红半、削尖的木锥，只露出笔尖，从右下角探入"
+      ],
+      "colorLogic": [
+        "纸米白 + 暖黑墨为基调，强调色留给数据系列（通常 1~2 个高饱和色）",
+        "零线、网格用淡暖灰，绝不抢数据标记的风头",
+        "红蓝铅笔的双色是「批注层」的专属色，与数据序列色分开"
+      ],
+      "typeRules": [
+        "轴刻度用等宽字体，手写批注用手写体（逐字抖动）",
+        "数字必须清晰可读，标注「钉」在标记旁，用弯曲的引导线连到未闭合的小圈",
+        "标题像手写在纸上的批注，而不是排版软件的大字"
+      ],
+      "motion": [
+        "标记落地的瞬间有短促的「啪」和细涟漪，标记间隔 <0.1s 时抑制涟漪避免抖动",
+        "坐标轴生长、刻度逐格显现、比例尺切换，都按数据语义驱动",
+        "铅笔是「表演者」：笔尖移动画出每个标记，笔影随抬笔变远变柔"
+      ],
+      "camera": [
+        "镜头稳定，像俯视一张铺在桌面的数据稿纸",
+        "需要强调时推近某个标记，配合手写批注放大",
+        "转场用「翻页」或「换一张稿纸」，保持「人在看数据」的临场感"
+      ],
+      "sound": [
+        "每个标记落地一个音高，趋势「先被听见再被读到」",
+        "铅笔划纸的沙沙声、翻纸声作为底噪",
+        "关键时刻用「笔尖敲击」做重音"
+      ],
+      "nativeMoves": [
+        "一笔画出趋势线：铅笔沿数据点滑过，趋势随之显现",
+        "排名条形竞速：条形按数值实时重排，像一场短跑",
+        "标记变音高：数据点依次点亮，每个点一个音，听出涨跌"
+      ],
+      "pitfalls": [
+        "堆太多图表变成仪表盘，丢失「一次一个观点」的聚焦",
+        "用假数据或随意编数字，破坏可信度",
+        "动画太快看不清数据变化，或太慢显得拖沓"
+      ],
+      "variation": [
+        "图表类型：条形、散点、折线、桑基图、地图等按数据选",
+        "纸色/墨色可调，铅笔颜色可换",
+        "是否启用数据可听化可切换"
+      ]
+    },
+    {
+      "id": "desktop-flythrough",
+      "en": "Tabletop App Flythrough",
+      "cn": "桌面卡片穿梭",
+      "category": "screens-and-interfaces",
+      "essence": "一张猫照片跳过桌上的应用卡片，从一台手机飞到朋友手机里，一镜跟到底。",
+      "uses": [
+        "App explainers",
+        "Workflows",
+        "Products"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "double-exposure",
+      "en": "Double Exposure",
+      "cn": "双重曝光",
+      "category": "film-and-tape",
+      "essence": "天黑下来的这一路，从山到海：鹿、狼、鹰、鲑鱼、鲸，每只动物的剪影里装着它的那片天地；最后鲸身体里的港湾落在真的海岸上。",
+      "uses": [
+        "Brand and city films",
+        "Documentary and series openings",
+        "Music video intros"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "engraving",
+      "en": "Copperplate Engraving",
+      "cn": "铜版画",
+      "category": "print-and-printmaking",
+      "essence": "铜版画，细密的交叉排线塑造明暗，精致典雅的蚀刻线，古典插图的细腻质感。",
+      "uses": [
+        "古典文学插图",
+        "历史题材",
+        "高端品牌叙事"
+      ],
+      "essenceTraits": [
+        "细密的交叉排线（cross-hatching）塑造明暗",
+        "蚀刻线的精致典雅",
+        "古典插图的细腻质感",
+        "线密则暗，线疏则亮，用排线表达体积"
+      ],
+      "notThese": [
+        "不是木刻（木刻粗犷黑白，铜版细腻排线）；不是铅笔素描（那是软笔触，铜版是蚀刻线）"
+      ],
+      "materials": [
+        "交叉排线塑造明暗层次",
+        "蚀刻线的精细质感",
+        "纸张纹理、油墨印痕",
+        "古典插图构图"
+      ],
+      "colorLogic": [
+        "墨黑线条 + 米黄/白纸底",
+        "排线密度控制明暗",
+        "可加单一淡色（如棕褐 sepia）"
+      ],
+      "typeRules": [
+        "文字如蚀刻字，精致",
+        "标题古典衬线体",
+        "字幕典雅"
+      ],
+      "motion": [
+        "排线逐条蚀刻显现",
+        "画面精致，节奏舒缓",
+        "可做蚀刻过程的动效"
+      ],
+      "camera": [
+        "镜头平移，展现细节",
+        "推近看排线纹理",
+        "转场用油墨过渡"
+      ],
+      "sound": [
+        "蚀刻针的沙沙声",
+        "古典弦乐",
+        "印刷的轻微声"
+      ],
+      "nativeMoves": [
+        "排线成影：交叉排线逐步刻出明暗",
+        "蚀刻成画：线条蚀刻显现",
+        "拓印成图：油墨拓印图案"
+      ],
+      "pitfalls": [
+        "做成铅笔素描的软笔触，丢失蚀刻线感",
+        "排线太粗太乱，丢失精致",
+        "灰度靠涂抹而非排线"
+      ],
+      "variation": [
+        "题材：人物、建筑、科学插图",
+        "排线密度与风格",
+        "底色选择"
+      ]
+    },
+    {
+      "id": "firefly-pointillism",
+      "en": "Firefly Pointillism",
+      "cn": "萤火光点",
+      "category": "light-and-lines",
+      "essence": "萤火虫闪一下就是在发问：女孩得到的回答是一只鹿，暴风雨吹灭了所有的光，她用最后一只问遍了整片黑夜。",
+      "uses": [
+        "Picture-book stories",
+        "Many becoming one",
+        "Night and nature lyric"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "flat-space-explainer",
+      "en": "Scale Zoom Explainer",
+      "cn": "扁平尺度漫游",
+      "category": "graphic-and-type",
+      "essence": "从宇宙到原子的尺度缩放之旅，扁平图形在不同尺度间连续缩放，展示宏大与微小。",
+      "uses": [
+        "科普讲解",
+        "尺度/规模对比片",
+        "概念演示"
+      ],
+      "essenceTraits": [
+        "连续缩放：从极大到极小尺度无缝漫游",
+        "扁平图形风格，简洁清晰",
+        "尺度是叙事主线，每层尺度一个场景",
+        "用参考物对比体现大小"
+      ],
+      "notThese": [
+        "不是 3D 真实缩放（是扁平图形）；不是数据图表（是场景漫游）；不是白板讲解（无手绘过程）"
+      ],
+      "materials": [
+        "扁平矢量图形，简洁几何",
+        "尺度层级：宇宙→星系→地球→城市→人→细胞→原子",
+        "每层尺度用参考物对比",
+        "缩放动画平滑连续"
+      ],
+      "colorLogic": [
+        "扁平配色，每层尺度可有主题色",
+        "背景随尺度切换（深空、白底等）",
+        "强调色标出关键对象"
+      ],
+      "typeRules": [
+        "尺度标注数字+单位清晰",
+        "标题简洁，正文少",
+        "字幕说明尺度关系"
+      ],
+      "motion": [
+        "连续缩放是核心，缩放平滑",
+        "图形在缩放中变形/简化",
+        "节奏可快可慢，关键尺度停留"
+      ],
+      "camera": [
+        "镜头即缩放，从大到小或从小到大",
+        "关键尺度定格展示",
+        "转场用缩放穿越"
+      ],
+      "sound": [
+        "电子音效配合缩放",
+        "节奏感配乐",
+        "旁白讲解尺度"
+      ],
+      "nativeMoves": [
+        "连续缩放：从宇宙缩到原子不断",
+        "尺度定格：关键尺度停下对比",
+        "参考物对比：硬币、足球场等参考"
+      ],
+      "pitfalls": [
+        "缩放不连续，跳变生硬",
+        "图形太复杂，丢失扁平清晰",
+        "尺度关系混乱，缺少参考物"
+      ],
+      "variation": [
+        "尺度范围与层级",
+        "配色风格",
+        "缩放起点终点"
+      ]
+    },
+    {
+      "id": "flow-field",
+      "en": "Flow-field Wind Lines",
+      "cn": "流场风线",
+      "category": "light-and-lines",
+      "essence": "几千条从最佳路径算出来的墨色风线，画出超强台风摩羯的一生：在南海睁开风眼，在文昌登陆，在越南散开，一整周最后收成一条线。",
+      "uses": [
+        "Storms, monsoons and other weather",
+        "Ocean currents and river floods",
+        "Any flow measured against a threshold"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "game-show",
+      "en": "Rhythm Game Show",
+      "cn": "节奏综艺",
+      "category": "games",
+      "essence": "把 AI 发展史做成一局节奏游戏，模型踩着拍登场，最后发成绩单。",
+      "uses": [
+        "Tech timelines",
+        "Year in review",
+        "Variety shows"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "gilded-illumination",
+      "en": "Gilded Illumination",
+      "cn": "金箔彩绘",
+      "category": "traditional-crafts",
+      "essence": "中世纪手抄本的金箔彩绘，平涂颜料+硬朗描边+贴金箔，金是真材实料而非黄色，光扫过时金箔逐片闪烁。",
+      "uses": [
+        "历史/宗教题材",
+        "古典文学改编",
+        "高端品牌叙事"
+      ],
+      "essenceTraits": [
+        "平涂色块 + 轮廓内侧深色带 + 硬朗墨线描边（非发丝线）",
+        "金箔是材质不是颜色：能看见金箔方块、接缝、破口露出的红底",
+        "白光扫过时金箔逐片闪烁，旁边颜料保持哑光——这个对比是本风格签名",
+        "铅白点在边缘和花纹上（叶簇三点、衣襟珍珠排）让平面读作「画」而非「矢量」",
+        "夜色是深群青，永不纯黑纯灰；光回来时是金箔亮起来，不是整体提亮"
+      ],
+      "notThese": [
+        "不是矢量插画（有金箔材质和铅白点）；不是 3D 渲染（世界是画的）；不是普通金色（那是黄色，不是金箔）"
+      ],
+      "materials": [
+        "金箔贴成方块，有接缝、重叠、破口露红底",
+        "铅白点在边缘和花纹，成三点簇、珍珠排",
+        "平涂颜料 + 深色内带 + 墨线描边",
+        "中世纪的画面逻辑：山是阶梯尖塔簇，天空是蓝底金星+扇贝云"
+      ],
+      "colorLogic": [
+        "金箔暖金 + 深群青夜空 + 平涂矿物颜料",
+        "金色只能是真的金箔纹理或淡色颜料，不能是平涂黄",
+        "夜色是深群青下沉到深青金石，不是黑灰"
+      ],
+      "typeRules": [
+        "文字活在画面里：卷轴、边框牌匾、题字",
+        "书法体，古朴庄重",
+        "标题如手抄本标题，带装饰首字母"
+      ],
+      "motion": [
+        "光扫过时金箔逐片闪烁，是核心动效",
+        "颜料平涂静置，金箔闪动",
+        "节奏庄重，像翻动手抄本"
+      ],
+      "camera": [
+        "镜头活在画中世界，推近看金箔细节",
+        "拉远看整幅画的构图",
+        "转场用光扫过、画面翻页"
+      ],
+      "sound": [
+        "管风琴、圣歌、古乐器",
+        "金箔翻页的沙沙声",
+        "庄严氛围"
+      ],
+      "nativeMoves": [
+        "金光扫过：光掠过金箔逐片闪亮",
+        "贴金显圣：金箔贴上瞬间亮起",
+        "开卷成画：手抄本展开画面"
+      ],
+      "pitfalls": [
+        "金色做成平涂黄，丢失金箔材质",
+        "描边太细（发丝线），丢失硬朗感",
+        "夜色做成纯黑，丢失深群青的层次"
+      ],
+      "variation": [
+        "题材：宗教、历史、神话",
+        "金箔密度与闪烁节奏",
+        "画面繁简"
+      ]
+    },
+    {
+      "id": "glass-product",
+      "en": "Glass Product",
+      "cn": "玻璃质感产品",
+      "category": "3d-and-miniature",
+      "essence": "用玻璃质感的产品渲染展示产品，透光、折射、高光、倒影，像高端产品广告的静物棚拍。",
+      "uses": [
+        "产品发布、宣传片",
+        "科技产品展示",
+        "高端品牌视觉"
+      ],
+      "essenceTraits": [
+        "产品有真实的玻璃/金属/塑料质感，重点在光：高光、折射、倒影、焦散",
+        "纯色渐变背景 + 柔光棚拍氛围，产品是唯一焦点",
+        "镜头缓慢环绕产品，展示每个角度的细节",
+        "光影精致，高光锐利、阴影柔和，有高级感"
+      ],
+      "notThese": [
+        "不是卡通扁平的产品图标，不是白色无光的产品图，不是带杂乱背景的实拍"
+      ],
+      "materials": [
+        "玻璃：透明、折射、菲涅尔高光、焦散光斑",
+        "金属：镜面反射、拉丝质感、锐利高光",
+        "背景是纯色渐变或柔和棚拍背景，地面有产品倒影",
+        "灯光是精心布置的：主光、轮廓光、柔光箱"
+      ],
+      "colorLogic": [
+        "背景用低饱和纯色或渐变，衬托产品",
+        "产品本身的材质色是主角，高光提亮轮廓",
+        "整体色调统一，避免花哨的彩色光源"
+      ],
+      "typeRules": [
+        "文字极少，通常只有产品名或一句 slogan",
+        "文字用极简无衬线，放在留白处",
+        "避免字幕遮挡产品细节"
+      ],
+      "motion": [
+        "镜头缓慢环绕或推拉，展示产品",
+        "产品可缓慢旋转，光线随之变化",
+        "部件展示：镜头推进到某个部件，放大细节"
+      ],
+      "camera": [
+        "环绕运镜展示产品全貌",
+        "推近展示材质细节（高光、折射）",
+        "低角度仰拍突出产品气场"
+      ],
+      "sound": [
+        "安静的电子配乐，有科技感",
+        "产品旋转或部件展示时配柔和的音效",
+        "整体干净、高级，无嘈杂音"
+      ],
+      "nativeMoves": [
+        "光扫过：一束光扫过产品表面，高光依次点亮",
+        "部件分离：产品拆开悬浮展示内部",
+        "焦散光斑：光透过玻璃投射出美丽的光斑"
+      ],
+      "pitfalls": [
+        "玻璃质感做假（没有折射/高光），像塑料",
+        "背景太乱抢了产品的焦点",
+        "光线死板，没有棚拍的层次感"
+      ],
+      "variation": [
+        "产品类型：手机、耳机、化妆品、车均可",
+        "背景色可调",
+        "灯光氛围（冷/暖）可调"
+      ]
+    },
+    {
+      "id": "halftone-dossier",
+      "en": "Halftone Dossier",
+      "cn": "网点档案",
+      "category": "print-and-printmaking",
+      "essence": "橘猫胖橘被立案审查：测试重力、凌晨跑酷，最后无罪释放。",
+      "uses": [
+        "Humour",
+        "Pet content",
+        "Social shorts"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "hardcore-info",
+      "en": "Line-Art Cutaway",
+      "cn": "线稿剖面图解",
+      "category": "line-diagrams",
+      "essence": "一部手机握住底角就掉信号；拆开才发现金属边框就是天线，被切成几段，手一握就把缝连上了。",
+      "uses": [
+        "Hardware explainers",
+        "Product engineering",
+        "Science education"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "hd-2d",
+      "en": "2.5D Pixel Art",
+      "cn": "2.5D 像素",
+      "category": "games",
+      "essence": "灯塔熄灭，孙女提着最后一簇火穿过夜林、爬上风暴悬崖。",
+      "uses": [
+        "Game trailers",
+        "Fantasy",
+        "Story films"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "hologram-hud",
+      "en": "Sci-fi Hologram HUD",
+      "cn": "科幻全息界面",
+      "category": "screens-and-interfaces",
+      "essence": "电助力车被扫描成全息线框，目标框依次锁定电池、电机、刹车。",
+      "uses": [
+        "Spec walkthroughs",
+        "Launch videos",
+        "Trade shows"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "impasto",
+      "en": "Impasto Oil Painting",
+      "cn": "油画厚涂",
+      "category": "painting-and-illustration",
+      "essence": "油画厚涂，颜料堆叠出立体笔触，刮刀和画笔的痕迹清晰可见，浓郁厚重的质感。",
+      "uses": [
+        "艺术风格片",
+        "情感叙事",
+        "高端品牌"
+      ],
+      "essenceTraits": [
+        "颜料厚涂堆叠，笔触立体",
+        "刮刀和画笔的痕迹清晰",
+        "浓郁厚重的色彩质感",
+        "颜料堆叠形成光影"
+      ],
+      "notThese": [
+        "不是水彩（水彩透明轻薄，油画厚重）；不是平涂插画（没有立体笔触）；不是照片滤镜油画（笔触是真实堆叠）"
+      ],
+      "materials": [
+        "厚涂颜料，立体笔触",
+        "刮刀痕迹、画笔笔触",
+        "颜料的堆叠、混合、皴擦",
+        "画布纹理"
+      ],
+      "colorLogic": [
+        "浓郁厚重的色彩",
+        "颜料混合出丰富层次",
+        "堆叠的颜料形成光影"
+      ],
+      "typeRules": [
+        "文字可做厚涂字",
+        "标题浓郁有力",
+        "字幕少，让画面说话"
+      ],
+      "motion": [
+        "笔触堆叠、颜料混合",
+        "刮刀刮擦的过程",
+        "节奏可慢可快，情感驱动"
+      ],
+      "camera": [
+        "镜头推近看笔触立体感",
+        "拉远看整体画面",
+        "转场用颜料晕开过渡"
+      ],
+      "sound": [
+        "画笔在画布的沙沙声",
+        "刮刀的刮擦声",
+        "情感配乐"
+      ],
+      "nativeMoves": [
+        "厚涂成画：颜料堆叠出形体",
+        "刮刀塑形：刮刀刮出立体",
+        "颜料混合：颜色在画布上混合"
+      ],
+      "pitfalls": [
+        "做成平涂，丢失厚涂的立体笔触",
+        "笔触太均匀，丢失刮刀和画笔的痕迹",
+        "颜色太薄太淡，丢失浓郁厚重"
+      ],
+      "variation": [
+        "题材：风景、人物、静物",
+        "厚涂程度",
+        "色彩浓淡"
+      ]
+    },
+    {
+      "id": "ink-wash",
+      "en": "Chinese Ink Wash",
+      "cn": "中国水墨",
+      "category": "traditional-crafts",
+      "essence": "黑墨在暖色宣纸上晕染成画，五色墨分浓淡，留白即意境，事物是被「画」出来而非剪贴出来的。",
+      "uses": [
+        "国风品牌片、文化讲解",
+        "诗词/古风剧情短片",
+        "东方美学产品发布"
+      ],
+      "essenceTraits": [
+        "画面大部分是留白的纸（水、天、雾、留白），主体靠墨色深浅和留白衬出",
+        "没有西方素描式的轮廓线，形体靠笔触本身的浓淡边缘（没骨法）成立",
+        "全片只允许一种红色——朱砂印章，其余全是黑白灰的墨",
+        "墨分五色：焦、浓、重、淡、清，由重到轻排列，远山/雾用最淡的清墨"
+      ],
+      "notThese": [
+        "不是水彩（没有彩色晕染），不是套了笔刷纹理的矢量图（没有平涂和闭合描边），不是书法片头"
+      ],
+      "materials": [
+        "宣纸是程序生成的：暖色纸底、云斑、长纤维、纸浆颗粒，拉远时颗粒自然变淡",
+        "墨是笔触透明度叠在纸上（不是叠加图层），按五色分层",
+        "笔触 = 中线 × 压力曲线 × 宽度噪声，带 4~60 根鬃毛，墨量随笔程递减，长距离会断墨",
+        "湿笔在合成阶段做边缘晕开（噪点模糊 + 边缘颜料堆积），干笔只留飞白的鬃毛痕迹",
+        "飞白（飞白）：快速干笔处纸底从鬃毛缝隙透出"
+      ],
+      "colorLogic": [
+        "唯一彩色是朱砂印章红，其余严格限定在黑白灰五色墨",
+        "纸底是暖白，墨是冷黑，对比形成「纸白墨黑」的层次",
+        "远淡近浓：距离越远墨色越淡，制造空气透视"
+      ],
+      "typeRules": [
+        "文字用书法体或楷书，标题可作大字题款，正文小字如落款",
+        "落款 + 印章在画面角落，是画面的组成部分而非浮层字幕",
+        "字幕宜少而雅，避免现代黑体大字破坏水墨氛围"
+      ],
+      "motion": [
+        "笔触以「一笔一划」的方式生长，笔画沿中线逐步显现",
+        "墨晕开、湿笔洇染是核心动效，干笔飞白瞬间扫出",
+        "整体节奏舒缓，像手卷缓缓展开，忌快节奏闪切"
+      ],
+      "camera": [
+        "镜头像在画卷上游走，横向平移展开长卷",
+        "推近看笔触细节，拉远看留白布局",
+        "转场用墨迹晕染、山水晕开过渡到下一景"
+      ],
+      "sound": [
+        "古琴、箫、竹笛等传统乐器，留白处可有环境静默",
+        "笔触落纸的沙沙声、墨滴声作为音效",
+        "印章落下的「啪」是重音节点"
+      ],
+      "nativeMoves": [
+        "一笔成型：一条线一笔画出山川轮廓，笔锋起落一气呵成",
+        "墨染成景：一滴墨晕开成一棵树、一座山",
+        "印章定局：朱砂印章落下，画面定格为成品"
+      ],
+      "pitfalls": [
+        "把水墨做成彩色插画或矢量描边，丢失「没骨」的笔触感",
+        "飞白和湿晕两种笔法混用不当，画面显得脏或碎",
+        "文字用现代黑体或太多字幕，破坏留白的意境"
+      ],
+      "variation": [
+        "题材：山水、花鸟、人物、城市水墨均可",
+        "纸张：宣纸、皮纸、绢本，质地与暖度可调",
+        "墨色浓度与朱砂的位置可自定义"
+      ]
+    },
+    {
+      "id": "instruction-manual",
+      "en": "Instruction Manual Art",
+      "cn": "说明书插画",
+      "category": "line-diagrams",
+      "essence": "两个从没装过家具的新手照说明书装婴儿床，十步排在同一张 45° 说明书上；第十步，说明书里没有。",
+      "uses": [
+        "Assembly and set-up guides",
+        "Safety instructions",
+        "Product onboarding"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "ipad-sketch",
+      "en": "Tablet Sketch Explainer",
+      "cn": "平板速写讲解",
+      "category": "sketch-and-board",
+      "essence": "杯里的咖啡变成一颗红果子，再一路走回杯子：成熟、晒干、烘焙、磨粉，一张铅笔速写页上一次换一种颜色。",
+      "uses": [
+        "Food & drink explainers",
+        "Craft and how-to",
+        "Lifestyle science"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "iso-infographic",
+      "en": "Isometric Infographic",
+      "cn": "等距信息图",
+      "category": "line-diagrams",
+      "essence": "等距视角的信息图，用等距的图标、建筑、流程把复杂信息组织成清晰的立体图解。",
+      "uses": [
+        "流程/结构讲解",
+        "数据图解",
+        "产品/系统介绍"
+      ],
+      "essenceTraits": [
+        "等距视角的信息图，图标和元素都是等距的立体造型",
+        "用等距图标、建筑、连接线组织复杂信息",
+        "色彩分区清晰，一个模块一个主题色",
+        "既像图解又像立体场景，信息密度高但不乱"
+      ],
+      "notThese": [
+        "不是平面信息图（有立体感），不是写实 3D 场景（是图解），不是等距游戏场景（是信息组织）"
+      ],
+      "materials": [
+        "等距的图标、模块、建筑，几何规整",
+        "连接线、箭头、标注线组织信息流向",
+        "色块分区，每个模块有明确的颜色",
+        "轻量的立体阴影，保持图解清晰"
+      ],
+      "colorLogic": [
+        "按模块分区配色，一个模块一个主色",
+        "配色清新、区分度好，信息一目了然",
+        "背景留白，突出信息模块"
+      ],
+      "typeRules": [
+        "标注清晰，文字简洁",
+        "图标 + 短标签的组合",
+        "避免大段文字，保持图解感"
+      ],
+      "motion": [
+        "模块逐个落位，搭建信息结构",
+        "连接线生长，展示信息流向",
+        "镜头平移，按顺序展示各模块"
+      ],
+      "camera": [
+        "等距视角固定，镜头平移为主",
+        "推近看某个模块的细节",
+        "整体展示完整的信息结构"
+      ],
+      "sound": [
+        "轻快的配乐，有「演示」感",
+        "模块落位的清脆音效",
+        "整体清晰、明快"
+      ],
+      "nativeMoves": [
+        "模块搭建：等距模块逐个落位，拼出信息图",
+        "连接生长：连接线在模块间生长，展示关系",
+        "分层展开：信息按层次逐步展开"
+      ],
+      "pitfalls": [
+        "信息过载，等距图标挤成一团",
+        "配色混乱，模块区分不清",
+        "等距透视画错，立体感别扭"
+      ],
+      "variation": [
+        "主题：流程、架构、数据均可",
+        "配色方案可调",
+        "信息密度可调"
+      ]
+    },
+    {
+      "id": "isometric-picture-book",
+      "en": "Isometric Picture Book",
+      "cn": "等距小人场景",
+      "category": "3d-and-miniature",
+      "essence": "等距视角的微缩场景，小人在场景里活动，像一本立体绘本，温馨可爱。",
+      "uses": [
+        "品牌故事、场景叙事",
+        "产品使用场景演示",
+        "科普、流程讲解"
+      ],
+      "essenceTraits": [
+        "等距（isometric）视角，场景是可爱的微缩世界",
+        "有小人角色在场景里活动，像绘本插图活了过来",
+        "色彩柔和、造型圆润、氛围温馨",
+        "场景细节丰富，可以推近看每个角落"
+      ],
+      "notThese": [
+        "不是写实 3D，不是暗黑风，不是只有场景没有角色的空镜"
+      ],
+      "materials": [
+        "场景用圆润的低多边形或扁平立体造型，色彩柔和",
+        "小人有简单的肢体动画，动作可爱",
+        "光影柔和，有绘本的插画质感",
+        "可加轻微的纹理，像水彩或彩铅的纸感"
+      ],
+      "colorLogic": [
+        "柔和、低饱和的马卡龙色系",
+        "角色用略高饱和的颜色突出，与场景区分",
+        "整体色调温暖，避免刺眼的纯色"
+      ],
+      "typeRules": [
+        "文字像绘本标题，圆润可爱",
+        "对话可用气泡框，贴合绘本风格",
+        "避免生硬的黑体大字"
+      ],
+      "motion": [
+        "小人动作缓慢可爱，走路、挥手、工作",
+        "镜头在等距场景里平移，展示不同区域",
+        "元素弹出、生长，有绘本的灵动感"
+      ],
+      "camera": [
+        "等距视角固定，镜头平移为主",
+        "推近看小人互动细节",
+        "转场用场景切换，像翻绘本页"
+      ],
+      "sound": [
+        "轻快的配乐，有童趣或温暖感",
+        "小人的动作配可爱的音效",
+        "整体轻松愉悦"
+      ],
+      "nativeMoves": [
+        "场景搭建：一个个积木/元素落位，拼出完整场景",
+        "小人互动：角色之间对话、合作",
+        "生长绽放：植物、建筑从地面生长出来"
+      ],
+      "pitfalls": [
+        "等距视角画错（透视不一致）",
+        "色彩太艳，丢失温馨感",
+        "场景空无角色，失去绘本的灵魂"
+      ],
+      "variation": [
+        "场景类型：城市、乡村、办公室、家均可",
+        "角色数量可调",
+        "色调（暖/冷）可调"
+      ]
+    },
+    {
+      "id": "kino-montage",
+      "en": "Constructivist Montage",
+      "cn": "构成主义蒙太奇",
+      "category": "edit-and-documentary",
+      "essence": "帝国大厦的小册子写着建造者，工地实拍和老照片给出答案：每天 2,500 人。",
+      "uses": [
+        "Industry histories",
+        "Milestones",
+        "Collective effort"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "lidar-survey",
+      "en": "LiDAR Survey",
+      "cn": "点云测绘",
+      "category": "instruments-and-evidence",
+      "essence": "激光点云剥掉一片森林的树冠，露出当年农田的石墙：3.4 公里。",
+      "uses": [
+        "Heritage",
+        "Environment",
+        "Site surveys"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "living-screencast",
+      "en": "Mascot Screencast",
+      "cn": "像素小人录屏",
+      "category": "screens-and-interfaces",
+      "essence": "像素小人 Clawd 搬进 Claude 应用，一镜到底演示 Plan 模式和自检。",
+      "uses": [
+        "Product tutorials",
+        "Feature launches",
+        "Onboarding"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "lowpoly-island",
+      "en": "Low-poly Island",
+      "cn": "低多边形等距",
+      "category": "3d-and-miniature",
+      "essence": "低多边形风格的等距小岛/场景，扁平色块、柔和光影，像游戏里的精致沙盘。",
+      "uses": [
+        "游戏风宣传",
+        "品牌场景搭建",
+        "概念展示"
+      ],
+      "essenceTraits": [
+        "低多边形（low-poly）造型，几何面片清晰可见，是标志性特征",
+        "等距视角，场景是一个完整的微缩世界（岛、城、山谷）",
+        "扁平色块 + 柔和的平面光影，色彩清新",
+        "有「游戏沙盘」的精致感，元素丰富"
+      ],
+      "notThese": [
+        "不是高模写实 3D，不是纯线框，不是像素风（是面片而非像素）"
+      ],
+      "materials": [
+        "几何面片构成所有造型，三角形/多边形清晰",
+        "色彩是扁平色块，光影用柔和的明暗面（非渐变贴图）",
+        "水面、草地、树木用简洁的几何表现",
+        "可有轻微的景深和柔光，营造沙盘氛围"
+      ],
+      "colorLogic": [
+        "清新、低饱和的配色，蓝绿白为主",
+        "每个面片颜色统一，靠明暗面制造立体",
+        "强调元素（角色、建筑）用略高饱和色突出"
+      ],
+      "typeRules": [
+        "文字简洁，像游戏 UI 的标题",
+        "放在留白处，不破坏场景",
+        "避免花哨字体，保持清新"
+      ],
+      "motion": [
+        "场景缓慢旋转，展示各角度",
+        "元素（树、房子）从地面「种」出来",
+        "角色在场景里移动，像游戏演示"
+      ],
+      "camera": [
+        "等距视角，缓慢环绕旋转",
+        "推近看局部细节",
+        "拉远展示整个岛/场景全貌"
+      ],
+      "sound": [
+        "轻快的电子配乐，有游戏感",
+        "场景搭建时配清脆音效",
+        "整体轻松、明快"
+      ],
+      "nativeMoves": [
+        "场景生长：岛屿从海面升起，建筑树木逐个落位",
+        "环绕展示：镜头环绕场景一周",
+        "部件落位：一个个低多边形元素拼出完整场景"
+      ],
+      "pitfalls": [
+        "面片太密，丢失低多边形的辨识度",
+        "配色太艳或太灰，丢失清新感",
+        "场景空洞，缺乏细节和层次"
+      ],
+      "variation": [
+        "场景类型：海岛、山谷、城市、营地均可",
+        "配色主题可调",
+        "角色/元素丰富度可调"
+      ]
+    },
+    {
+      "id": "manga-panels",
+      "en": "Manga Panels",
+      "cn": "黑白漫画分格",
+      "category": "cartoons",
+      "essence": "街拍摄影师追着一束跑动的光，等到鸽群腾起的那一秒；她的口袋相机把这一秒拆成三十格。",
+      "uses": [
+        "Music videos",
+        "Product launches",
+        "Anime openings"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "map-explainer",
+      "en": "Map Explainer",
+      "cn": "立体地图解说",
+      "category": "data-and-maps",
+      "essence": "把地图做成可推拉摇移的立体桌面模型，地点、路线、范围用图钉、箭头和等高线在真实地图上逐步标出。",
+      "uses": [
+        "地理科普、区域介绍",
+        "物流/网点分布讲解",
+        "旅行路线、事件地点还原"
+      ],
+      "essenceTraits": [
+        "地图是立体的：地形有起伏，城市是微缩建筑群，水域是真实的蓝",
+        "信息用「物理标记」呈现：图钉、旗帜、手绘箭头、发光路线、范围色块",
+        "镜头在地图上空游走，推近看城市、拉远看全局",
+        "每个地点/路线按叙事顺序逐步出现，而不是一次性铺满"
+      ],
+      "notThese": [
+        "不是平面的静态地图截图，不是卫星图（保留地图的抽象整洁），不是 Google Earth 的写实俯冲"
+      ],
+      "materials": [
+        "地形用程序化高度图 + 浅色塑料质感，等高线是细线",
+        "城市是简化的微缩建筑群（低多边形或纯色体块），道路是细线网格",
+        "标记是「实物」：图钉有金属头、箭头有纸质感、路线有发光描边",
+        "水域、绿地、路网用低饱和地图配色，信息标记用高饱和强调色"
+      ],
+      "colorLogic": [
+        "地图底用低饱和的蓝绿灰（水、绿地、路网），保持可读",
+        "强调信息（目标点、路线、范围）用高饱和暖色（红/橙）",
+        "阴影统一向下，制造「桌面模型」的立体感"
+      ],
+      "typeRules": [
+        "地名用无衬线小字，标注在图钉旁",
+        "关键地点可配图钉 + 小标签，标签背景是半透明纸片",
+        "避免在立体地形上放太多文字，保持地图可读"
+      ],
+      "motion": [
+        "图钉「插」入地图有轻微弹性，箭头沿路线生长",
+        "镜头推拉摇移顺滑，像手持相机在模型上方移动",
+        "范围色块扩散、路线点亮，都按叙事节奏逐步展开"
+      ],
+      "camera": [
+        "俯视起手，随叙事推到 45° 斜视看立体感",
+        "路线讲解时镜头沿路线方向平移",
+        "结尾拉远成全景，收束全局"
+      ],
+      "sound": [
+        "图钉插入的「哒」声、路线划过的轻微摩擦声",
+        "配乐轻快、有行进感，像旅行纪录片的节奏",
+        "地点切换用清脆的提示音"
+      ],
+      "nativeMoves": [
+        "路线生长：发光箭头沿道路从起点画到终点",
+        "范围扩散：半透明色块从目标点向外扩散标出辐射范围",
+        "地形升起：平坦地图缓缓隆起成立体地形，展示地理关系"
+      ],
+      "pitfalls": [
+        "地图配色过饱和导致信息标记不突出",
+        "立体地形遮挡了关键地点或文字",
+        "镜头动得太快，观众跟不上空间关系"
+      ],
+      "variation": [
+        "地图类型：世界、国家、城市、室内均可",
+        "标记风格：图钉/旗帜/发光点可换",
+        "立体程度可调（平面到强立体）"
+      ]
+    },
+    {
+      "id": "marker-paper",
+      "en": "Marker on Paper",
+      "cn": "马克笔白纸速写",
+      "category": "sketch-and-board",
+      "essence": "一支马克笔在白纸上算出海边能看多远，再告诉你：爬高 100 倍，只能多看远 10 倍。",
+      "uses": [
+        "Worked problems",
+        "Science explainers",
+        "Lessons"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "memphis-diorama",
+      "en": "Memphis Diorama",
+      "cn": "孟菲斯微缩景观",
+      "category": "3d-and-miniature",
+      "essence": "一个河湾一镜过完四季，大树一蹲一弹，就换一季。",
+      "uses": [
+        "Web heroes",
+        "Ambient loops",
+        "Seasons"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "microgame",
+      "en": "Microgame Frenzy",
+      "cn": "微游戏快闪",
+      "category": "games",
+      "essence": "见习宇航员闯五秒训练营，越来越快，Boss 关亲手降落回地球。",
+      "uses": [
+        "Game trailers",
+        "Onboarding",
+        "Social shorts"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "microscope",
+      "en": "Under the Microscope",
+      "cn": "显微镜下",
+      "category": "instruments-and-evidence",
+      "essence": "一镜从肝组织玻片推到单个细胞核，两个圆逐像素数出 2.4 倍的蓝。",
+      "uses": [
+        "Biomedicine",
+        "Materials science",
+        "Skincare science"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "midcentury-toon",
+      "en": "Mid-century Cartoon",
+      "cn": "50s 扁平卡通",
+      "category": "cartoons",
+      "essence": "用 50 年代教育片的口吻，三步教你装好一台扫地机。",
+      "uses": [
+        "Set-up guides",
+        "Help centres",
+        "How-to"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "neon-tubes",
+      "en": "Neon Tubes",
+      "cn": "霓虹灯管",
+      "category": "light-and-lines",
+      "essence": "雨夜街头的真实霓虹灯牌，弯折的玻璃管充气发光，灯管在湿墙上投下光晕、在水洼里倒映。",
+      "uses": [
+        "夜生活/城市感 MV",
+        "潮牌/店铺发布",
+        "夜间活动宣传片"
+      ],
+      "essenceTraits": [
+        "玻璃管而非线条：灯管是圆柱体，有气柱、玻璃壁、高光、光晕",
+        "真实气体颜色：透明玻璃+氖=红橙，透明玻璃+氩+汞=蓝，其他颜色是荧光粉涂层",
+        "灯管立在涂漆背板上，用支架和扎线固定，接头有黑色电极",
+        "光是唯一强光源，染红砖墙、瓷砖、湿路面",
+        "角色也是灯管：一个姿势一条轮廓管，不渐变、只切换"
+      ],
+      "notThese": [
+        "不是黑底矢量发光线条（没有管径、背板、湿街）；不是 LED 软管（没有电极、发光均匀）；不是科幻全息（那是屏幕光）；不是发光描边的卡通（没有中间帧）"
+      ],
+      "materials": [
+        "灯管 = 中线折线（角部倒圆角）+ 横截面分层：气柱、玻璃壁、菲涅尔边缘、高光、折射",
+        "发光层半分辨率渲染，模糊成金字塔，既作表面光又作屏幕辉光",
+        "背板是深色哑光漆，灯管用支架立起",
+        "湿路面：柏油、水洼，反光是墙面关于墙基的镜像",
+        "荧光粉涂层灯管关闭时呈乳白"
+      ],
+      "colorLogic": [
+        "地面是深色中性（夜立面、湿柏油），色相只来自灯管及其光晕",
+        "每个招牌有独立色相，街道读起来像一串色",
+        "角色拥有自己的色相（主角色 vs 对手色），全片不变",
+        "明度排序：灯管芯 > 光晕 > 亮墙 > 暗墙 > 天空"
+      ],
+      "typeRules": [
+        "文字就是灯管：汉字叠在字体骨架上弯折成灯管，拉丁字母小号",
+        "印刷体只出现在有漆或纸的地方（卷帘门喷漆、钟面）",
+        "1080p 下汉字灯管 ≥60px、拉丁 ≥18px，闪烁时不算可读",
+        "本风格最好无旁白，故事靠招牌和画面讲"
+      ],
+      "motion": [
+        "30fps，每个开关切换落在音乐网格（拍、八分、十六分）",
+        "点亮：100%亮50ms→灭70ms→70%→灭→0.1s升到满",
+        "角色只切换不渐变，一帧一个姿势",
+        "故障：随机闪烁、裂纹处白闪、灯管逐段熄灭",
+        "追光和交替电路：箭头和边框按十六分音符填充"
+      ],
+      "camera": [
+        "招牌正对镜头（垂直不变形），微距时镜头高度=主体高度",
+        "横摇扫过立面表距离，跟拍带出街道路线",
+        "降到水洼高度（0.3m）表紧迫，从倒影升到招牌表揭示",
+        "屏幕方向即叙事：一个方向是去，反方向是回"
+      ],
+      "sound": [
+        "变压器 100/120Hz 嗡嗡声、继电器咔嗒声",
+        "故障灯管的噼啪声、玻璃碎裂的叮当声",
+        "雨落湿路、水滴入水洼的声音",
+        "电子流行/城市流行音乐，招牌点亮逐音上行"
+      ],
+      "nativeMoves": [
+        "顺序点亮：招牌随镜头或角色落点逐块亮起",
+        "定格切换角色：灯管角色一帧一个姿势沿节拍移动",
+        "点亮即生命：关键时刻角色或物体两闪点亮",
+        "碎裂排空：白闪、断管、色变淡、逐段熄灭"
+      ],
+      "pitfalls": [
+        "做成扁平发光描边（矢量感），丢失管径和背板",
+        "气体颜色错（绿色透明管、蓝色氖）——只有氖和氩汞能透明",
+        "汉字灯管没叠字体骨架，笔画位置错乱",
+        "角色做渐变中间帧，破坏「切换不渐变」的媒介感"
+      ],
+      "variation": [
+        "场景：港口酒吧、夜市、影院、凌晨药店",
+        "角色：任何能画成单轮廓的动物/物体/吉祥物",
+        "天气、夜晚时间、路线、故障点可自定义"
+      ]
+    },
+    {
+      "id": "news-package",
+      "en": "Broadcast News Package",
+      "cn": "电视新闻包装",
+      "category": "edit-and-documentary",
+      "essence": "一周四条 AI 新闻，一整套电视台包装：串联单、标题条、翻牌价格表、规格卡。",
+      "uses": [
+        "News round-ups",
+        "Bulletins",
+        "Market updates"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "newsreel",
+      "en": "1920s Newsreel",
+      "cn": "1920s 新闻影片",
+      "category": "edit-and-documentary",
+      "essence": "1926 年报纸说查尔斯顿会跳坏膝盖，福特工人野餐会上的孩子照跳不误。",
+      "uses": [
+        "History stories",
+        "Fads & eras",
+        "Anniversaries"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "one-bit-dither",
+      "en": "1-bit Dither",
+      "cn": "1-bit 点阵",
+      "category": "screens-and-interfaces",
+      "essence": "1966 年 2 月，月面的第一张近照被英国一座射电望远镜当成报社传真收下，一行一行印出来：早了一天，比例却拉高了。",
+      "uses": [
+        "History told through a chain of media",
+        "Printing, scanning and signals",
+        "Night scenes and space"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "one-line",
+      "en": "One-line Drawing",
+      "cn": "一笔画",
+      "category": "sketch-and-board",
+      "essence": "一条线从头画到尾不断，一笔勾勒出所有形体，线的旅程就是故事，简洁到极致的表达。",
+      "uses": [
+        "极简创意片",
+        "品牌理念片",
+        "艺术短片"
+      ],
+      "essenceTraits": [
+        "一条连续的线，从头到尾不断",
+        "一笔勾勒出所有形体（人、物、景）",
+        "线条的旅程即叙事",
+        "极简，无填充无色彩（或单一强调色）"
+      ],
+      "notThese": [
+        "不是白板（有手和笔）；不是线稿图解（那是多线精确图解）；不是 SVG 描边动画（线有生命和笔触）"
+      ],
+      "materials": [
+        "一条连续线条，有笔触粗细变化",
+        "线条在平面上游走，勾勒形体",
+        "可有一处起点标记（笔尖）",
+        "简洁背景，突出线条"
+      ],
+      "colorLogic": [
+        "单色为主（黑线白底或反白）",
+        "可选一个强调色点缀",
+        "极简配色，线是唯一主角"
+      ],
+      "typeRules": [
+        "文字可融入线条，或极简配文",
+        "标题简洁，避免干扰线条",
+        "字幕少而精"
+      ],
+      "motion": [
+        "线条一笔画出，不断延伸",
+        "线条的走向即镜头运动",
+        "节奏流畅连贯"
+      ],
+      "camera": [
+        "镜头沿线游走，跟随笔尖",
+        "推近看线条转折，拉远看整体",
+        "转场用线条连接两个形体"
+      ],
+      "sound": [
+        "笔在纸上的沙沙声",
+        "极简配乐或留白",
+        "线的转折处配轻柔音效"
+      ],
+      "nativeMoves": [
+        "一笔到底：一条线不断画出全形",
+        "线连成景：一条线串起多个场景",
+        "线变形成物：线条变形勾勒新形体"
+      ],
+      "pitfalls": [
+        "线断了或有多条线，丢失「一笔」",
+        "线条没有笔触粗细，像 SVG 描边",
+        "加太多颜色和填充，丢失极简"
+      ],
+      "variation": [
+        "线条粗细、颜色",
+        "背景底色",
+        "主题任意"
+      ]
+    },
+    {
+      "id": "oscilloscope-math",
+      "en": "Oscilloscope Math",
+      "cn": "示波器数学",
+      "category": "light-and-lines",
+      "essence": "方方正正的波，怎么由圆滚出来？一个个圆叠成方波，直到镜头扎进一个角：那里有一个永远消不掉的 9% 尖角。",
+      "uses": [
+        "Maths and physics lessons",
+        "Signals and electronics",
+        "Science explainers"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "paper-lantern",
+      "en": "Paper-cut Lightbox",
+      "cn": "纸雕灯影",
+      "category": "traditional-crafts",
+      "essence": "多层纸雕叠成的立体灯箱，从背面打光，纸的层层轮廓透出光影纵深，温暖梦幻的灯影世界。",
+      "uses": [
+        "温情叙事短片",
+        "节日祝福片",
+        "手作/文创品牌"
+      ],
+      "essenceTraits": [
+        "多层纸雕前后叠放，构成纵深",
+        "背面暖光打透，纸层透光形成明暗层次",
+        "纸的镂空和轮廓在光下投影",
+        "温暖、梦幻、手作的质感"
+      ],
+      "notThese": [
+        "不是剪纸（剪纸是平贴不透明，这里是立体叠层透光）；不是皮影（皮影是染色皮+操纵杆）"
+      ],
+      "materials": [
+        "多层纸雕，层层叠加（前景、中景、背景）",
+        "暖色背光透射，纸层明暗渐变",
+        "纸的纤维和镂空边缘",
+        "灯箱的柔和光晕"
+      ],
+      "colorLogic": [
+        "暖色光为主（橙黄、暖白）",
+        "纸层透光由近到远渐淡",
+        "颜色柔和，避免刺眼冷光"
+      ],
+      "typeRules": [
+        "文字可做纸雕镂空字",
+        "标题温暖手写体",
+        "字幕少而柔"
+      ],
+      "motion": [
+        "纸层缓缓移动，制造视差纵深",
+        "光晕呼吸般明暗变化",
+        "节奏舒缓温馨"
+      ],
+      "camera": [
+        "镜头在纸层间穿行，制造纵深",
+        "推近看纸雕细节，拉远看灯箱全貌",
+        "转场用光晕过渡"
+      ],
+      "sound": [
+        "温暖木琴、八音盒",
+        "纸的轻微沙沙声",
+        "柔和氛围音"
+      ],
+      "nativeMoves": [
+        "层叠显景：纸层依次亮起显纵深",
+        "光影流转：光在纸层间移动",
+        "灯箱点亮：整个纸雕灯箱点亮"
+      ],
+      "pitfalls": [
+        "做成平贴剪纸，丢失立体叠层",
+        "光线太冷太硬，丢失温暖感",
+        "纸层无纵深，看起来是平面"
+      ],
+      "variation": [
+        "场景：雪景、星空、城市、森林",
+        "纸层层数与纵深",
+        "光色冷暖"
+      ]
+    },
+    {
+      "id": "paper-popup",
+      "en": "Paper Pop-up Book",
+      "cn": "纸片立体书",
+      "category": "3d-and-miniature",
+      "essence": "立体书在书桌上打开，小精灵 Pip 在纸片世界冒险，最后跳出书外。",
+      "uses": [
+        "Children's books",
+        "Game trailers",
+        "Story films"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "papercut-red",
+      "en": "Red Paper-cut",
+      "cn": "红色窗花剪纸",
+      "category": "traditional-crafts",
+      "essence": "万物都是剪刀剪出的红纸，平贴在纸上，没有绘画和渐变，细节全靠「剪掉的部分」——镂空成就形体。",
+      "uses": [
+        "春节/节庆营销片",
+        "民俗文化讲解",
+        "喜庆品牌片"
+      ],
+      "essenceTraits": [
+        "红纸是主角材质，底色也是纸（白天浅纸、夜晚深染纸）",
+        "人物是「关节铰接的剪纸人」（头、躯干、四肢用铆钉连接），12fps 硬步进动画",
+        "没有描边、没有渐变、没有阴影，体积感全靠剪掉的部分",
+        "红色块 + 阴线：每块剪纸内有一圈内缩轮廓线（双线轮廓），分隔红上红的重叠"
+      ],
+      "notThese": [
+        "不是皮影（没有幕后透光、没有染色皮、没有操纵杆）——剪纸是正面打光、不透明；不是扁平矢量图（无描边无渐变）；不是剪影片（形体内是有镂空的）"
+      ],
+      "materials": [
+        "纸纹理是中性灰纹理以柔光混合进每块纸片，再恢复 alpha 让镂空保持镂空",
+        "剪口边缘带轻微低频抖动（手工剪的感觉），左上亮边、右下暗边",
+        "每块纸片对下层投一个紧实柔和的投影，多层折叠纸有 2~6 层偏移暗边",
+        "民俗剪纸纹样：锯齿排（毛、草、瓦、流苏）、月牙（鳞、绗缝）、旋涡（关节）、云纹、团花、梅花、铜钱",
+        "眼睛用两个新月（上下眼睑）留桥 + 瞳孔镂空，不做封闭圆环（闭合环会掉心）"
+      ],
+      "colorLogic": [
+        "朱红是唯一主角色，其余是纸的浅色或深染底色",
+        "夜间场景用深染纸，白天用浅纸，形成昼夜对比",
+        "红色深浅靠纸的染色浓淡，不用调色板堆色"
+      ],
+      "typeRules": [
+        "标题、字幕可做成剪纸镂空字，与主体同材质",
+        "文字本身也应是「剪」出来的，带锯齿或镂空边",
+        "字幕宜少，让画面剪纸说话"
+      ],
+      "motion": [
+        "人物 12fps 硬步进，关节处有生硬的铰接感",
+        "剪纸拼贴时「啪」地落下、定位，动作干脆",
+        "整体节奏明快、喜庆，可配合鼓点"
+      ],
+      "camera": [
+        "镜头俯视桌面剪纸，或平视展开的窗花",
+        "推近看剪口细节，拉远看整体构图",
+        "转场用剪纸翻转、揭开、对折展开"
+      ],
+      "sound": [
+        "剪刀「咔嚓」声、纸张落下声",
+        "锣鼓、唢呐等喜庆乐器（春节场景）",
+        "铆钉转动的轻微「咔嗒」"
+      ],
+      "nativeMoves": [
+        "剪纸成物：一张红纸在剪刀下瞬间成形",
+        "对折展开：对折的纸展开成对称图案",
+        "揭纸定格：剪完揭开，成品跃然纸上"
+      ],
+      "pitfalls": [
+        "做成带描边和渐变的矢量插画，丢失镂空剪纸感",
+        "闭合圆环没留桥，导致「掉心」不符合真实剪纸",
+        "加入背面透光或染色皮效果，混同皮影"
+      ],
+      "variation": [
+        "题材：生肖、团花、人物、场景均可",
+        "纸色：朱红、深红、洒金红纸",
+        "昼夜底色切换可自定义"
+      ]
+    },
+    {
+      "id": "pen-plotter",
+      "en": "Pen Plotter",
+      "cn": "笔式绘图仪",
+      "category": "line-diagrams",
+      "essence": "一支真实的绘图仪笔在纸上逐笔画出图形，能听到机械臂移动和笔落纸的声音，所有线都是「画」出来的。",
+      "uses": [
+        "创意图形展示",
+        "logo/标识绘制过程",
+        "算法可视化、生成艺术"
+      ],
+      "essenceTraits": [
+        "所有图形都由一支真实的笔「画」出来，笔尖是画面的焦点",
+        "能看到机械臂的运动：笔抬起、落下、移动、换笔",
+        "线的质感是真实的：墨的浓淡、笔压的变化、起笔收笔的顿挫",
+        "过程本身是内容，观众看着图形一笔笔成形"
+      ],
+      "notThese": [
+        "不是动画软件里的「描边生长」效果，不是手绘白板（有机械臂），不是打印机的快速出图"
+      ],
+      "materials": [
+        "纸是白纸或浅色纸，带轻微纹理",
+        "笔是绘图仪笔（细尖、多种颜色），机械臂有金属质感",
+        "线有真实的墨迹：起笔略粗、收笔略细、转弯有笔压变化",
+        "可多支笔切换，不同颜色分笔绘制"
+      ],
+      "colorLogic": [
+        "纸白 + 墨黑为主，最多加 1~2 支彩色笔",
+        "彩色笔用于区分不同图层或数据系列",
+        "保持纸张干净，墨色是唯一的主角"
+      ],
+      "typeRules": [
+        "文字也可以被「画」出来，像手写但更精确",
+        "标题若用文字，也应是笔画的，保持统一",
+        "避免排版文字，除非它也是笔画的"
+      ],
+      "motion": [
+        "笔沿路径移动，墨迹实时生成",
+        "抬笔、落笔是重要的节奏点，落笔瞬间有「哒」",
+        "机械臂移动平滑，转弯处笔速略慢（笔压变化）"
+      ],
+      "camera": [
+        "俯视纸张，或 45° 斜视能看到笔的立体感",
+        "推近看笔尖和墨迹细节",
+        "偶尔跟拍机械臂的移动"
+      ],
+      "sound": [
+        "机械臂移动的嗡鸣、步进电机的哒哒声",
+        "落笔的「哒」、画线的沙沙声",
+        "这些机械声是灵魂，不能去掉"
+      ],
+      "nativeMoves": [
+        "一笔成形：笔落下后不抬，一笔画出完整图形",
+        "换笔：机械臂移动到笔架，换一支颜色再画",
+        "机械描边：复杂的几何图案被精确地逐笔画出"
+      ],
+      "pitfalls": [
+        "把笔迹做成软件描边动画，丢失机械感",
+        "笔移动速度恒定，没有起收笔的顿挫",
+        "去掉机械声，丢失灵魂"
+      ],
+      "variation": [
+        "图形类型：logo、地图、图案、文字均可",
+        "笔色数量可调",
+        "机械臂可见度（写实/简化）可调"
+      ]
+    },
+    {
+      "id": "pictogram-motion",
+      "en": "Pictogram Motion",
+      "cn": "象形运动图形",
+      "category": "graphic-and-type",
+      "essence": "一把被落在公交车上的黄伞，晴天里在失物招领的货架上等了一整天，暴雨回来时和另外 312 把一起撑开：物件、交通、天气和标识，都是卡着节拍的几何象形符号。",
+      "uses": [
+        "Public services and city stories",
+        "Brand and event identity films",
+        "Explainers told through signs and objects"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "pip-simulation",
+      "en": "Blob Simulation",
+      "cn": "小人模拟实验",
+      "category": "data-and-maps",
+      "essence": "160 只植绒小人抢豆子：快的先抢到也先跑不动，跑完 20 代，整块台面都变蓝了。",
+      "uses": [
+        "Evolution and natural selection",
+        "Game theory and agent-based models",
+        "Epidemics, queues and markets"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "pixel-rpg",
+      "en": "16-bit Pixel RPG",
+      "cn": "16-bit 像素 RPG",
+      "category": "games",
+      "essence": "勇士在最终 Boss 门前存档，存档画面闪回一路冒险。",
+      "uses": [
+        "Game trailers",
+        "Recaps",
+        "Nostalgia"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "pop-art",
+      "en": "Pop Art",
+      "cn": "波普艺术",
+      "category": "print-and-printmaking",
+      "essence": "超市里几乎每根香蕉都是同一株植物的复制：一面一模一样的版画墙，一根被网点吃黑的老香蕉，最后一波换色翻出上千种香蕉。",
+      "uses": [
+        "Everyday-object explainers",
+        "Brand and product posters",
+        "Small data stories"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "precise-mechanism",
+      "en": "Color-Coded Mechanism",
+      "cn": "分色机械图解",
+      "category": "line-diagrams",
+      "essence": "剖开一块不用电的表：三套系统按能量流向逐一染色，抽走擒纵后齿轮疯转，最后放慢到 1/40 等那一声滴答。",
+      "uses": [
+        "How machines work",
+        "Product and engineering explainers",
+        "Science teaching"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "printed-long-take",
+      "en": "Scratchboard Long Take",
+      "cn": "刮版画长镜头",
+      "category": "print-and-printmaking",
+      "essence": "刮版画的北海道河谷一镜到底，丹顶鹤从 33 只数回到 1,927 只。",
+      "uses": [
+        "Journeys",
+        "Wildlife",
+        "Landscapes"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "risograph",
+      "en": "Risograph Print",
+      "cn": "孔版印刷",
+      "category": "print-and-printmaking",
+      "essence": "risograph 孔版印刷，专色油墨叠印，网点颗粒，明亮的专色（荧光粉、蓝、黄），复古印刷的质感。",
+      "uses": [
+        "独立杂志/文艺片",
+        "潮流品牌",
+        "海报风短片"
+      ],
+      "essenceTraits": [
+        "专色油墨叠印，色块明亮",
+        "网点颗粒感，复古印刷质感",
+        "套印错位、油墨不均的痕迹",
+        "明亮专色（荧光粉、蓝、黄、橙）"
+      ],
+      "notThese": [
+        "不是丝网印刷（丝网色块更平整）；不是数码印刷（没有套印错位和网点）；不是四色印刷（是专色叠印）"
+      ],
+      "materials": [
+        "专色油墨，色块叠印",
+        "网点颗粒（risograph 的网点）",
+        "套印错位、油墨不均",
+        "纸张纹理、油墨渗透"
+      ],
+      "colorLogic": [
+        "明亮专色：荧光粉、蓝、黄、橙、绿",
+        "两三层专色叠印，叠出混合色",
+        "色块叠印处有套色偏移"
+      ],
+      "typeRules": [
+        "文字如印刷体，可做专色叠印字",
+        "标题明亮，海报风",
+        "字幕简洁"
+      ],
+      "motion": [
+        "专色逐层套印，色块叠加",
+        "网点滚动、套印错位",
+        "节奏明快，印刷感"
+      ],
+      "camera": [
+        "镜头平移，展现印刷质感",
+        "推近看网点细节",
+        "转场用色块套印过渡"
+      ],
+      "sound": [
+        "印刷机的嗡嗡声",
+        "油墨滚动的沙沙声",
+        "明快配乐"
+      ],
+      "nativeMoves": [
+        "套印成画：专色逐层叠印出图",
+        "网点滚动：网点滚动显现",
+        "套色错位：专色错位叠加"
+      ],
+      "pitfalls": [
+        "做成丝网印刷的平整色块，丢失网点颗粒",
+        "颜色太暗太脏，丢失明亮专色",
+        "套印太精准，丢失错位的手工感"
+      ],
+      "variation": [
+        "专色搭配",
+        "网点大小与密度",
+        "题材任意"
+      ]
+    },
+    {
+      "id": "rubber-hose",
+      "en": "1930s Rubber Hose Cartoon",
+      "cn": "1930s 橡皮管卡通",
+      "category": "cartoons",
+      "essence": "一只咖啡杯满厨房追一块逃跑的方糖。",
+      "uses": [
+        "Food & drink",
+        "Retro ads",
+        "Kids"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "satellite-briefing",
+      "en": "Satellite Briefing",
+      "cn": "卫星简报",
+      "category": "instruments-and-evidence",
+      "essence": "卫星照着地图去找咸海，找到的是沙漠；只有筑了坝的那一块回来了。",
+      "uses": [
+        "Climate",
+        "News explainers",
+        "Geography"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "scifi-toon",
+      "en": "Sci-Fi Sitcom Toon",
+      "cn": "科幻情景喜剧卡通",
+      "category": "cartoons",
+      "essence": "厌世天才开传送门只想买杯咖啡，却穿过越来越离谱的平行宇宙。",
+      "uses": [
+        "Comedy",
+        "Tech brands",
+        "Social shorts"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "scratch-film",
+      "en": "Scratch Film",
+      "cn": "胶片直刻",
+      "category": "film-and-tape",
+      "essence": "一条手指长的灯笼鱼摸黑往上游半公里，用自己的光藏起影子；镜头拉远，原来每晚有无数动物和它一起升起。",
+      "uses": [
+        "Things that happen in the dark",
+        "One mark to a whole system",
+        "Small adventures told in light and shadow"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "security-xray",
+      "en": "Security X-ray",
+      "cn": "安检 X 光",
+      "category": "instruments-and-evidence",
+      "essence": "机场安检机屏幕上的一个夜班：一个充电宝、一瓶水，还有在 CT 里动了一下腿的六只活蟹。",
+      "uses": [
+        "Airport and customs screening",
+        "Parcel and cargo inspection",
+        "Product internals"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "shadow-puppet",
+      "en": "Shadow Puppetry",
+      "cn": "皮影戏",
+      "category": "traditional-crafts",
+      "essence": "光源从幕后照过来，染色兽皮剪成的皮影人投在白幕上，用操纵杆关节活动，半透明的皮影透出光。",
+      "uses": [
+        "非遗文化片",
+        "民间故事讲述",
+        "东方奇幻剧情"
+      ],
+      "essenceTraits": [
+        "背面打光：皮影靠背后光源透过来，呈半透明染色效果",
+        "关节皮影人：头、躯干、四肢用线/铆连接，靠操纵杆驱动",
+        "染色兽皮的通透感：颜色透过皮子显出温润的光泽",
+        "投影边缘柔和，皮影与白幕之间有空隙产生的轻微虚影"
+      ],
+      "notThese": [
+        "不是剪纸（剪纸正面打光、不透明）；不是木偶戏（皮影是平面的、靠光投影）；不是剪影动画（皮影内部有染色和雕花）"
+      ],
+      "materials": [
+        "兽皮质感：半透明、有肌理、染色通透",
+        "雕花镂空：皮影身上的花纹是镂空雕出的",
+        "投影虚化：皮影离幕越远越虚，制造纵深",
+        "操纵杆的支点可见，关节处有铆接"
+      ],
+      "colorLogic": [
+        "皮影染色偏暖，红、绿、黄、蓝等传统染色，通透不刺眼",
+        "白幕是背景，皮影的彩是主角，光晕是氛围",
+        "光源（灯）的暖黄光晕包裹皮影"
+      ],
+      "typeRules": [
+        "字幕可做皮影镂空风，或传统戏文排版",
+        "标题如戏名匾额，古朴雅致",
+        "文字宜少，让皮影表演说话"
+      ],
+      "motion": [
+        "皮影人动作是关节驱动的，走路、作揖、打斗都有传统程式的顿挫感",
+        "操纵杆转动带动肢体，动作带木偶式的节奏",
+        "幕布后的人影晃动是氛围，皮影动作是主体"
+      ],
+      "camera": [
+        "镜头正对白幕，皮影在幕前表演",
+        "可拍幕后（光源、操纵者剪影）制造层次",
+        "转场用幕布拉起、灯光切换"
+      ],
+      "sound": [
+        "锣鼓、板胡、唢呐等民间戏曲配乐",
+        "皮影关节的细微摩擦声",
+        "说书人的旁白口吻"
+      ],
+      "nativeMoves": [
+        "透光变身：光源变化让皮影显出不同染色",
+        "杆动皮舞：操纵杆转动，皮影人起舞",
+        "幕后揭幕：幕布拉开，展现光源与操纵者"
+      ],
+      "pitfalls": [
+        "把皮影做成正面打光的不透明剪纸",
+        "皮影动作太顺滑，丢失关节顿挫的木偶感",
+        "漏掉背后的光源和操纵杆，丢失「戏」的现场感"
+      ],
+      "variation": [
+        "剧目：历史、神话、民间故事",
+        "皮影染色与雕花繁简可调",
+        "幕后灯光氛围可自定义"
+      ]
+    },
+    {
+      "id": "silent-film",
+      "en": "1920s Silent Film",
+      "cn": "1920s 默片",
+      "category": "film-and-tape",
+      "essence": "面包店学徒追一个滚走的面包，最后掰成两半分给饿肚子的小女孩。",
+      "uses": [
+        "Comedy",
+        "Retro brands",
+        "Silent storytelling"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "silhouette-rhythm",
+      "en": "Silhouette Rhythm",
+      "cn": "剪影律动",
+      "category": "graphic-and-type",
+      "essence": "纯剪影人物在纯色背景上的律动动画，用剪影的形体和动作表达情绪，像音乐 MV 的剪影舞蹈。",
+      "uses": [
+        "音乐 MV、节奏短片",
+        "品牌氛围片",
+        "舞蹈/运动宣传"
+      ],
+      "essenceTraits": [
+        "人物是纯黑（或纯色）剪影，没有面部和细节，靠轮廓和动作表达",
+        "纯色背景（常是渐变色），剪影与背景形成强烈对比",
+        "动作是灵魂：舞蹈、运动、手势的流畅律动",
+        "节奏感强，配合音乐，剪影随节拍律动"
+      ],
+      "notThese": [
+        "不是带细节的人物插画（要纯剪影），不是阴影的简单使用，不是静态剪影海报"
+      ],
+      "materials": [
+        "人物是纯色剪影，轮廓流畅清晰",
+        "背景是纯色或渐变色，衬托剪影",
+        "可叠加多层剪影（前景、中景、后景）制造景深",
+        "光晕、粒子等元素可增强律动感"
+      ],
+      "colorLogic": [
+        "剪影用纯黑或深色，背景用高饱和或渐变彩色",
+        "可用多色剪影分层，制造层次",
+        "强烈的明暗/色彩对比是核心"
+      ],
+      "typeRules": [
+        "文字极少，通常是歌词或一句口号",
+        "文字可用剪影同色的描边或反色",
+        "歌词可随节拍逐字出现，强化律动"
+      ],
+      "motion": [
+        "剪影动作流畅律动，随音乐节拍",
+        "多层剪影错落运动，制造景深",
+        "背景色随节拍变化，强化节奏"
+      ],
+      "camera": [
+        "镜头跟随剪影动作，或固定展示律动",
+        "推拉制造动感",
+        "可旋转视角，展示剪影的形体"
+      ],
+      "sound": [
+        "音乐是灵魂，剪影随节拍律动",
+        "鼓点、节拍器强化节奏",
+        "整体动感强烈"
+      ],
+      "nativeMoves": [
+        "节拍律动：剪影动作精准卡在节拍上",
+        "剪影变形：动作间剪影流畅变形",
+        "层叠错落：多层剪影前后错落律动"
+      ],
+      "pitfalls": [
+        "剪影加了细节，丢失纯粹感",
+        "动作与音乐节拍脱节",
+        "背景太暗，剪影不突出"
+      ],
+      "variation": [
+        "动作类型：舞蹈、运动、日常均可",
+        "背景色可调",
+        "剪影层数可调"
+      ]
+    },
+    {
+      "id": "silkscreen-poster",
+      "en": "Silkscreen Travel Poster",
+      "cn": "丝印旅行海报",
+      "category": "print-and-printmaking",
+      "essence": "一张满屏丝印海报一座城，票根数着离家的公里数，走到世界的另一头，才发现那是回家的路。",
+      "uses": [
+        "Destination guides",
+        "Tourism",
+        "Event posters"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "sketchnote",
+      "en": "Sketchnote",
+      "cn": "视觉笔记",
+      "category": "sketch-and-board",
+      "essence": "一只蜜蜂一辈子只酿 1/12 茶匙蜜；笔跟着一滴黄从花走到罐子，最后整页成了一张海报。",
+      "uses": [
+        "Lecture notes",
+        "Science explainers",
+        "One-page summaries"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "spreadsheet",
+      "en": "Spreadsheet Film",
+      "cn": "表格动画",
+      "category": "screens-and-interfaces",
+      "essence": "总数说 B 更好；把藏起来的结石大小列打开，A 在每一组都赢。一张表讲清辛普森悖论，一格就是一位病人。",
+      "uses": [
+        "Data literacy",
+        "Finance & costs",
+        "Analytics explainers"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "spy-titles",
+      "en": "60s Spy Title Sequence",
+      "cn": "60s 间谍片头",
+      "category": "graphic-and-type",
+      "essence": "虚构 1964 年间谍片的片头：追一把被偷的钥匙，几何碎片最后拼成片名。",
+      "uses": [
+        "Title sequences",
+        "Event openers",
+        "Trailers"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "stained-glass",
+      "en": "Stained Glass",
+      "cn": "彩色玻璃窗",
+      "category": "traditional-crafts",
+      "essence": "教堂彩色玻璃窗，铅条分隔的彩色玻璃拼成画面，阳光透射，色彩浓郁，庄严神圣。",
+      "uses": [
+        "宗教/庄严题材",
+        "艺术风格片",
+        "品牌高端感"
+      ],
+      "essenceTraits": [
+        "铅条分隔的彩色玻璃块拼成画面",
+        "阳光透射，色彩浓郁饱和",
+        "玻璃块有厚度、高光、折射",
+        "庄严、神圣、静止的仪式感"
+      ],
+      "notThese": [
+        "不是马赛克（马赛克是不透明砖，玻璃是透光）；不是霓虹（那是自发光管）"
+      ],
+      "materials": [
+        "铅条（H 型或扁平）分隔玻璃块",
+        "彩色玻璃：红、蓝、金、绿等宝石色",
+        "阳光透射的光斑、色晕",
+        "玻璃的厚度感、边缘高光"
+      ],
+      "colorLogic": [
+        "宝石色：红、蓝、金、绿浓郁饱和",
+        "铅条黑线分隔，形成轮廓",
+        "光透过玻璃的色晕叠加"
+      ],
+      "typeRules": [
+        "文字可做彩色玻璃字",
+        "标题庄严，如圣经经文排版",
+        "字幕少而庄重"
+      ],
+      "motion": [
+        "光在玻璃间移动，色块明暗变化",
+        "玻璃高光随视角闪动",
+        "节奏庄重缓慢"
+      ],
+      "camera": [
+        "镜头正对玻璃窗，或仰视全景",
+        "推近看玻璃块细节",
+        "转场用光斑移动过渡"
+      ],
+      "sound": [
+        "管风琴、唱诗班、钟声",
+        "庄严神圣氛围"
+      ],
+      "nativeMoves": [
+        "光透成画：阳光透射让画面亮起",
+        "色块流转：光在玻璃块间移动",
+        "玻璃组画：玻璃块拼合显现"
+      ],
+      "pitfalls": [
+        "做成不透明马赛克，丢失透光感",
+        "颜色太淡，丢失宝石色的浓郁",
+        "缺少铅条分隔，玻璃块混成一片"
+      ],
+      "variation": [
+        "题材：宗教、花卉、几何、人物",
+        "玻璃配色",
+        "光的强度与角度"
+      ]
+    },
+    {
+      "id": "stick-explainer",
+      "en": "Stick-figure Explainer",
+      "cn": "火柴人讲解",
+      "category": "sketch-and-board",
+      "essence": "从你到一个陌生人，一串手拉起来：1967 年用信验证，一圈圈的人算到超过地球，最后围着地球合上。",
+      "uses": [
+        "Science explainers",
+        "Networks & social ideas",
+        "Data comparisons"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "swiss-motion",
+      "en": "Swiss Motion Graphics",
+      "cn": "瑞士动态排版",
+      "category": "graphic-and-type",
+      "essence": "极简的排版即画面，栅格系统、无衬线字体、大面积留白，文字本身是动画的主角。",
+      "uses": [
+        "品牌理念片",
+        "极简风格发布",
+        "设计/艺术类短片"
+      ],
+      "essenceTraits": [
+        "排版即材质：文字是画面主角，不是标签",
+        "严格栅格系统，对齐精准",
+        "无衬线字体（Helvetica 风），大字重、留白多",
+        "红/黑/白三色为主，极简配色",
+        "动效精准、几何化、有节拍"
+      ],
+      "notThese": [
+        "不是包豪斯几何（那是形状承载意义，这里字是材质）；不是大字报堆字（有栅格和动效）；不是数据叙事（无图表铬边）"
+      ],
+      "materials": [
+        "栅格可见或隐含，元素严格对齐",
+        "字体是核心材质，字重、字距、行距考究",
+        "大面积留白，单色背景",
+        "几何图形（线、框、圆）辅助排版"
+      ],
+      "colorLogic": [
+        "红、黑、白三色体系",
+        "留白是重要「颜色」",
+        "强调色（红）只留给最关键的元素"
+      ],
+      "typeRules": [
+        "无衬线字体为主，标题巨大",
+        "中文用思源黑体类，英文 Helvetica 类",
+        "字重对比强烈，标题粗、正文细",
+        "对齐精准，栅格是灵魂"
+      ],
+      "motion": [
+        "文字平移、缩放、旋转，动效精准几何化",
+        "元素沿栅格对齐出入",
+        "节奏感强，卡点精准",
+        "转场用文字翻转、栅格重排"
+      ],
+      "camera": [
+        "镜头以平面构图的推拉为主",
+        "可做 2.5D 轻微纵深",
+        "转场用文字和栅格的变换"
+      ],
+      "sound": [
+        "节拍感强的电子音乐",
+        "文字卡点的清脆音效",
+        "留白处的静默"
+      ],
+      "nativeMoves": [
+        "文字重组：文字拆解重排成新信息",
+        "栅格变体：栅格线收缩成图形",
+        "留白成字：负空间形成文字"
+      ],
+      "pitfalls": [
+        "文字太多太密，丢失留白和呼吸感",
+        "配色杂乱，丢失红黑白极简",
+        "动效随意，丢失栅格对齐的精准"
+      ],
+      "variation": [
+        "主色调（红黑白为基础可变）",
+        "栅格密度与留白比例",
+        "字体选择"
+      ]
+    },
+    {
+      "id": "teardown",
+      "en": "Exploded Teardown",
+      "cn": "产品拆解",
+      "category": "line-diagrams",
+      "essence": "开源键盘的一半在一次环绕中逐层拆开，看到主控再合拢，标上真实尺寸。",
+      "uses": [
+        "Hardware launches",
+        "Product pages",
+        "Spec explainers"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "telestrator",
+      "en": "Sports Telestrator",
+      "cn": "体育战术板",
+      "category": "edit-and-documentary",
+      "essence": "半场 0–3，费内巴切 12 分钟连进三球：冻住画面、画线、分屏、射门图。",
+      "uses": [
+        "Sports analysis",
+        "Match recaps",
+        "Coaching"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "text-flash-cuts",
+      "en": "Text Flash Cuts",
+      "cn": "文字闪切",
+      "category": "graphic-and-type",
+      "essence": "大字号文字快速闪切，配合强节奏，用文字本身作为画面主体，像快节奏的宣传片/预告片。",
+      "uses": [
+        "宣传片/预告片",
+        "品牌 slogan 展示",
+        "快节奏开场"
+      ],
+      "essenceTraits": [
+        "文字是画面唯一或主要主体，大字号、占据画面",
+        "文字快速闪切，节奏极快，配强节奏音乐",
+        "每个字/词是一个「镜头」，闪切制造冲击力",
+        "色彩对比强烈，常用黑白 + 一个强调色"
+      ],
+      "notThese": [
+        "不是带大量图文的排版（文字是主角），不是缓慢的字幕动画，不是纯图片幻灯片"
+      ],
+      "materials": [
+        "大字号粗体文字，占据画面主体",
+        "强对比配色：黑白、黑白+强调色",
+        "文字的缩放、位移、旋转制造动感",
+        "可配合简单的几何形或色块做转场"
+      ],
+      "colorLogic": [
+        "黑、白为主，最多一个高饱和强调色",
+        "文字与背景强对比，确保瞬间可读",
+        "强调色用于关键字的突出"
+      ],
+      "typeRules": [
+        "粗体大字是灵魂，笔画要有冲击力",
+        "可混合字号制造层次",
+        "每屏文字少而精，一句话或一个词"
+      ],
+      "motion": [
+        "文字快速闪切，每屏停留极短",
+        "缩放、位移、旋转的强动效",
+        "配合鼓点，文字「砸」进画面"
+      ],
+      "camera": [
+        "固定构图为主，靠文字动效制造冲击",
+        "可有快速的推拉、抖动",
+        "转场用闪切、色块覆盖"
+      ],
+      "sound": [
+        "强节奏鼓点、电子乐",
+        "文字闪切配「咔嚓」「啪」等冲击音效",
+        "整体快、强、有冲击力"
+      ],
+      "nativeMoves": [
+        "文字砸入：大字从画面外快速砸入",
+        "逐字闪现：一句话逐字快速闪现",
+        "缩放冲击：文字从中心缩放冲击到满屏"
+      ],
+      "pitfalls": [
+        "闪切太快看不清文字",
+        "文字太多太密，丢失冲击力",
+        "节奏混乱，没有和音乐卡点"
+      ],
+      "variation": [
+        "风格：预告片、MV、广告均可",
+        "强调色可调",
+        "节奏速度可调"
+      ]
+    },
+    {
+      "id": "thermal-camera",
+      "en": "Thermal Camera",
+      "cn": "热成像",
+      "category": "instruments-and-evidence",
+      "essence": "雪夜里，一台热像仪绕着一栋老居民楼转：漏风的窗、墙里的暖气管、睡在热车盖上的猫，还有一年后改造完的同一栋楼。",
+      "uses": [
+        "Building and energy inspection",
+        "Wildlife at night",
+        "Machines and electrics"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "tilt-shift",
+      "en": "Tilt-Shift",
+      "cn": "移轴微缩",
+      "category": "3d-and-miniature",
+      "essence": "用移轴镜头的浅景深效果，把真实场景拍成玩具微缩模型的感觉，上下模糊中间清晰。",
+      "uses": [
+        "城市/风景宣传",
+        "品牌氛围片",
+        "创意转场"
+      ],
+      "essenceTraits": [
+        "关键视觉特征：上下两端模糊、中间一条清晰带，这是移轴的核心",
+        "真实场景因此显得像微缩模型/玩具，有奇妙的「小人国」感",
+        "色彩常被提饱和、增强对比，强化玩具感",
+        "镜头缓慢平移或延时，展示场景的流动"
+      ],
+      "notThese": [
+        "不是普通的浅景深（移轴是「带状清晰」而非「点状清晰」），不是微缩模型实拍"
+      ],
+      "materials": [
+        "核心是景深：一条清晰的焦带，上下渐次模糊",
+        "色彩提饱和、加对比，像玩具的鲜亮颜色",
+        "可加轻微的光晕，营造微缩氛围",
+        "延时摄影的云影、车流是常见素材"
+      ],
+      "colorLogic": [
+        "高饱和、高对比，让真实场景显得「太鲜艳」像玩具",
+        "清晰带是视觉焦点，模糊区降低细节",
+        "整体明亮，有阳光明媚的感觉"
+      ],
+      "typeRules": [
+        "文字极少，通常只有标题或地名",
+        "文字放在清晰带内，避免落在模糊区",
+        "用简洁的无衬线或手写体"
+      ],
+      "motion": [
+        "镜头缓慢平移或推拉，展示场景",
+        "延时摄影：云、车流、人流加速流动",
+        "景深带可随焦点移动，扫过不同区域"
+      ],
+      "camera": [
+        "高角度俯拍，强化微缩感",
+        "缓慢平移或推拉",
+        "延时摄影是灵魂，展示时间流动"
+      ],
+      "sound": [
+        "轻快的配乐，有「小人国」的俏皮感",
+        "环境音（风声、城市声）轻混",
+        "整体轻松、治愈"
+      ],
+      "nativeMoves": [
+        "景深扫描：清晰带从近到远扫过场景",
+        "延时流动：云影车流加速，时间感拉满",
+        "聚焦切换：焦点从一处移到另一处"
+      ],
+      "pitfalls": [
+        "景深带太宽或太窄，丢失移轴感",
+        "色彩调得过头，显得脏",
+        "镜头动得太快，观众眩晕"
+      ],
+      "variation": [
+        "场景类型：城市、港口、花园、运动场均可",
+        "景深带宽度可调",
+        "延时速度可调"
+      ]
+    },
+    {
+      "id": "transit-map",
+      "en": "Transit Map",
+      "cn": "地铁线路图",
+      "category": "data-and-maps",
+      "essence": "一张纸上的线路图，从 1993 年的 6 公里长到 21 条线、906 公里。",
+      "uses": [
+        "Transport",
+        "Growth over time",
+        "Networks"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "ukiyoe",
+      "en": "Ukiyo-e",
+      "cn": "浮世绘",
+      "category": "traditional-crafts",
+      "essence": "日本浮世绘木版画，平涂色块+硬朗线条+平面构图，海浪、富士、歌舞伎，东方平面美学。",
+      "uses": [
+        "东方美学片",
+        "文化历史讲解",
+        "艺术风格片"
+      ],
+      "essenceTraits": [
+        "木版画的多色套印，平涂色块",
+        "硬朗的墨线勾勒轮廓",
+        "平面化构图，无西方透视",
+        "经典元素：海浪、富士、人物、花卉",
+        "色块边界清晰，有版画套印的错位感"
+      ],
+      "notThese": [
+        "不是水墨（那是黑白灰晕染）；不是木刻（木刻是单色黑白）；不是动漫（动漫有渐变和现代透视）"
+      ],
+      "materials": [
+        "木版画套印，色块平涂",
+        "墨线勾勒轮廓，硬朗有力",
+        "套印错位感（版与版之间的细微偏移）",
+        "纸张纹理、木版肌理"
+      ],
+      "colorLogic": [
+        "传统颜料色：蓝、红、黄、绿、黑",
+        "色块平涂，边界清晰",
+        "墨线统一轮廓",
+        "留白或米黄纸底"
+      ],
+      "typeRules": [
+        "文字如浮世绘题字、印章",
+        "标题古朴，日式或汉字书法",
+        "字幕少而雅"
+      ],
+      "motion": [
+        "海浪翻涌、云纹流动",
+        "色块平涂静置，重点元素动",
+        "节奏舒缓，东方韵律"
+      ],
+      "camera": [
+        "平面构图，镜头可平移",
+        "推近看版画纹理细节",
+        "转场用版画翻页、色块过渡"
+      ],
+      "sound": [
+        "三味线、尺八、太鼓",
+        "和风音乐",
+        "木版印刷的沙沙声"
+      ],
+      "nativeMoves": [
+        "海浪翻涌：标志性浮世绘海浪动态",
+        "套印成画：多版套印依次叠出",
+        "墨线勾勒：线条一笔勾勒形体"
+      ],
+      "pitfalls": [
+        "加入西方透视和渐变，丢失平面感",
+        "色块边界模糊，丢失版画套印感",
+        "线条太细太软，丢失木版画的硬朗"
+      ],
+      "variation": [
+        "题材：风景、人物、市井、花卉",
+        "配色方案",
+        "画面繁简"
+      ]
+    },
+    {
+      "id": "urban-sketch",
+      "en": "Urban Sketch · Pen & Wash",
+      "cn": "钢笔淡彩",
+      "category": "painting-and-illustration",
+      "essence": "钢笔勾勒+水彩淡彩上色，快速记录城市街景，松动的线条和通透的淡彩，手账速写的质感。",
+      "uses": [
+        "城市/旅行题材",
+        "生活方式品牌",
+        "文艺叙事"
+      ],
+      "essenceTraits": [
+        "钢笔快速勾勒，线条松动",
+        "水彩淡彩上色，通透",
+        "记录感、速写感、手账风",
+        "城市街景、建筑、市井生活"
+      ],
+      "notThese": [
+        "不是纯水彩（有钢笔线）；不是彩铅（无排线）；不是建筑效果图（太精准）"
+      ],
+      "materials": [
+        "钢笔快速勾勒，线条松动",
+        "水彩淡彩上色，通透",
+        "留白透气，不完全上色",
+        "速写的记录感"
+      ],
+      "colorLogic": [
+        "淡彩通透，颜色轻快",
+        "钢笔墨线为主，淡彩点缀",
+        "留白透气"
+      ],
+      "typeRules": [
+        "文字如手写标注，速写风",
+        "标题轻松，手账体",
+        "字幕简洁"
+      ],
+      "motion": [
+        "钢笔线条快速勾勒",
+        "淡彩晕染上色",
+        "节奏轻快，记录感"
+      ],
+      "camera": [
+        "镜头如速写视角，快速切换",
+        "推近看线条和淡彩",
+        "转场用淡彩晕开"
+      ],
+      "sound": [
+        "钢笔沙沙声",
+        "轻柔吉他、城市氛围音",
+        "轻松配乐"
+      ],
+      "nativeMoves": [
+        "速写成景：钢笔快速勾勒街景",
+        "淡彩上色：水彩淡彩晕染",
+        "记录定格：速写瞬间定格"
+      ],
+      "pitfalls": [
+        "线条太精准，丢失速写的松动",
+        "颜色太重，丢失淡彩通透",
+        "上色太满，丢失留白"
+      ],
+      "variation": [
+        "题材：城市、乡村、旅途",
+        "线条松紧",
+        "淡彩浓度"
+      ]
+    },
+    {
+      "id": "vintage-collage",
+      "en": "Vintage Engraving Collage",
+      "cn": "复古版画拼贴",
+      "category": "print-and-printmaking",
+      "essence": "1918 年一整版印反了的航空邮票：24 美元买下、剪开散落，66 号至今下落不明。",
+      "uses": [
+        "The history of an object",
+        "Magazine-style explainers on ideas and society",
+        "Archive and collecting stories"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "visual-investigation",
+      "en": "Visual Investigation",
+      "cn": "视觉调查",
+      "category": "edit-and-documentary",
+      "essence": "新闻片、照片、证词和调查报告排上同一条时间轴，五路来源指向一处。",
+      "uses": [
+        "Reconstructions",
+        "Fact-checks",
+        "Incident reports"
+      ],
+      "essenceTraits": [],
+      "notThese": [],
+      "materials": [],
+      "colorLogic": [],
+      "typeRules": [],
+      "motion": [],
+      "camera": [],
+      "sound": [],
+      "nativeMoves": [],
+      "pitfalls": [],
+      "variation": []
+    },
+    {
+      "id": "watercolor",
+      "en": "Watercolor Brush",
+      "cn": "水彩笔刷",
+      "category": "painting-and-illustration",
+      "essence": "湿润的水彩在纸上晕染流动，颜色在水痕边缘堆积，笔触透明层层叠加，画面有水的呼吸感。",
+      "uses": [
+        "温柔叙事短片",
+        "绘本风讲解",
+        "生活美学品牌片"
+      ],
+      "essenceTraits": [
+        "颜色通透，层层叠加，笔触之间互相渗染",
+        "水痕边缘（颜料堆积的深色边）是水彩的标志",
+        "纸张纹理透出来，颜色随水流动有偶然性",
+        "留白即高光，白色部分是纸本身而非白颜料"
+      ],
+      "notThese": [
+        "不是水墨（水墨是黑白灰+单一朱砂，水彩是多色）；不是厚涂油画（水彩透明、轻盈）；不是扁平矢量（有水痕和晕染）"
+      ],
+      "materials": [
+        "湿画法：纸上先铺水，颜料滴入后晕开、流动",
+        "干画法：干纸上的笔触边缘清晰",
+        "水痕边缘：颜料在水边缘堆积成深色边",
+        "纸张纹理：冷压纸的颗粒、纤维透过颜料",
+        "颜料沉淀：重色颜料在纸上沉淀出颗粒"
+      ],
+      "colorLogic": [
+        "色彩明亮通透，靠水的稀释控制浓淡",
+        "留白是重要的「颜色」，高光直接留纸",
+        "互补色或邻近色晕染，避免脏色堆积"
+      ],
+      "typeRules": [
+        "文字可手写体，与水彩笔触呼应",
+        "标题可作水彩字的晕染效果",
+        "字幕宜轻巧，不压过水彩的透气感"
+      ],
+      "motion": [
+        "笔触落下，颜色随水晕开",
+        "颜料在纸上流动、融合的过程是核心动效",
+        "节奏舒缓，像作画的过程"
+      ],
+      "camera": [
+        "镜头俯视画纸，或平视笔触特写",
+        "推近看水痕和纸纹，拉远看整体",
+        "转场用水彩晕染过渡"
+      ],
+      "sound": [
+        "笔刷蘸水、落纸的沙沙声",
+        "轻柔的钢琴或木吉他",
+        "水滴、涮笔的声音作氛围"
+      ],
+      "nativeMoves": [
+        "落笔成花：一滴颜色晕成一朵花",
+        "水染群山：颜色在水里流动成山峦",
+        "洗色成白：洗掉颜色露出纸的留白"
+      ],
+      "pitfalls": [
+        "颜色堆太厚，丢失水彩的透明感",
+        "没有水痕边缘，看起来像马克笔或扁平插画",
+        "白色用白颜料而非留纸，画面显闷"
+      ],
+      "variation": [
+        "画风：风景、花卉、人物、抽象",
+        "纸张冷热压质感",
+        "色彩浓淡与晕染程度"
+      ]
+    },
+    {
+      "id": "white-model",
+      "en": "White Model",
+      "cn": "白模投影",
+      "category": "data-and-maps",
+      "essence": "纯白石膏模型 + 投影纹理，用「光打在模型上」的方式展示结构、数据或方案，像建筑工作室里的素模。",
+      "uses": [
+        "建筑/空间方案展示",
+        "产品结构讲解",
+        "数据映射到三维表面"
+      ],
+      "essenceTraits": [
+        "模型是纯白或浅灰的素模，没有材质和贴图，靠光影表达体积",
+        "信息通过「投影」打在模型表面：数据色块、标注线、纹理、图案",
+        "光源是画面的主角，投影的明暗和内容决定叙事",
+        "极简、克制，留白多，强调结构与光影"
+      ],
+      "notThese": [
+        "不是写实的渲染图（没有材质贴图），不是纯线框（有实体体块），不是 3D 数据大屏的炫光"
+      ],
+      "materials": [
+        "模型用哑光白/浅灰的素模质感，边缘有柔和的轮廓光",
+        "投影是「光」：色块有轻微的光晕，边缘柔和，随模型起伏变形",
+        "标注线、尺寸线用细的深灰线，投影网格用淡色",
+        "背景是浅灰到白的渐变，保持干净"
+      ],
+      "colorLogic": [
+        "模型主体严格白/灰，禁止彩色材质",
+        "彩色只来自「投影」，用于表达数据或强调结构",
+        "明暗层次靠环境光 + 单主光制造，阴影柔和不死黑"
+      ],
+      "typeRules": [
+        "标注用细等宽或极简无衬线，颜色深灰",
+        "尺寸线、引线是画面的一部分，规范且克制",
+        "标题与图例放在留白处，不遮挡模型"
+      ],
+      "motion": [
+        "模型缓慢旋转，投影内容随之更新",
+        "投影色块逐区点亮，像扫描一样揭示结构",
+        "镜头推近展示细节，拉远展示全貌"
+      ],
+      "camera": [
+        "轨道旋转是最常用的运镜，展示模型的各个面",
+        "剖面：模型切开，展示内部结构",
+        "推近到投影细节，展示数据映射"
+      ],
+      "sound": [
+        "安静的底噪，轻微的环境音或电子嗡鸣",
+        "投影切换时有柔和的「唰」声",
+        "整体冷静、克制，符合素模的极简气质"
+      ],
+      "nativeMoves": [
+        "扫描点亮：一束光扫过模型，扫到的区域被投影点亮",
+        "剖面展开：模型沿剖切线分开，露出内部",
+        "投影变形：数据纹理贴合在曲面模型上流动"
+      ],
+      "pitfalls": [
+        "给模型加彩色材质，破坏素模的纯粹感",
+        "投影太乱导致信息过载",
+        "光影太生硬，出现死黑或曝光"
+      ],
+      "variation": [
+        "模型类型：建筑、产品、地形均可",
+        "投影内容：数据、标注、纹理可换",
+        "背景明暗可调"
+      ]
+    },
+    {
+      "id": "whiteboard",
+      "en": "Whiteboard Explainer",
+      "cn": "白板讲解",
+      "category": "sketch-and-board",
+      "essence": "一只手在白板上用马克笔画图讲解，边画边擦，知识随手绘生长，经典的教学讲解风。",
+      "uses": [
+        "教学/培训短片",
+        "产品功能讲解",
+        "概念科普"
+      ],
+      "essenceTraits": [
+        "一只手在白板上画，马克笔彩色",
+        "边画边讲，知识随手绘生长",
+        "白板光亮，可擦写，有旧痕迹",
+        "镜头在白板上漫游，连接多个知识点",
+        "简洁的线条和图标，一图一事"
+      ],
+      "notThese": [
+        "不是黑板（那是深色哑光粉笔）；不是平板速写（那是数字手绘）；不是马克笔纸（那是纸上）"
+      ],
+      "materials": [
+        "白色光面白板，马克笔（黑、蓝、红、绿）",
+        "手绘线条、简单图标、箭头",
+        "可擦除的旧痕迹、磁贴、板擦",
+        "手是「演员」，握笔、擦、指"
+      ],
+      "colorLogic": [
+        "白底为主，马克笔黑蓝为主",
+        "红色用于强调关键点",
+        "颜色克制的标记色体系"
+      ],
+      "typeRules": [
+        "手写体文字，简洁",
+        "关键词大，辅助小字",
+        "文字随讲解逐步出现"
+      ],
+      "motion": [
+        "手绘线条生长，是核心动效",
+        "边画边擦，知识流动",
+        "镜头在白板间平移，连接概念"
+      ],
+      "camera": [
+        "镜头跟随手在白板上移动",
+        "推近看关键细节，拉远看全貌",
+        "镜头平移连接多个知识点"
+      ],
+      "sound": [
+        "马克笔在板上的「吱吱」声",
+        "板擦声、翻页声",
+        "旁白讲解（教学口吻）"
+      ],
+      "nativeMoves": [
+        "手绘生长：线条一笔笔画出",
+        "边画边擦：擦掉旧的画新的",
+        "白板漫游：镜头沿知识地图移动"
+      ],
+      "pitfalls": [
+        "没有手（或手不动），丢失「手绘讲解」感",
+        "文字太多，丢失简洁",
+        "做成静态 PPT 翻页，丢失边画边讲"
+      ],
+      "variation": [
+        "讲解主题任意",
+        "手的风格、笔的颜色",
+        "知识地图结构"
+      ]
+    },
+    {
+      "id": "woodcut",
+      "en": "Woodcut Print",
+      "cn": "木刻版画",
+      "category": "print-and-printmaking",
+      "essence": "黑白木刻版画，刀刻木板的硬朗线条和肌理，黑白强烈对比，粗犷有力的表现主义。",
+      "uses": [
+        "文学/历史题材",
+        "抗议/有力表达",
+        "艺术风格片"
+      ],
+      "essenceTraits": [
+        "黑白强烈对比，无中间灰（或极少）",
+        "刀刻木板的线条，硬朗有力",
+        "木板的肌理、刀痕、木纹",
+        "粗犷、有力、表现主义"
+      ],
+      "notThese": [
+        "不是铜版画（那是细密腐蚀线）；不是木版彩印（浮世绘是多色套印）；不是剪纸（那是剪不是刻）"
+      ],
+      "materials": [
+        "刀刻木板的线条，粗细变化",
+        "木纹肌理、刀痕、崩边",
+        "黑白油墨，纸张纹理",
+        "阴刻（白底黑线）或阳刻（黑底白线）"
+      ],
+      "colorLogic": [
+        "黑白两色，强烈对比",
+        "木纹和刀痕增加灰度层次",
+        "可加单一强调色（如红）"
+      ],
+      "typeRules": [
+        "文字如木刻字，粗犷有力",
+        "标题大字，版画风",
+        "字幕少而有力"
+      ],
+      "motion": [
+        "刀刻线条逐条出现",
+        "画面有力，节奏硬朗",
+        "可做木刻翻印的动效"
+      ],
+      "camera": [
+        "镜头平移，展现版画细节",
+        "推近看刀痕木纹",
+        "转场用油墨过渡"
+      ],
+      "sound": [
+        "刀刻木头的「咔咔」声",
+        "油墨滚动的沙沙声",
+        "有力配乐"
+      ],
+      "nativeMoves": [
+        "刀刻成画：线条一刀刀刻出",
+        "拓印成图：油墨滚过显现图案",
+        "黑白反转：阴阳刻切换"
+      ],
+      "pitfalls": [
+        "做成铜版画的细密腐蚀线，丢失刀刻的粗犷",
+        "灰度太多，丢失黑白对比",
+        "线条太细太软，丢失木刻力度"
+      ],
+      "variation": [
+        "题材：人物、风景、叙事",
+        "阴阳刻比例",
+        "强调色选择"
+      ]
+    }
+  ]
+}
