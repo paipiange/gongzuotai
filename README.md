@@ -76,6 +76,9 @@ UI 验收同时覆盖 1280×774、390×844 和减少动画模式。开发预览�
 
 请遵守 [AGENTS.md](./AGENTS.md)：不要提交密钥、个人信息、真实业务数据、数据库、上传素材、日志或本地敏感配置。模型凭证只能由后续 Host 适配层安全读取，不能进入浏览器代码或 Git 历史。
 
-## 技术方案
+## 技术方案与贡献
 
-完整范围与分阶段计划见 [拍片哥工作台技术方案](./拍片哥工作台-paipiange-DeepSeek-Harness-Plugin-技术方案.md)。
+- 完整范围与分阶段计划见 [拍片哥工作台技术方案](./拍片哥工作台-paipiange-DeepSeek-Harness-Plugin-技术方案.md)。
+- 代码结构与数据流见 [docs/architecture.md](./docs/architecture.md)。
+- 未来规划见 [ROADMAP.md](./ROADMAP.md)。
+- 想贡献代码请先读 [CONTRIBUTING.md](./CONTRIBUTING.md)。
