@@ -93,6 +93,8 @@ bash scripts/deploy.sh
 → 更新插件产物 → 用实机 Electron 实测自校验。详细原理见
 [docs/native-rebuild.md](./docs/native-rebuild.md)。
 
+遇到安装、ABI、路由 401、视频生成等问题，先查 [docs/troubleshooting.md](./docs/troubleshooting.md)。
+
 ## 验证
 
 ```bash
