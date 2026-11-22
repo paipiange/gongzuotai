@@ -17,7 +17,8 @@ import { ImageGenPanel } from './ImageGenPanel'
 import { MarkdownEditor } from './MarkdownEditor'
 import { ContentInspectionPanel } from './ContentInspectionPanel'
 import { RECAST_SPECS, buildRecastPrompt, type RecastPlatform } from './recast'
-import { assetUrl, cancelTask, enqueueTextGeneration, enqueueVideoGeneration, exportCreation, fetchVideoStyles, listBackends, waitForTask, VIDEO_VOICES, type Backend, type TaskRecord, type VideoStyleLibrary } from './hostClient'
+import { renderXiaohongshuCard } from './xiaohongshuCard'
+import { assetUrl, cancelTask, enqueueTextGeneration, enqueueVideoGeneration, exportCreation, fetchVideoStyles, listBackends, uploadAsset, waitForTask, VIDEO_VOICES, type Backend, type TaskRecord, type VideoStyleLibrary } from './hostClient'
 import { GroupedModelPicker, backendToGroup, decodePick, type ModelGroup } from './GroupedModelPicker'
 import { extractImageFilesFromClipboard, readImageAsDataUrl } from './pasteImages'
 import { SectionHeading, studioLabels, type ToastState } from './primitives'
@@ -44,6 +45,7 @@ export function StudioPage({ studio, initialCreation, resumeTask = null, onResum
   const [referenceImages, setReferenceImages] = useState<string[]>([])
   const [generating, setGenerating] = useState(false)
   const [recasting, setRecasting] = useState<RecastPlatform | null>(null)
+  const [cardGenerating, setCardGenerating] = useState(false)
   const [textBackends, setTextBackends] = useState<Backend[]>([])
   const [textPick, setTextPick] = useState('')
   const abortRef = useRef<AbortController | null>(null)
@@ -350,6 +352,30 @@ export function StudioPage({ studio, initialCreation, resumeTask = null, onResum
     } finally {
       abortRef.current = null
       setRecasting(null)
+    }
+  }
+
+  /** 把标题 + 正文渲染成小红书竖版卡片，保存到素材库。 */
+  const generateXiaohongshuCard = async () => {
+    if (!content.trim() && !title.trim()) {
+      onToast('先有标题或正文内容才能生成卡片', 'warning')
+      return
+    }
+    setCardGenerating(true)
+    try {
+      const blob = await renderXiaohongshuCard({
+        title: title.trim() || topic.trim() || '小红书图文',
+        body: content.trim().slice(0, 400),
+        tags: tags.filter((t) => t.trim()).slice(0, 6),
+        footer: '拍片哥工作台',
+      })
+      const file = new File([blob], `xiaohongshu-card-${Date.now()}.png`, { type: 'image/png' })
+      await uploadAsset(file, creationId)
+      onToast('小红书卡片已生成并保存到素材库', 'success')
+    } catch (cause) {
+      onToast(cause instanceof Error ? cause.message : '卡片生成失败', 'warning')
+    } finally {
+      setCardGenerating(false)
     }
   }
 
@@ -748,6 +774,14 @@ export function StudioPage({ studio, initialCreation, resumeTask = null, onResum
                       {recasting === spec.id ? '改稿中…' : spec.label}
                     </button>
                   ))}
+                  <button
+                    type="button"
+                    className="pa-secondary-button pa-recast-button"
+                    disabled={cardGenerating || generating}
+                    onClick={() => void generateXiaohongshuCard()}
+                  >
+                    {cardGenerating ? '生成中…' : '生成小红书卡片'}
+                  </button>
                 </div>
               )}
               <label htmlFor="pa-manual-content">{isImage ? '图片构思、提示词补充或版权说明' : '正文草稿'}</label>
