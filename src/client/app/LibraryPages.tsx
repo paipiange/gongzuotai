@@ -55,10 +55,14 @@ import {
   setPublishStatus,
   suggestInspirations,
   fetchAihot,
+  fetchTophubNodes,
+  fetchTophubItems,
   uploadAsset,
   type AssetRecord,
   type AssetStorageStats,
   type AihotItem,
+  type TophubNode,
+  type TophubItem,
   type InspirationRecord,
   type PublishItem,
   type PublishDetail,
@@ -1054,11 +1058,19 @@ export function InspirationPage({ onOpenStudio, onToast, creations }: {
   const [suggesting, setSuggesting] = useState(false)
 
   // aihot 热榜状态
-  const [tab, setTab] = useState<'pool' | 'aihot'>('pool')
+  const [tab, setTab] = useState<'pool' | 'aihot' | 'tophub'>('pool')
   const [aihotItems, setAihotItems] = useState<AihotItem[]>([])
   const [aihotLoading, setAihotLoading] = useState(false)
   const [aihotError, setAihotError] = useState('')
   const [aihotCategory, setAihotCategory] = useState<string>('')
+
+  // tophub 热榜状态
+  const [tophubNodes, setTophubNodes] = useState<TophubNode[]>([])
+  const [tophubActive, setTophubActive] = useState<string>('')
+  const [tophubItems, setTophubItems] = useState<TophubItem[]>([])
+  const [tophubLoading, setTophubLoading] = useState(false)
+  const [tophubError, setTophubError] = useState('')
+  const [tophubNodesLoading, setTophubNodesLoading] = useState(false)
 
   const AIHOT_CATEGORIES: { value: string; label: string }[] = [
     { value: '', label: '全部' },
@@ -1124,6 +1136,52 @@ export function InspirationPage({ onOpenStudio, onToast, creations }: {
     void loadAihot(value || undefined)
   }
 
+  // 加载 tophub 节点列表
+  const loadTophubNodes = async () => {
+    setTophubNodesLoading(true)
+    setTophubError('')
+    try {
+      const nodes = await fetchTophubNodes()
+      setTophubNodes(nodes)
+      if (nodes.length && !tophubActive) {
+        setTophubActive(nodes[0].id)
+        void loadTophubItems(nodes[0].id)
+      }
+    } catch (cause) {
+      setTophubError(cause instanceof Error ? cause.message : '拉取 tophub 节点失败')
+    } finally {
+      setTophubNodesLoading(false)
+    }
+  }
+
+  // 加载某个节点的热榜条目
+  const loadTophubItems = async (nodeId: string) => {
+    setTophubLoading(true)
+    setTophubError('')
+    try {
+      const rows = await fetchTophubItems(nodeId)
+      setTophubItems(rows)
+    } catch (cause) {
+      setTophubError(cause instanceof Error ? cause.message : '拉取 tophub 热榜失败')
+    } finally {
+      setTophubLoading(false)
+    }
+  }
+
+  const handleTophubNode = (nodeId: string) => {
+    setTophubActive(nodeId)
+    setTophubItems([])
+    void loadTophubItems(nodeId)
+  }
+
+  // 首次切到 tophub tab 时拉取节点列表
+  useEffect(() => {
+    if (tab === 'tophub' && tophubNodes.length === 0 && !tophubNodesLoading && !tophubError) {
+      void loadTophubNodes()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab])
+
   if (source === 'loading') {
     return <div className="pa-page"><section className="pa-panel pa-large-empty"><p>正在读取灵感中心…</p></section></div>
   }
@@ -1138,6 +1196,9 @@ export function InspirationPage({ onOpenStudio, onToast, creations }: {
           <button type="button" role="tab" aria-selected={tab === 'aihot'} className="pa-inspiration-tab" data-active={tab === 'aihot'} onClick={() => setTab('aihot')}>
             <TrendUp aria-hidden="true" size={15} />AI 热榜
           </button>
+          <button type="button" role="tab" aria-selected={tab === 'tophub'} className="pa-inspiration-tab" data-active={tab === 'tophub'} onClick={() => setTab('tophub')}>
+            <Stack aria-hidden="true" size={15} />全网热榜
+          </button>
         </div>
         {tab === 'pool' && (
           <button type="button" className="pa-primary-button" onClick={handleSuggest} disabled={suggesting}>
@@ -1148,6 +1209,12 @@ export function InspirationPage({ onOpenStudio, onToast, creations }: {
           <button type="button" className="pa-secondary-button" onClick={() => loadAihot(aihotCategory || undefined)} disabled={aihotLoading}>
             <ArrowClockwise aria-hidden="true" size={16} />
             {aihotLoading ? '刷新中…' : '刷新'}
+          </button>
+        )}
+        {tab === 'tophub' && (
+          <button type="button" className="pa-secondary-button" onClick={() => tophubActive && loadTophubItems(tophubActive)} disabled={tophubLoading}>
+            <ArrowClockwise aria-hidden="true" size={16} />
+            {tophubLoading ? '刷新中…' : '刷新'}
           </button>
         )}
       </div>
@@ -1179,7 +1246,7 @@ export function InspirationPage({ onOpenStudio, onToast, creations }: {
             </section>
           )}
         </>
-      ) : (
+      ) : tab === 'aihot' ? (
         <AihotPanel
           items={aihotItems}
           loading={aihotLoading}
@@ -1187,6 +1254,17 @@ export function InspirationPage({ onOpenStudio, onToast, creations }: {
           category={aihotCategory}
           categories={AIHOT_CATEGORIES}
           onCategory={handleAihotCategory}
+          onOpenStudio={() => onOpenStudio('article')}
+        />
+      ) : (
+        <TophubPanel
+          nodes={tophubNodes}
+          nodesLoading={tophubNodesLoading}
+          active={tophubActive}
+          items={tophubItems}
+          loading={tophubLoading}
+          error={tophubError}
+          onNode={handleTophubNode}
           onOpenStudio={() => onOpenStudio('article')}
         />
       )}
@@ -1244,6 +1322,80 @@ function AihotPanel({ items, loading, error, category, categories, onCategory, o
                 {item.summary && <p className="pa-aihot__summary">{item.summary}</p>}
                 <div className="pa-aihot__actions">
                   <a className="pa-link-button" href={item.originalLink ?? item.link} target="_blank" rel="noreferrer"><ArrowSquareOut aria-hidden="true" size={14} />查看原文</a>
+                  <button type="button" className="pa-secondary-button" onClick={onOpenStudio}>以此为灵感创作</button>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+function TophubPanel({ nodes, nodesLoading, active, items, loading, error, onNode, onOpenStudio }: {
+  nodes: TophubNode[]
+  nodesLoading: boolean
+  active: string
+  items: TophubItem[]
+  loading: boolean
+  error: string
+  onNode: (nodeId: string) => void
+  onOpenStudio: () => void
+}) {
+  return (
+    <section className="pa-panel pa-aihot">
+      <div className="pa-aihot__head">
+        <p className="pa-aihot__desc">全网实时热榜聚合（来自 tophub.today，含微博、知乎、抖音、微信、百度、B站等）。选择平台查看榜单，点击标题跳转原文。</p>
+        <div className="pa-aihot__categories">
+          {nodesLoading ? (
+            <span className="pa-aihot__source">正在加载平台列表…</span>
+          ) : nodes.length === 0 ? (
+            <span className="pa-aihot__source">暂无可用平台</span>
+          ) : (
+            nodes.map((n) => (
+              <button
+                key={n.id}
+                type="button"
+                className="pa-aihot__category"
+                data-active={active === n.id}
+                onClick={() => onNode(n.id)}
+                title={n.board ? `${n.name} · ${n.board}` : n.name}
+              >
+                {n.name}
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="pa-large-empty"><p>正在拉取热榜…</p></div>
+      ) : error ? (
+        <div className="pa-large-empty">
+          <p className="pa-aihot__error">{error}</p>
+          <p>请检查网络后重试。</p>
+        </div>
+      ) : items.length === 0 ? (
+        <div className="pa-large-empty">
+          <div className="pa-large-empty__icon"><Stack aria-hidden="true" size={27} weight="duotone" /></div>
+          <h2>暂无热榜内容</h2>
+          <p>请选择一个平台查看榜单。</p>
+        </div>
+      ) : (
+        <ul className="pa-aihot__list">
+          {items.map((item) => (
+            <li key={item.id} className="pa-aihot__item">
+              <div className="pa-aihot__rank" data-top={item.rank <= 3}>{item.rank}</div>
+              <div className="pa-aihot__body">
+                <div className="pa-aihot__meta">
+                  {item.heat && <span className="pa-aihot__score">热度 {item.heat}</span>}
+                </div>
+                <h3 className="pa-aihot__title">
+                  <a href={item.link} target="_blank" rel="noreferrer">{item.title}</a>
+                </h3>
+                <div className="pa-aihot__actions">
+                  <a className="pa-link-button" href={item.link} target="_blank" rel="noreferrer"><ArrowSquareOut aria-hidden="true" size={14} />查看原文</a>
                   <button type="button" className="pa-secondary-button" onClick={onOpenStudio}>以此为灵感创作</button>
                 </div>
               </div>

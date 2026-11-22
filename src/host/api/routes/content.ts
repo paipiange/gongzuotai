@@ -219,6 +219,28 @@ export function registerContentRoutes(deps: ApiDeps, register: RegisterRoute) {
       }
   })
 
+  register('/api/paipiange.inspiration.tophub.nodes', ['GET'], async () => {
+      try {
+        const { fetchTophubNodes } = await import('../../textgen/tophub')
+        const nodes = await fetchTophubNodes()
+        return json({ nodes })
+      } catch (cause) {
+        return error(cause instanceof Error ? cause.message : '拉取 tophub 节点失败', 502)
+      }
+  })
+
+  register('/api/paipiange.inspiration.tophub.items', ['GET'], async (request) => {
+      const nodeId = new URL(request.url).searchParams.get('node')?.trim()
+      if (!nodeId) return error('缺少 node 参数')
+      try {
+        const { fetchTophubItems } = await import('../../textgen/tophub')
+        const items = await fetchTophubItems(nodeId)
+        return json({ items })
+      } catch (cause) {
+        return error(cause instanceof Error ? cause.message : '拉取 tophub 热榜失败', 502)
+      }
+  })
+
   register('/api/paipiange.publish', ['GET', 'POST'], async (request) => {
       if (request.method === 'POST') {
         const body = await request.json().catch(() => null) as { creationId?: string; platform?: string; status?: string } | null

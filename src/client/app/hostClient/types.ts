@@ -274,6 +274,24 @@ export interface AihotItem {
   reason?: string
 }
 
+/** tophub.today 热榜节点（平台/榜单）。 */
+export interface TophubNode {
+  id: string
+  name: string
+  board?: string
+  link: string
+}
+
+/** tophub.today 热榜条目。 */
+export interface TophubItem {
+  id: string
+  title: string
+  rank: number
+  heat: string
+  link: string
+  node: string
+}
+
 /** 图文分镜拆页输入（对应后端 storyboard 路由）。 */
 export interface StoryboardFact {
   id: string

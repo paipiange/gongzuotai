@@ -18,6 +18,8 @@ import type {
   PublishAttempt,
   PublishPlatform,
   PublishStatus,
+  TophubItem,
+  TophubNode,
   PublishingInsights,
   TaskKind,
   TaskRecord,
@@ -83,6 +85,18 @@ export async function fetchAihot(input?: { mode?: 'selected' | 'all'; category?:
   if (input?.limit) params.set('limit', String(input.limit))
   const query = params.toString()
   const data = await apiFetch<{ items: AihotItem[] }>(`.inspiration.aihot${query ? `?${query}` : ''}`)
+  return data.items
+}
+
+/** 拉取 tophub.today 的热榜节点列表。 */
+export async function fetchTophubNodes(): Promise<TophubNode[]> {
+  const data = await apiFetch<{ nodes: TophubNode[] }>('.inspiration.tophub.nodes')
+  return data.nodes
+}
+
+/** 拉取 tophub.today 某个节点的热榜条目。 */
+export async function fetchTophubItems(nodeId: string): Promise<TophubItem[]> {
+  const data = await apiFetch<{ items: TophubItem[] }>(`.inspiration.tophub.items?node=${encodeURIComponent(nodeId)}`)
   return data.items
 }
 
