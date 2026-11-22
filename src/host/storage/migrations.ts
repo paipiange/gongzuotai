@@ -246,6 +246,17 @@ const migrations: Migration[] = [
       `)
     },
   },
+  {
+    version: 8,
+    name: 'publish-scheduled-at',
+    apply: (db) => {
+      const columns = db.pragma('table_info(publish_items)') as Array<{ name: string }>
+      if (!columns.some((column) => column.name === 'scheduled_at')) {
+        db.exec('ALTER TABLE publish_items ADD COLUMN scheduled_at TEXT')
+      }
+      db.exec('CREATE INDEX IF NOT EXISTS idx_publish_items_scheduled ON publish_items(scheduled_at)')
+    },
+  },
 ]
 
 export const latestSchemaVersion = migrations.at(-1)?.version ?? 0

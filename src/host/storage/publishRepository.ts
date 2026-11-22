@@ -18,6 +18,8 @@ export interface PublishItemRecord {
   lastCheckedAt: string | null
   exportedAt: string | null
   publishedAt: string | null
+  /** 计划发布时间（ISO 8601）；null 表示未设置定时。 */
+  scheduledAt: string | null
   createdAt: string
   updatedAt: string
 }
@@ -59,7 +61,8 @@ interface PublishItemRow {
   id: string; creation_id: string; platform: PublishPlatform; status: PublishStatus
   export_path: string | null; external_url: string | null; external_id: string | null
   last_error: string | null; retry_count: number; last_checked_at: string | null
-  exported_at: string | null; published_at: string | null; created_at: string; updated_at: string
+  exported_at: string | null; published_at: string | null; scheduled_at: string | null
+  created_at: string; updated_at: string
 }
 
 interface AttemptRow {
@@ -85,15 +88,15 @@ export class PublishRepository {
     const record: PublishItemRecord = {
       id: randomUUID(), creationId: input.creationId, platform: input.platform, status: input.status ?? 'draft',
       exportPath: null, externalUrl: null, externalId: null, lastError: null, retryCount: 0, lastCheckedAt: null,
-      exportedAt: null, publishedAt: null, createdAt: now, updatedAt: now,
+      exportedAt: null, publishedAt: null, scheduledAt: null, createdAt: now, updatedAt: now,
     }
     this.db.prepare(`
       INSERT INTO publish_items (
         id, creation_id, platform, status, export_path, external_url, external_id, last_error,
-        retry_count, last_checked_at, exported_at, published_at, created_at, updated_at
+        retry_count, last_checked_at, exported_at, published_at, scheduled_at, created_at, updated_at
       ) VALUES (
         @id, @creationId, @platform, @status, @exportPath, @externalUrl, @externalId, @lastError,
-        @retryCount, @lastCheckedAt, @exportedAt, @publishedAt, @createdAt, @updatedAt
+        @retryCount, @lastCheckedAt, @exportedAt, @publishedAt, @scheduledAt, @createdAt, @updatedAt
       )
     `).run(record)
     return record
@@ -120,7 +123,7 @@ export class PublishRepository {
   update(id: string, input: {
     status?: PublishStatus; exportPath?: string | null; externalUrl?: string | null; externalId?: string | null
     lastError?: string | null; retryCount?: number; lastCheckedAt?: string | null
-    exportedAt?: string | null; publishedAt?: string | null
+    exportedAt?: string | null; publishedAt?: string | null; scheduledAt?: string | null
   }) {
     const current = this.getById(id)
     if (!current) return null
@@ -139,12 +142,14 @@ export class PublishRepository {
         ? (nextStatus === 'exported' || nextStatus === 'published' ? (current.exportedAt ?? now) : current.exportedAt)
         : input.exportedAt,
       publishedAt: input.publishedAt === undefined ? (nextStatus === 'published' ? (current.publishedAt ?? now) : current.publishedAt) : input.publishedAt,
+      scheduledAt: input.scheduledAt === undefined ? current.scheduledAt : input.scheduledAt,
       updatedAt: now,
     }
     this.db.prepare(`
       UPDATE publish_items SET status=@status, export_path=@exportPath, external_url=@externalUrl,
         external_id=@externalId, last_error=@lastError, retry_count=@retryCount,
-        last_checked_at=@lastCheckedAt, exported_at=@exportedAt, published_at=@publishedAt, updated_at=@updatedAt
+        last_checked_at=@lastCheckedAt, exported_at=@exportedAt, published_at=@publishedAt,
+        scheduled_at=@scheduledAt, updated_at=@updatedAt
       WHERE id=@id
     `).run(next)
     return next
@@ -253,7 +258,8 @@ function mapPublishItem(row: PublishItemRow): PublishItemRecord {
     id: row.id, creationId: row.creation_id, platform: row.platform, status: row.status,
     exportPath: row.export_path, externalUrl: row.external_url, externalId: row.external_id,
     lastError: row.last_error, retryCount: row.retry_count ?? 0, lastCheckedAt: row.last_checked_at,
-    exportedAt: row.exported_at, publishedAt: row.published_at, createdAt: row.created_at, updatedAt: row.updated_at,
+    exportedAt: row.exported_at, publishedAt: row.published_at, scheduledAt: row.scheduled_at,
+    createdAt: row.created_at, updatedAt: row.updated_at,
   }
 }
 

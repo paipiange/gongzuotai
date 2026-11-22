@@ -119,6 +119,15 @@ export async function setPublishStatus(id: string, status: PublishStatus, extern
   return data.item
 }
 
+/** 设置或清除某个发布项的计划发布时间（定时发布提醒）。 */
+export async function schedulePublish(id: string, scheduledAt: string | null): Promise<PublishItem> {
+  const data = await apiFetch<{ item: PublishItem }>(`.publish.schedule?id=${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ scheduledAt }),
+  })
+  return data.item
+}
+
 export async function getPublishDetail(id: string): Promise<PublishDetail> {
   return apiFetch<PublishDetail>(`.publish.detail?id=${encodeURIComponent(id)}`)
 }

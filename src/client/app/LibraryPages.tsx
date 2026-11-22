@@ -26,6 +26,7 @@ import {
   MagnifyingGlass,
   ImageSquare,
   Eye,
+  Clock,
 } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
 import type { CreationRecord } from './workspaceStore'
@@ -49,6 +50,7 @@ import {
   purgeOrphanAssets,
   refreshPublishStatus,
   retryPublish,
+  schedulePublish,
   setAssetTags,
   setPublishStatus,
   suggestInspirations,
@@ -609,6 +611,8 @@ export function PublishQueuePage({ creations, onOpen, onToast }: {
   const [filter, setFilter] = useState<'all' | 'draft' | 'ready' | 'exported' | 'published'>('all')
   const [editingUrlId, setEditingUrlId] = useState<string | null>(null)
   const [urlDraft, setUrlDraft] = useState('')
+  const [schedulingId, setSchedulingId] = useState<string | null>(null)
+  const [scheduleDraft, setScheduleDraft] = useState('')
   const [publishPreview, setPublishPreview] = useState<{ item: PublishItem; title: string; text: string; html: string | null } | null>(null)
   const [publishDetail, setPublishDetail] = useState<PublishDetail | null>(null)
   const [publishActionId, setPublishActionId] = useState<string | null>(null)
@@ -659,6 +663,44 @@ export function PublishQueuePage({ creations, onOpen, onToast }: {
     } catch (cause) {
       onToast(cause instanceof Error ? cause.message : '保存失败', 'warning')
     }
+  }
+
+  const saveSchedule = async (item: PublishItem) => {
+    const value = scheduleDraft.trim()
+    if (!value) {
+      onToast('请选择计划发布时间', 'warning')
+      return
+    }
+    const parsed = new Date(value)
+    if (!Number.isFinite(parsed.getTime())) {
+      onToast('计划时间格式无效', 'warning')
+      return
+    }
+    try {
+      await schedulePublish(item.id, parsed.toISOString())
+      onToast(`已设置定时提醒：${formatLocalTime(parsed.toISOString())}`, 'success')
+      setSchedulingId(null)
+      setScheduleDraft('')
+      void refresh()
+    } catch (cause) {
+      onToast(cause instanceof Error ? cause.message : '设置定时失败', 'warning')
+    }
+  }
+
+  const clearSchedule = async (item: PublishItem) => {
+    try {
+      await schedulePublish(item.id, null)
+      onToast('已清除定时提醒', 'info')
+      void refresh()
+    } catch (cause) {
+      onToast(cause instanceof Error ? cause.message : '清除定时失败', 'warning')
+    }
+  }
+
+  /** 判断计划时间是否已到期（提醒用户发布）。 */
+  const isScheduleDue = (item: PublishItem): boolean => {
+    if (!item.scheduledAt) return false
+    return Date.parse(item.scheduledAt) <= Date.now() && item.status !== 'published'
   }
 
   const downloadPlatform = async (item: PublishItem) => {
@@ -844,6 +886,12 @@ export function PublishQueuePage({ creations, onOpen, onToast }: {
                   <span className="pa-status-badge" data-status={item.status === 'published' ? 'draft' : 'queued'}>{item.status === 'draft' ? '草稿' : item.status === 'ready' ? '待发布' : item.status === 'exported' ? '已导出' : '已发布'}</span>
                   <small>{formatLocalTime(item.updatedAt)}</small>
                 </div>
+                {item.scheduledAt && (
+                  <p className={isScheduleDue(item) ? 'pa-publish-schedule pa-publish-schedule--due' : 'pa-publish-schedule'}>
+                    <Clock aria-hidden="true" size={14} />
+                    {isScheduleDue(item) ? '⏰ 到点发布了，请前往平台手动群发' : `计划 ${formatLocalTime(item.scheduledAt)}`}
+                  </p>
+                )}
                 <h2>{creation?.title ?? '（创作已删除）'}</h2>
                 <p>{creation?.content.trim() || creation?.topic || ''}</p>
                 {item.externalUrl && (
@@ -878,6 +926,22 @@ export function PublishQueuePage({ creations, onOpen, onToast }: {
                   <button type="button" className="pa-secondary-button" onClick={() => openPlatform(item)}>
                     <PaperPlaneTilt aria-hidden="true" size={15} />去平台发布
                   </button>
+                  {schedulingId === item.id ? (
+                    <span className="pa-publish-url-editor">
+                      <input
+                        type="datetime-local"
+                        value={scheduleDraft}
+                        onChange={(e) => setScheduleDraft(e.target.value)}
+                      />
+                      <button type="button" className="pa-secondary-button" onClick={() => saveSchedule(item)}>保存定时</button>
+                      {item.scheduledAt && <button type="button" className="pa-link-button" onClick={() => void clearSchedule(item)}>清除</button>}
+                      <button type="button" className="pa-icon-button" onClick={() => { setSchedulingId(null); setScheduleDraft('') }}><X aria-hidden="true" size={16} /></button>
+                    </span>
+                  ) : (
+                    <button type="button" className="pa-secondary-button" onClick={() => { setSchedulingId(item.id); setScheduleDraft('') }}>
+                      <Clock aria-hidden="true" size={15} />{item.scheduledAt ? '改定时' : '定时提醒'}
+                    </button>
+                  )}
                   <button type="button" className="pa-secondary-button" disabled={publishActionId === item.id} onClick={() => void refreshOne(item)}><ArrowClockwise aria-hidden="true" size={15} />刷新状态</button>
                   <button type="button" className="pa-secondary-button" disabled={publishActionId === item.id} onClick={() => void openPublishHistory(item)}><Eye aria-hidden="true" size={15} />历史与检查</button>
                   {(item.lastError || item.retryCount > 0) && <button type="button" className="pa-secondary-button" disabled={publishActionId === item.id} onClick={() => void retryOne(item)}>重试</button>}

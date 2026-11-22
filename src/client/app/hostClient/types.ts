@@ -114,6 +114,7 @@ export interface PublishItem {
   lastCheckedAt: string | null
   exportedAt: string | null
   publishedAt: string | null
+  scheduledAt: string | null
   createdAt: string
   updatedAt: string
 }

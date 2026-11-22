@@ -274,6 +274,23 @@ export function registerContentRoutes(deps: ApiDeps, register: RegisterRoute) {
       })
   })
 
+  register('/api/paipiange.publish.schedule', ['PATCH'], async (request) => {
+      const id = new URL(request.url).searchParams.get('id') ?? ''
+      if (!id) return error('缺少 id')
+      const body = await request.json().catch(() => null) as { scheduledAt?: string | null } | null
+      if (!body) return error('请求体无效')
+      const item = publish.getById(id)
+      if (!item) return error('发布项不存在', 404)
+      const scheduledAt = body.scheduledAt === null || body.scheduledAt === undefined ? null : body.scheduledAt
+      if (scheduledAt !== null) {
+        const parsed = Date.parse(scheduledAt)
+        if (!Number.isFinite(parsed)) return error('无效的计划时间')
+        if (parsed <= Date.now()) return error('计划时间必须晚于当前时间')
+      }
+      const updated = publish.update(id, { scheduledAt: scheduledAt === null ? null : new Date(scheduledAt).toISOString() })
+      return updated ? json({ item: updated }) : error('发布项不存在', 404)
+  })
+
   register('/api/paipiange.publish.attempts', ['GET'], async (request) => {
       const url = new URL(request.url)
       const id = url.searchParams.get('id')
