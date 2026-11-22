@@ -51,11 +51,15 @@ bash scripts/deploy.sh
 
 首页（暖棕金国风主题，本地优先）：
 
-<p align="center">
-  <img src="./docs/screenshots/home-hero.jpg" alt="拍片哥工作台首页 · 创作灵感" width="45%" />
-  <img src="./docs/screenshots/home-banner.jpg" alt="拍片哥工作台首页 · Banner" width="45%" />
-  <img src="./docs/screenshots/home-inspiration.jpg" alt="拍片哥工作台首页 · 灵感卡" width="45%" />
-</p>
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/home-hero.jpg" alt="首页 · 创作灵感" width="100%"></td>
+    <td align="center"><img src="docs/screenshots/home-banner.jpg" alt="首页 · Banner" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2"><img src="docs/screenshots/home-inspiration.jpg" alt="首页 · 灵感卡" width="100%"></td>
+  </tr>
+</table>
 
 ## 当前边界
 
