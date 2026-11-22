@@ -18,6 +18,7 @@ import type {
   PublishAttempt,
   PublishPlatform,
   PublishStatus,
+  PublishingInsights,
   TaskKind,
   TaskRecord,
   TaskStatus,
@@ -368,7 +369,7 @@ export async function waitForTask(
 // ---- Analytics dashboard ----
 
 /** Fetch the read-only analytics overview aggregated from local SQLite. */
-export async function fetchAnalytics(): Promise<AnalyticsOverview> {
-  const data = await apiFetch<{ overview: AnalyticsOverview }>('.analytics')
-  return data.overview
+export async function fetchAnalytics(): Promise<{ overview: AnalyticsOverview; insights: PublishingInsights }> {
+  const data = await apiFetch<{ overview: AnalyticsOverview; insights: PublishingInsights }>('.analytics')
+  return data
 }

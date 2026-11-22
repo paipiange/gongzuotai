@@ -2170,6 +2170,23 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* 24 小时节奏图：更紧凑，柱子更窄，标签只标关键小时。 */
+.pa-root .pa-analytics-bars.pa-analytics-hours {
+  gap: 2px;
+  padding: 0;
+  height: 150px;
+}
+
+.pa-root .pa-analytics-bars.pa-analytics-hours .pa-analytics-bar__track i {
+  width: 100%;
+  border-radius: 4px 4px 1px 1px;
+}
+
+.pa-root .pa-analytics-bars.pa-analytics-hours .pa-analytics-bar__label {
+  font-size: 9px;
+  min-height: 12px;
+}
+
 .pa-root .pa-analytics-studio {
   display: flex;
   flex-direction: column;

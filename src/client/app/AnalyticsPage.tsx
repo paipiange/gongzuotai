@@ -4,9 +4,9 @@
  * 仅展示浏览器本地草稿统计并明确标注来源，不使用虚构数字。
  */
 
-import { ChartBar, Images, Lightning, PaperPlaneTilt, PencilSimpleLine } from '@phosphor-icons/react'
+import { ChartBar, Images, Lightning, PaperPlaneTilt, PencilSimpleLine, Clock, Tag } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
-import { fetchAnalytics, type AnalyticsOverview, type StudioId } from './hostClient'
+import { fetchAnalytics, type AnalyticsOverview, type PublishingInsights, type StudioId } from './hostClient'
 import type { CreationRecord } from './workspaceStore'
 
 type StudioLabelMap = Record<StudioId, string>
@@ -34,12 +34,13 @@ export function AnalyticsPage({ creations, storageSource, studioLabels }: {
   studioLabels: StudioLabelMap
 }) {
   const [overview, setOverview] = useState<AnalyticsOverview | null>(null)
+  const [insights, setInsights] = useState<PublishingInsights | null>(null)
   const [hostConnected, setHostConnected] = useState(storageSource === 'host')
 
   useEffect(() => {
     let cancelled = false
     fetchAnalytics()
-      .then((o) => { if (!cancelled) { setOverview(o); setHostConnected(true) } })
+      .then((o) => { if (!cancelled) { setOverview(o.overview); setInsights(o.insights); setHostConnected(true) } })
       .catch(() => { if (!cancelled) setHostConnected(false) })
     return () => { cancelled = true }
   }, [])
@@ -138,6 +139,31 @@ export function AnalyticsPage({ creations, storageSource, studioLabels }: {
           </div>
           <p className="pa-chart-caption">{hostConnected ? '来自本地素材库的真实统计。' : 'Host 未连接，素材统计暂不可用。'}</p>
         </section>
+
+        <section className="pa-panel pa-chart-panel">
+          <div className="pa-panel__title"><Tag aria-hidden="true" size={18} /><SectionTitle>模板使用归因</SectionTitle></div>
+          {insights && insights.templateAttribution.length > 0 ? (
+            <AttributionBars data={insights.templateAttribution} />
+          ) : (
+            <p className="pa-chart-caption">暂无模板使用记录，从模板中心生图后这里会按模板统计使用次数与成功率。</p>
+          )}
+        </section>
+
+        <section className="pa-panel pa-chart-panel">
+          <div className="pa-panel__title"><Clock aria-hidden="true" size={18} /><SectionTitle>创作节奏</SectionTitle></div>
+          {insights && insights.publishByHour.some((n) => n > 0) ? (
+            <>
+              <HourBars values={insights.publishByHour} />
+              <p className="pa-chart-caption">
+                {insights.recommendedHour !== null
+                  ? `根据历史发布记录，你在 ${insights.recommendedHour}:00 前后发布最频繁，可优先安排在这个时段。`
+                  : '按本地发布记录的时段分布统计。'}
+              </p>
+            </>
+          ) : (
+            <p className="pa-chart-caption">暂无发布记录，标记发布后这里会给出时段分布与建议。</p>
+          )}
+        </section>
       </div>
 
       {!hostConnected && (
@@ -181,6 +207,37 @@ function StudioBars({ data }: { data: Array<{ label: string; count: number }> })
           <span className="pa-analytics-studio__label">{item.label}</span>
           <div className="pa-analytics-studio__track"><i style={{ width: `${(item.count / max) * 100}%` }} title={String(item.count)} /></div>
           <span className="pa-analytics-studio__value">{item.count}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function AttributionBars({ data }: { data: import('./hostClient').TemplateAttribution[] }) {
+  const max = Math.max(...data.map((d) => d.used), 1)
+  return (
+    <div className="pa-analytics-studio">
+      {data.slice(0, 8).map((item) => (
+        <div key={item.name} className="pa-analytics-studio__row">
+          <span className="pa-analytics-studio__label" title={item.category ?? undefined}>{item.name}</span>
+          <div className="pa-analytics-studio__track"><i style={{ width: `${(item.used / max) * 100}%` }} title={`使用 ${item.used} 次`} /></div>
+          <span className="pa-analytics-studio__value" title={`成功 ${item.succeeded} / 失败 ${item.failed}`}>{Math.round(item.successRate * 100)}%</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function HourBars({ values }: { values: number[] }) {
+  const max = Math.max(...values, 1)
+  // 只展示有值或相邻的小时，避免 24 根柱子过于密集；这里展示 0-23 全量但压缩高度。
+  const ticks = [0, 3, 6, 9, 12, 15, 18, 21, 23]
+  return (
+    <div className="pa-analytics-bars pa-analytics-hours">
+      {values.map((value, hour) => (
+        <div key={hour} className="pa-analytics-bar">
+          <div className="pa-analytics-bar__track"><i style={{ height: `${Math.max(4, (value / max) * 100)}%` }} title={`${hour}:00 · ${value}`} /></div>
+          <span className="pa-analytics-bar__label">{ticks.includes(hour) ? `${hour}时` : ''}</span>
         </div>
       ))}
     </div>

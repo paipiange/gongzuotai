@@ -385,3 +385,21 @@ export interface AnalyticsOverview {
   publish: { total: number; byStatus: Record<string, number> }
   trend7d: Array<{ day: string; count: number }>
 }
+
+/** 模板使用归因（对应后端 AnalyticsRepository.TemplateAttribution）。 */
+export interface TemplateAttribution {
+  name: string
+  category: string | null
+  used: number
+  succeeded: number
+  failed: number
+  successRate: number
+}
+
+/** 创作节奏洞察（对应后端 AnalyticsRepository.PublishingInsights）。 */
+export interface PublishingInsights {
+  templateAttribution: TemplateAttribution[]
+  generationByHour: number[]
+  publishByHour: number[]
+  recommendedHour: number | null
+}

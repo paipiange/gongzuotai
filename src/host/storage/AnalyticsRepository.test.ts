@@ -80,4 +80,34 @@ describe('AnalyticsRepository', () => {
     expect(overview.publish.byStatus['ready']).toBe(1)
     storage.close()
   })
+
+  it('builds template attribution from image task input', async () => {
+    const storage = await openStorage()
+    const tasks = new TaskRepository(storage.db)
+
+    const a = tasks.start({ kind: 'image', modelId: 'm', input: { templateName: '国风插画', templateCategory: '插画', source: 'template' } })
+    tasks.markSuccess(a.id, {}, 'm')
+    const b = tasks.start({ kind: 'image', modelId: 'm', input: { templateName: '国风插画', templateCategory: '插画', source: 'template' } })
+    tasks.markFailed(b.id, 'imagegen', 'boom')
+    // 非模板来源的图片任务不应进入归因。
+    const c = tasks.start({ kind: 'image', modelId: 'm', input: { prompt: 'hello' } })
+    tasks.markSuccess(c.id, {}, 'm')
+
+    const insights = new AnalyticsRepository(storage.db).insights()
+    expect(insights.templateAttribution).toHaveLength(1)
+    expect(insights.templateAttribution[0].name).toBe('国风插画')
+    expect(insights.templateAttribution[0].used).toBe(2)
+    expect(insights.templateAttribution[0].succeeded).toBe(1)
+    expect(insights.templateAttribution[0].successRate).toBe(0.5)
+    storage.close()
+  })
+
+  it('returns null recommended hour when nothing is published', async () => {
+    const storage = await openStorage()
+    const insights = new AnalyticsRepository(storage.db).insights()
+    expect(insights.recommendedHour).toBeNull()
+    expect(insights.generationByHour).toHaveLength(24)
+    expect(insights.publishByHour).toHaveLength(24)
+    storage.close()
+  })
 })

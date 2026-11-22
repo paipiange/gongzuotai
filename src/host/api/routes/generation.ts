@@ -631,7 +631,7 @@ export function registerGenerationRoutes(deps: ApiDeps, register: RegisterRoute)
   })
 
   register('/api/paipiange.analytics', ['GET'], async () => {
-      return json({ overview: analytics.overview() })
+      return json({ overview: analytics.overview(), insights: analytics.insights() })
   })
 
   register('/api/paipiange.backends', ['GET'], async () => {
