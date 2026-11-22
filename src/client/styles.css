@@ -1605,6 +1605,27 @@
   flex: 0 0 auto;
 }
 
+/* ---- 一键改稿 ---- */
+
+.pa-root .pa-recast-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.pa-root .pa-recast-row__label {
+  color: var(--pa-muted);
+  font-size: 12px;
+}
+
+.pa-root .pa-recast-button {
+  min-height: 32px;
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
 .pa-root .pa-manual-editor > textarea,
 .pa-root .pa-markdown-editor textarea {
   min-height: 320px;

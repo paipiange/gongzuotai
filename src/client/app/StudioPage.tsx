@@ -16,6 +16,7 @@ import { loadStudioDraft, saveStudioDraft, type CreationDraft, type CreationReco
 import { ImageGenPanel } from './ImageGenPanel'
 import { MarkdownEditor } from './MarkdownEditor'
 import { ContentInspectionPanel } from './ContentInspectionPanel'
+import { RECAST_SPECS, buildRecastPrompt, type RecastPlatform } from './recast'
 import { assetUrl, cancelTask, enqueueTextGeneration, enqueueVideoGeneration, exportCreation, fetchVideoStyles, listBackends, waitForTask, VIDEO_VOICES, type Backend, type TaskRecord, type VideoStyleLibrary } from './hostClient'
 import { GroupedModelPicker, backendToGroup, decodePick, type ModelGroup } from './GroupedModelPicker'
 import { extractImageFilesFromClipboard, readImageAsDataUrl } from './pasteImages'
@@ -42,6 +43,7 @@ export function StudioPage({ studio, initialCreation, resumeTask = null, onResum
   const [tags, setTags] = useState(initialCreation?.tags ?? [])
   const [referenceImages, setReferenceImages] = useState<string[]>([])
   const [generating, setGenerating] = useState(false)
+  const [recasting, setRecasting] = useState<RecastPlatform | null>(null)
   const [textBackends, setTextBackends] = useState<Backend[]>([])
   const [textPick, setTextPick] = useState('')
   const abortRef = useRef<AbortController | null>(null)
@@ -302,6 +304,53 @@ export function StudioPage({ studio, initialCreation, resumeTask = null, onResum
   const submit = (event: FormEvent) => {
     event.preventDefault()
     void runGenerate()
+  }
+
+  /** 基于已生成正文，改写成目标平台口吻（转小红书/知乎/头条）。 */
+  const runRecast = async (platform: RecastPlatform) => {
+    if (!content.trim()) {
+      onToast('先有正文内容才能改稿', 'warning')
+      return
+    }
+    if (!currentTextBackend) {
+      onToast('请先选择一个文字模型', 'warning')
+      return
+    }
+    setRecasting(platform)
+    try {
+      const controller = new AbortController()
+      abortRef.current = controller
+      const queued = await enqueueTextGeneration({
+        provider: currentTextBackend.text?.provider ?? '',
+        model: textModelId || (currentTextBackend.text?.model ?? ''),
+        baseUrl: currentTextBackend.text?.baseUrl ?? '',
+        apiKey: currentTextBackend.text?.apiKey ?? '',
+        backendId: currentTextBackend.id ?? '',
+        studio: studio as 'article' | 'headline' | 'marketing' | 'xiaohongshu',
+        topic: buildRecastPrompt(content, platform),
+        style,
+        requirement,
+        origin: {
+          kind: 'studio',
+          id: studio,
+          label: `${studioLabels[studio]} · 改稿`,
+          state: { title, topic, content, style, requirement, tags, textPick, platform },
+        },
+        clientRequestId: crypto.randomUUID(),
+        sourceCreationId: creationId,
+      })
+      const completed = await waitForTask(queued.id, (task) => {
+        if (typeof task.result.text === 'string') setContent(task.result.text)
+      }, controller.signal)
+      if (typeof completed.result.text === 'string') setContent(completed.result.text)
+      onToast('改稿完成，内容已更新到画布', 'success')
+    } catch (cause) {
+      if (abortRef.current?.signal.aborted) onToast('已取消改稿', 'info')
+      else onToast(cause instanceof Error ? cause.message : '改稿失败，请确认已配置文字模型', 'warning')
+    } finally {
+      abortRef.current = null
+      setRecasting(null)
+    }
   }
 
   // 快捷键：Ctrl/Cmd+Enter 触发生成，Ctrl/Cmd+S 保存草稿（图片工作室的
@@ -685,6 +734,22 @@ export function StudioPage({ studio, initialCreation, resumeTask = null, onResum
             <div className="pa-manual-editor">
               <div className="pa-manual-editor__notice"><PencilSimple aria-hidden="true" size={18} /><span>点击「开始生成」由 Harness 文本模型流式产出；也可用下方 Markdown 编辑器手动写作，内容会随草稿保存。</span></div>
               <ContentInspectionPanel content={content} />
+              {!isHeadline && content.trim() && (
+                <div className="pa-recast-row" role="group" aria-label="一键改稿">
+                  <span className="pa-recast-row__label">一键改稿：</span>
+                  {RECAST_SPECS.map((spec) => (
+                    <button
+                      key={spec.id}
+                      type="button"
+                      className="pa-secondary-button pa-recast-button"
+                      disabled={recasting !== null || generating}
+                      onClick={() => void runRecast(spec.id)}
+                    >
+                      {recasting === spec.id ? '改稿中…' : spec.label}
+                    </button>
+                  ))}
+                </div>
+              )}
               <label htmlFor="pa-manual-content">{isImage ? '图片构思、提示词补充或版权说明' : '正文草稿'}</label>
               <MarkdownEditor value={content} onChange={setContent} placeholder={isImage ? '记录画面主体、构图、光线和需要规避的元素…' : generating ? '正在生成…' : '从这里开始手动写作，支持 Markdown 语法，或点击「开始生成」由模型产出…'} />
               <div className="pa-manual-editor__footer"><span>{content.length} 字</span><span>{creationId ? '已建立本地草稿' : '尚未保存'}</span></div>
