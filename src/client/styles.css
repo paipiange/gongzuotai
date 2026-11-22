@@ -1494,6 +1494,117 @@
   font-size: 12px;
 }
 
+/* ---- 内容质检卡片 ---- */
+
+.pa-root .pa-inspection {
+  margin-bottom: 14px;
+  padding: 12px 13px;
+  background: color-mix(in srgb, var(--pa-surface-ink) 26.0%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pa-accent-dim) 16.0%, transparent);
+  border-radius: 12px;
+}
+
+.pa-root .pa-inspection__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.pa-root .pa-inspection__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--pa-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pa-root .pa-inspection__title svg {
+  color: var(--pa-gold);
+}
+
+.pa-root .pa-inspection__score {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.pa-root .pa-inspection__score small {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--pa-muted);
+}
+
+.pa-root .pa-inspection__score[data-tone='good'] { color: var(--pa-ok, #4c9a5a); }
+.pa-root .pa-inspection__score[data-tone='ok'] { color: var(--pa-gold); }
+.pa-root .pa-inspection__score[data-tone='weak'] { color: var(--pa-danger, #c05a4c); }
+
+.pa-root .pa-inspection__metrics {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.pa-root .pa-inspection__metric {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  color: var(--pa-muted);
+  background: color-mix(in srgb, var(--pa-accent) 6.0%, transparent);
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.pa-root .pa-inspection__metric svg {
+  color: var(--pa-gold);
+}
+
+.pa-root .pa-inspection__metric small {
+  font-size: 10px;
+  opacity: 0.75;
+}
+
+.pa-root .pa-inspection__list {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  flex-direction: column;
+  gap: 6px;
+  list-style: none;
+}
+
+.pa-root .pa-inspection__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  color: var(--pa-text);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.pa-root .pa-inspection__item svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--pa-gold);
+}
+
+.pa-root .pa-inspection__clean {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--pa-ok, #4c9a5a);
+  font-size: 12px;
+}
+
+.pa-root .pa-inspection__clean svg {
+  flex: 0 0 auto;
+}
+
 .pa-root .pa-manual-editor > textarea,
 .pa-root .pa-markdown-editor textarea {
   min-height: 320px;

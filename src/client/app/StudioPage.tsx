@@ -15,6 +15,7 @@ import type { StudioId } from './data'
 import { loadStudioDraft, saveStudioDraft, type CreationDraft, type CreationRecord, type CreationStatus } from './workspaceStore'
 import { ImageGenPanel } from './ImageGenPanel'
 import { MarkdownEditor } from './MarkdownEditor'
+import { ContentInspectionPanel } from './ContentInspectionPanel'
 import { assetUrl, cancelTask, enqueueTextGeneration, enqueueVideoGeneration, exportCreation, fetchVideoStyles, listBackends, waitForTask, VIDEO_VOICES, type Backend, type TaskRecord, type VideoStyleLibrary } from './hostClient'
 import { GroupedModelPicker, backendToGroup, decodePick, type ModelGroup } from './GroupedModelPicker'
 import { extractImageFilesFromClipboard, readImageAsDataUrl } from './pasteImages'
@@ -683,6 +684,7 @@ export function StudioPage({ studio, initialCreation, resumeTask = null, onResum
           ) : (
             <div className="pa-manual-editor">
               <div className="pa-manual-editor__notice"><PencilSimple aria-hidden="true" size={18} /><span>点击「开始生成」由 Harness 文本模型流式产出；也可用下方 Markdown 编辑器手动写作，内容会随草稿保存。</span></div>
+              <ContentInspectionPanel content={content} />
               <label htmlFor="pa-manual-content">{isImage ? '图片构思、提示词补充或版权说明' : '正文草稿'}</label>
               <MarkdownEditor value={content} onChange={setContent} placeholder={isImage ? '记录画面主体、构图、光线和需要规避的元素…' : generating ? '正在生成…' : '从这里开始手动写作，支持 Markdown 语法，或点击「开始生成」由模型产出…'} />
               <div className="pa-manual-editor__footer"><span>{content.length} 字</span><span>{creationId ? '已建立本地草稿' : '尚未保存'}</span></div>
