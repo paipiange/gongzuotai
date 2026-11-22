@@ -47,6 +47,16 @@ bash scripts/deploy.sh
 - 发布管理保存操作历史、微信 `media_id`、失败原因、重试次数、状态刷新、版本快照与发布前检查。
 - 真实插件 `apply()` 端到端回归覆盖 Harness 鉴权、路由、SQLite、生成队列重启恢复与发布导出。
 
+## 界面预览
+
+首页（暖棕金国风主题，本地优先）：
+
+<p align="center">
+  <img src="./docs/screenshots/home-hero.jpg" alt="拍片哥工作台首页 · 创作灵感" width="45%" />
+  <img src="./docs/screenshots/home-banner.jpg" alt="拍片哥工作台首页 · Banner" width="45%" />
+  <img src="./docs/screenshots/home-inspiration.jpg" alt="拍片哥工作台首页 · 灵感卡" width="45%" />
+</p>
+
 ## 当前边界
 
 - 视频生成走本地 Remotion + Three.js 渲染，或 ComfyUI 出帧；不接付费文生视频供应商。
