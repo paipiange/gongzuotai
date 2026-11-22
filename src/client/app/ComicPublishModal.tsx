@@ -1,5 +1,5 @@
 import { DownloadSimple, Eye, PaperPlaneTilt, Sparkle, X } from '@phosphor-icons/react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   assetUrl,
   createWechatDraft,
@@ -38,6 +38,11 @@ export function ComicPublishModal({
   const [busy, setBusy] = useState<'preview' | 'export' | 'long' | 'wechat' | 'sticker' | null>(null)
   const [progress, setProgress] = useState('')
   const [previewImages, setPreviewImages] = useState<string[]>([])
+  // 缓存最近一次「图片处理」结果，发布失败后可复用，避免重新压缩/叠字。
+  const preparedRef = useRef<{ imageDataUrls: string[]; coverDataUrl: string } | null>(null)
+  const preparedKeyRef = useRef<string>('')
+  // 贴图处理结果缓存（与文章图处理参数不同，单独缓存）。
+  const stickerPreparedRef = useRef<string[] | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -60,6 +65,11 @@ export function ComicPublishModal({
   }, [busy, onClose])
 
   const prepareImages = async () => {
+    // 若标题/对白/排版开关都没变，直接复用缓存的处理结果，跳过重新压缩。
+    const cacheKey = `${correctText}|${title}|${captions.join('\u0001')}`
+    if (preparedRef.current && preparedKeyRef.current === cacheKey) {
+      return preparedRef.current
+    }
     const imageDataUrls: string[] = []
     for (let index = 0; index < results.length; index += 1) {
       setProgress(`正在处理第 ${index + 1}/${results.length} 张图片`)
@@ -77,7 +87,10 @@ export function ComicPublishModal({
       format: 'image/jpeg',
       ...(correctText ? { titleOverlay: title } : {}),
     }, 63 * 1024, [0.78, 0.64, 0.5, 0.38, 0.28])
-    return { imageDataUrls, coverDataUrl: await blobToDataUrl(coverBlob) }
+    const prepared = { imageDataUrls, coverDataUrl: await blobToDataUrl(coverBlob) }
+    preparedRef.current = prepared
+    preparedKeyRef.current = cacheKey
+    return prepared
   }
 
   const exportPack = async () => {
@@ -145,7 +158,7 @@ export function ComicPublishModal({
       onToast(`已同步 ${result.imageCount} 张图片到公众号草稿箱，请到后台发表`, 'success')
       onClose()
     } catch (cause) {
-      onToast(cause instanceof Error ? cause.message : '同步公众号草稿失败', 'warning')
+      onToast(cause instanceof Error ? cause.message : '同步公众号草稿失败，已保留处理结果，可直接重试', 'warning')
     } finally {
       setBusy(null)
       setProgress('')
@@ -159,24 +172,28 @@ export function ComicPublishModal({
     }
     setBusy('sticker')
     try {
-      const imageDataUrls: string[] = []
-      for (let index = 0; index < results.length; index += 1) {
-        setProgress(`正在准备第 ${index + 1}/${results.length} 张贴图`)
-        const blob = await processJpegWithinLimit(assetUrl(results[index].id), {
-          maxWidth: 1280,
-          format: 'image/jpeg',
-        }, 2 * 1024 * 1024, [0.9, 0.82, 0.72, 0.62])
-        imageDataUrls.push(await blobToDataUrl(blob))
+      // 复用贴图处理缓存，失败重试时不再重新压缩。
+      if (!stickerPreparedRef.current) {
+        const imageDataUrls: string[] = []
+        for (let index = 0; index < results.length; index += 1) {
+          setProgress(`正在准备第 ${index + 1}/${results.length} 张贴图`)
+          const blob = await processJpegWithinLimit(assetUrl(results[index].id), {
+            maxWidth: 1280,
+            format: 'image/jpeg',
+          }, 2 * 1024 * 1024, [0.9, 0.82, 0.72, 0.62])
+          imageDataUrls.push(await blobToDataUrl(blob))
+        }
+        stickerPreparedRef.current = imageDataUrls
       }
       setProgress('正在上传图片并创建公众号贴图草稿')
       const result = await createWechatSticker({
         title: stickerTitle.trim() || title,
-        images: imageDataUrls.map((dataUrl, index) => ({ dataUrl, caption: captions[index]?.trim() || title })),
+        images: stickerPreparedRef.current.map((dataUrl, index) => ({ dataUrl, caption: captions[index]?.trim() || title })),
       })
       onToast(`已同步 ${result.imageCount} 张贴图到公众号草稿箱，请到后台发表`, 'success')
       onClose()
     } catch (cause) {
-      onToast(cause instanceof Error ? cause.message : '同步公众号贴图失败', 'warning')
+      onToast(cause instanceof Error ? cause.message : '同步公众号贴图失败，已保留处理结果，可直接重试', 'warning')
     } finally {
       setBusy(null)
       setProgress('')
