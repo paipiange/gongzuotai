@@ -220,13 +220,8 @@ export function registerContentRoutes(deps: ApiDeps, register: RegisterRoute) {
   })
 
   register('/api/paipiange.inspiration.tophub.nodes', ['GET'], async () => {
-      try {
-        const { fetchTophubNodes } = await import('../../textgen/tophub')
-        const nodes = await fetchTophubNodes()
-        return json({ nodes })
-      } catch (cause) {
-        return error(cause instanceof Error ? cause.message : '拉取 tophub 节点失败', 502)
-      }
+      const { listTophubNodes } = await import('../../textgen/tophub')
+      return json({ nodes: listTophubNodes() })
   })
 
   register('/api/paipiange.inspiration.tophub.items', ['GET'], async (request) => {
