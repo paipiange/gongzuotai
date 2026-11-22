@@ -1,4 +1,4 @@
-import { ImageSquare, Sparkle, ArrowClockwise, DownloadSimple, CheckCircle, UploadSimple, CaretRight, ArrowSquareOut, X } from '@phosphor-icons/react'
+import { ImageSquare, Sparkle, ArrowClockwise, DownloadSimple, CheckCircle, UploadSimple, CaretRight, ArrowSquareOut, X, UserCircle, TrashSimple } from '@phosphor-icons/react'
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { cancelTask, enqueueImages, listBackends, setCreationCover, assetUrl, waitForTask, type Backend, type GeneratedImageResult, type TaskRecord } from './hostClient'
 import { buildImagePrompt, buildPromptSummary } from './promptBuilder'
@@ -8,6 +8,7 @@ import { ColorPicker } from './ColorPicker'
 import { Lightbox, absoluteAssetUrl } from './Lightbox'
 import { extractImageFilesFromClipboard, readImageAsDataUrl } from './pasteImages'
 import { GroupedModelPicker, backendToGroup, decodePick, type ModelGroup } from './GroupedModelPicker'
+import { listCharacterRoles, removeCharacterRole, saveCharacterRole, type CharacterRole } from './characterRoles'
 import {
   stylePresets,
   layoutPresets,
@@ -50,6 +51,8 @@ export function ImageGenPanel({ onToast, creationId, resumeTask = null, onResume
   const [coverBusy, setCoverBusy] = useState(false)
   const [referenceImages, setReferenceImages] = useState<string[]>([])
   const [denoise, setDenoise] = useState(0.7)
+  const [roles, setRoles] = useState<CharacterRole[]>([])
+  const [roleName, setRoleName] = useState('')
   const [stylePickerOpen, setStylePickerOpen] = useState(false)
   const [layoutPickerOpen, setLayoutPickerOpen] = useState(false)
   const [colorPickerOpen, setColorPickerOpen] = useState(false)
@@ -225,6 +228,36 @@ export function ImageGenPanel({ onToast, creationId, resumeTask = null, onResume
     setReferenceImages((prev) => prev.filter((_, i) => i !== index))
   }
 
+  // 加载已保存的角色库。
+  useEffect(() => {
+    setRoles(listCharacterRoles())
+  }, [])
+
+  const saveAsRole = () => {
+    if (!referenceImages.length) {
+      onToast('先上传一张参考图才能保存为角色', 'warning')
+      return
+    }
+    try {
+      const next = saveCharacterRole({ name: roleName || `角色 ${Date.now() % 1000}`, dataUrl: referenceImages[0] })
+      setRoles(next)
+      setRoleName('')
+      onToast('已保存为固定角色，后续生成可一键引用', 'success')
+    } catch (cause) {
+      onToast(cause instanceof Error ? cause.message : '保存角色失败', 'warning')
+    }
+  }
+
+  const applyRole = (role: CharacterRole) => {
+    // 引用角色时，把它作为第一张参考图（替换已有参考图）。
+    setReferenceImages([role.dataUrl])
+    onToast(`已引用角色「${role.name}」作为参考图`, 'success')
+  }
+
+  const removeRole = (role: CharacterRole) => {
+    setRoles(removeCharacterRole(role.id))
+  }
+
   const applyAsCover = async (imageId: string) => {
     if (!creationId) {
       onToast('请先保存草稿，才能设为封面', 'warning')
@@ -369,7 +402,31 @@ export function ImageGenPanel({ onToast, creationId, resumeTask = null, onResume
                 ))}
               </div>
             )}
+            {referenceImages.length > 0 && (
+              <div className="pa-character-role-save">
+                <input type="text" placeholder="给这个角色起个名字（可选）" value={roleName} onChange={(event) => setRoleName(event.target.value)} />
+                <button type="button" className="pa-secondary-button" onClick={saveAsRole}>
+                  <UserCircle aria-hidden="true" size={16} />保存为固定角色
+                </button>
+              </div>
+            )}
           </label>
+          {roles.length > 0 && (
+            <div className="pa-character-roles">
+              <span className="pa-character-roles__title"><UserCircle aria-hidden="true" size={15} />我的角色（点击引用，保持人物一致）</span>
+              <div className="pa-character-roles__list">
+                {roles.map((role) => (
+                  <div key={role.id} className="pa-character-role" title={`引用「${role.name}」作为参考图`}>
+                    <button type="button" className="pa-character-role__apply" onClick={() => applyRole(role)}>
+                      <img src={role.dataUrl} alt={role.name} />
+                      <span>{role.name}</span>
+                    </button>
+                    <button type="button" className="pa-icon-button pa-character-role__remove" aria-label={`删除角色 ${role.name}`} title="删除角色" onClick={() => removeRole(role)}><TrashSimple aria-hidden="true" size={13} /></button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {isComfyui && referenceImages.length > 0 && (
             <label className="pa-field">
               <span>重绘强度 <b>{denoise.toFixed(1)}</b></span>

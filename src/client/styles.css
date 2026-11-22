@@ -3572,6 +3572,74 @@
   background: rgba(0, 0, 0, 0.85);
 }
 
+/* 人物/风格锁定：保存角色 + 角色库 */
+.pa-root .pa-character-role-save {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.pa-root .pa-character-role-save input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--pa-border-soft);
+  border-radius: 8px;
+  background: var(--pa-bg-soft);
+  color: var(--pa-text);
+  font-size: 13px;
+}
+.pa-root .pa-character-roles {
+  margin-top: 14px;
+}
+.pa-root .pa-character-roles__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--pa-muted);
+  font-size: 12px;
+}
+.pa-root .pa-character-roles__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.pa-root .pa-character-role {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--pa-border-soft);
+  border-radius: 8px;
+  background: var(--pa-bg-soft);
+}
+.pa-root .pa-character-role__apply {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--pa-text);
+}
+.pa-root .pa-character-role__apply img {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+.pa-root .pa-character-role__apply span {
+  font-size: 12px;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pa-root .pa-character-role__remove {
+  color: var(--pa-muted);
+}
+
 .pa-root .pa-imagegen-panel__repaint input[type="range"] {
   width: 100%;
   accent-color: var(--pa-gold-light);
