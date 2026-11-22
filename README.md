@@ -1,6 +1,29 @@
 # 拍片哥工作台（paipiange）
 
+[![CI](https://github.com/paipiange/gongzuotai/actions/workflows/ci.yml/badge.svg)](https://github.com/paipiange/gongzuotai/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![npm](https://img.shields.io/npm/v/dsh-paipiange.svg)](https://www.npmjs.com/package/dsh-paipiange)
+
+> A local-first AI content studio running as a DeepSeek Harness plugin — copywriting, images, video and Q-version comics for WeChat / Xiaohongshu / Zhihu / Toutiao, from idea to publish.
+
 面向 DeepSeek Harness 的本地优先 AI 内容创作工作台。当前已打通原生插件入口、AI 文字/图片/本地视频生成、持久化后台任务、素材与备份、公众号漫画、发布历史和待发布清单。
+
+## 快速开始
+
+```bash
+# 1. 克隆并安装依赖
+git clone https://github.com/paipiange/gongzuotai.git
+cd gongzuotai
+pnpm install
+
+# 2. 本地 UI 预览（仅调试 UI，非插件入口）
+pnpm dev
+
+# 3. 构建并一键部署到实机 Harness（自动处理 native ABI）
+bash scripts/deploy.sh
+```
+
+> ⚠️ 插件依赖 `better-sqlite3`（原生 addon），其 ABI 必须匹配实机 Electron 版本。请用 `scripts/deploy.sh` 一键部署，**不要**手工 `pnpm install` 覆盖。详见 [docs/native-rebuild.md](./docs/native-rebuild.md)。
 
 ## 当前已实现
 
@@ -76,8 +99,40 @@ UI 验收同时覆盖 1280×774、390×844 和减少动画模式。开发预览�
 
 请遵守 [AGENTS.md](./AGENTS.md)：不要提交密钥、个人信息、真实业务数据、数据库、上传素材、日志或本地敏感配置。模型凭证只能由后续 Host 适配层安全读取，不能进入浏览器代码或 Git 历史。
 
+## 常见问题（FAQ）
+
+<details>
+<summary>安装后插件不生效 / 路由报错？</summary>
+
+多为 `better-sqlite3` 的 ABI 与实机 Electron 不匹配导致。请改用 `bash scripts/deploy.sh` 重新部署，它会自动探测 Electron 版本并重编译 native 依赖。详见 [docs/native-rebuild.md](./docs/native-rebuild.md)。
+</details>
+
+<details>
+<summary>为什么不能直接 `pnpm install` 后覆盖到实机？</summary>
+
+实机 Electron 的 ABI 与开发机 Node 不同，直接 install 会把 native 依赖编译成错误 ABI，导致插件启动崩溃。统一走部署脚本。
+</details>
+
+<details>
+<summary>视频渲染用的是什么，会不会调用付费文生视频？</summary>
+
+视频走本地 Remotion + Three.js 渲染，或 ComfyUI 出帧后 FFmpeg 合成，全程本地出片，不调用付费文生视频供应商。注意 Remotion 采用双重许可，3 人以上营利性公司需自行评估 Company License，见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。
+</details>
+
+<details>
+<summary>我的 API Key 会泄露吗？</summary>
+
+不会。密钥只保存在本机 Host 侧，前端拿不到明文；仓库也不允许提交任何密钥、个人信息或真实业务数据，见 [AGENTS.md](./AGENTS.md)。
+</details>
+
+## 架构
+
+整体为 Host / Client 双端结构，架构图与数据流见 [docs/architecture.md](./docs/architecture.md)。
+
 ## 技术方案与贡献
 
 - 代码结构与数据流见 [docs/architecture.md](./docs/architecture.md)。
 - 未来规划见 [ROADMAP.md](./ROADMAP.md)。
 - 想贡献代码请先读 [CONTRIBUTING.md](./CONTRIBUTING.md)。
+- 发现漏洞请查看 [SECURITY.md](./SECURITY.md)。
+- 第三方依赖许可见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。

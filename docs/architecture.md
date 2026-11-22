@@ -6,6 +6,44 @@
 
 这是一个运行在 **DeepSeek Harness** 上的原生插件，采用经典 **Host / Client 双端**结构：
 
+```mermaid
+flowchart LR
+    subgraph UI["Client（浏览器）"]
+        Sidebar["侧栏注册入口"]
+        Pages["各页面组件<br/>文章/图片/视频/标题/营销/小红书"]
+        Store["状态管理 + hostClient 封装"]
+    end
+
+    subgraph Harness["DeepSeek Harness"]
+        subgraph Host["Host（Electron 主进程）"]
+            API["/api/paipiange.* 路由"]
+            Storage["SQLite 仓库层<br/>创作/素材/模板/灵感/发布/任务"]
+            ImageGen["生图后端<br/>大模型 / ComfyUI"]
+            TextGen["生文服务<br/>Harness / 直连"]
+            VideoGen["视频双引擎<br/>Remotion / ComfyUI 出帧"]
+            Queue["持久化生成队列"]
+            Publish["微信发布服务"]
+        end
+    end
+
+    subgraph Local["本机资源"]
+        SQLite[("SQLite 文件")]
+        Media["media/ 素材目录"]
+        Models["大模型 / ComfyUI"]
+    end
+
+    Pages -->|fetch /api/*| API
+    API --> Storage
+    API --> ImageGen & TextGen & VideoGen & Queue & Publish
+    ImageGen & TextGen --> Models
+    VideoGen --> Models
+    Storage --> SQLite
+    Storage --> Media
+    Queue --> VideoGen & ImageGen & TextGen
+```
+
+> 上图为架构总览，具体数据流见第 6 节。下面用文字版总览图补充说明：
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     DeepSeek Harness                          │
