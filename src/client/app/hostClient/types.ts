@@ -164,6 +164,15 @@ export interface WechatChannelSummary {
   appId: string
   defaultAuthor: string
   hasAppSecret: boolean
+  accounts: WechatAccountSummary[]
+  activeId: string | null
+}
+
+export interface WechatAccountSummary {
+  id: string
+  name: string
+  appId: string
+  defaultAuthor: string
 }
 
 export interface ComicPublishImage {

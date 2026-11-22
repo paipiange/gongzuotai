@@ -1,5 +1,5 @@
 import { apiFetch, BASE, HostError } from './client'
-import type { WechatChannelSummary, WechatDraftInput, WechatDraftResult, WechatStickerInput } from './types'
+import type { WechatAccountSummary, WechatChannelSummary, WechatDraftInput, WechatDraftResult, WechatStickerInput } from './types'
 
 export async function getWechatChannelConfig(): Promise<WechatChannelSummary> {
   const response = await apiFetch<{ config: WechatChannelSummary }>('.wechat.config')
@@ -21,6 +21,31 @@ export async function clearWechatChannelConfig(): Promise<WechatChannelSummary> 
 
 export async function testWechatChannel(): Promise<{ ok: true; message: string }> {
   return apiFetch<{ ok: true; message: string }>('.wechat.test', { method: 'POST', body: '{}' })
+}
+
+// ---- 多账号管理 ----
+
+export async function listWechatAccounts(): Promise<{ accounts: WechatAccountSummary[]; activeId: string | null }> {
+  return apiFetch<{ accounts: WechatAccountSummary[]; activeId: string | null }>('.wechat.accounts')
+}
+
+export async function saveWechatAccount(input: { id?: string; name: string; appId: string; appSecret?: string; defaultAuthor?: string }): Promise<{ accounts: WechatAccountSummary[]; activeId: string | null }> {
+  return apiFetch<{ accounts: WechatAccountSummary[]; activeId: string | null }>('.wechat.accounts', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export async function activateWechatAccount(id: string): Promise<{ accounts: WechatAccountSummary[]; activeId: string | null }> {
+  return apiFetch<{ accounts: WechatAccountSummary[]; activeId: string | null }>(`.wechat.accounts?id=${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+  })
+}
+
+export async function removeWechatAccount(id: string): Promise<{ accounts: WechatAccountSummary[]; activeId: string | null }> {
+  return apiFetch<{ accounts: WechatAccountSummary[]; activeId: string | null }>(`.wechat.accounts?id=${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  })
 }
 
 export async function createWechatDraft(input: WechatDraftInput): Promise<WechatDraftResult> {

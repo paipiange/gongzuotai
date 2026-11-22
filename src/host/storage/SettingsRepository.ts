@@ -6,8 +6,20 @@ const IMAGE_LLM_KEY = 'imagegen.llm'
 const IMAGE_COMFYUI_KEY = 'imagegen.comfyui'
 const TEXTGEN_KEY = 'textgen'
 const WECHAT_CHANNEL_KEY = 'channel.wechat'
+const WECHAT_ACCOUNTS_KEY = 'channel.wechat.accounts'
+const WECHAT_ACTIVE_KEY = 'channel.wechat.active'
 const BACKUP_POLICY_KEY = 'backup.policy'
 const HOME_CAROUSEL_KEY = 'home.carousel'
+
+/** 一个公众号账号（多账号管理单元）。appSecret 仅存 Host 侧，前端永远拿不到明文。 */
+export interface WechatAccount {
+  id: string
+  /** 账号显示名，便于区分主号/小号。 */
+  name: string
+  appId: string
+  appSecret: string
+  defaultAuthor: string
+}
 
 export interface BackupPolicy {
   enabled: boolean
@@ -111,6 +123,11 @@ export class SettingsRepository {
 
   /** Full secret-bearing config. Host-only: never return this object to the client. */
   getWechatChannelConfig(): WechatChannelConfig | null {
+    // 优先返回当前激活账号；无激活账号时回退旧单账号配置（向后兼容）。
+    const active = this.getActiveWechatAccount()
+    if (active) {
+      return { appId: active.appId, appSecret: active.appSecret, defaultAuthor: active.defaultAuthor }
+    }
     const value = readJson(this.db, WECHAT_CHANNEL_KEY) as Partial<WechatChannelConfig> | undefined
     if (!value?.appId?.trim() || !value.appSecret?.trim()) return null
     return {
@@ -132,14 +149,95 @@ export class SettingsRepository {
     this.db.prepare('DELETE FROM app_settings WHERE key = ?').run(WECHAT_CHANNEL_KEY)
   }
 
+  // ---- 多账号管理（公众号） ----
+
+  /** 列出全部公众号账号（脱敏，不含 appSecret）。 */
+  listWechatAccounts(): Array<{ id: string; name: string; appId: string; defaultAuthor: string }> {
+    const value = readJson(this.db, WECHAT_ACCOUNTS_KEY) as WechatAccount[] | undefined
+    if (!Array.isArray(value)) return []
+    return value.map((a) => ({ id: a.id, name: a.name, appId: a.appId, defaultAuthor: a.defaultAuthor }))
+  }
+
+  /** 读单个账号（含 secret，仅 Host 侧调用）。 */
+  getWechatAccount(id: string): WechatAccount | null {
+    const value = readJson(this.db, WECHAT_ACCOUNTS_KEY) as WechatAccount[] | undefined
+    return (Array.isArray(value) ? value : []).find((a) => a.id === id) ?? null
+  }
+
+  /** 读当前激活账号（含 secret，仅 Host 侧调用）。 */
+  getActiveWechatAccount(): WechatAccount | null {
+    const activeId = this.getActiveWechatAccountId()
+    if (!activeId) return null
+    return this.getWechatAccount(activeId)
+  }
+
+  getActiveWechatAccountId(): string | null {
+    const value = readJson(this.db, WECHAT_ACTIVE_KEY) as string | undefined
+    return typeof value === 'string' && value.trim() ? value.trim() : null
+  }
+
+  /** 新增或更新一个公众号账号；返回脱敏列表。 */
+  saveWechatAccount(input: { id?: string; name: string; appId: string; appSecret?: string; defaultAuthor?: string }): { id: string; name: string; appId: string; defaultAuthor: string } {
+    const all = this.readAllWechatAccounts()
+    const now = Date.now()
+    const existing = input.id ? all.find((a) => a.id === input.id) : undefined
+    const account: WechatAccount = {
+      id: existing?.id ?? `wx-account-${now}-${Math.random().toString(36).slice(2, 7)}`,
+      name: input.name.trim() || '未命名账号',
+      appId: input.appId.trim(),
+      appSecret: input.appSecret?.trim() || existing?.appSecret || '',
+      defaultAuthor: input.defaultAuthor?.trim() || '',
+    }
+    const next = existing
+      ? all.map((a) => (a.id === existing.id ? account : a))
+      : [...all, account]
+    writeJson(this.db, WECHAT_ACCOUNTS_KEY, next)
+    // 首次新增时自动设为激活账号。
+    if (!existing && !this.getActiveWechatAccountId()) this.setActiveWechatAccount(account.id)
+    return { id: account.id, name: account.name, appId: account.appId, defaultAuthor: account.defaultAuthor }
+  }
+
+  removeWechatAccount(id: string): boolean {
+    const all = this.readAllWechatAccounts()
+    const next = all.filter((a) => a.id !== id)
+    if (next.length === all.length) return false
+    writeJson(this.db, WECHAT_ACCOUNTS_KEY, next)
+    if (this.getActiveWechatAccountId() === id) {
+      this.setActiveWechatAccount(next[0]?.id ?? null)
+    }
+    return true
+  }
+
+  setActiveWechatAccount(id: string | null): void {
+    if (id === null) {
+      this.db.prepare('DELETE FROM app_settings WHERE key = ?').run(WECHAT_ACTIVE_KEY)
+      return
+    }
+    writeJson(this.db, WECHAT_ACTIVE_KEY, id)
+  }
+
+  private readAllWechatAccounts(): WechatAccount[] {
+    const value = readJson(this.db, WECHAT_ACCOUNTS_KEY) as WechatAccount[] | undefined
+    return Array.isArray(value) ? value : []
+  }
+
   /** Safe projection for settings UI; AppSecret is never exposed. */
-  getWechatChannelSummary(): { configured: boolean; appId: string; defaultAuthor: string; hasAppSecret: boolean } {
+  getWechatChannelSummary(): {
+    configured: boolean
+    appId: string
+    defaultAuthor: string
+    hasAppSecret: boolean
+    accounts: Array<{ id: string; name: string; appId: string; defaultAuthor: string }>
+    activeId: string | null
+  } {
     const config = this.getWechatChannelConfig()
     return {
       configured: Boolean(config),
       appId: config?.appId ?? '',
       defaultAuthor: config?.defaultAuthor ?? '',
       hasAppSecret: Boolean(config?.appSecret),
+      accounts: this.listWechatAccounts(),
+      activeId: this.getActiveWechatAccountId(),
     }
   }
 

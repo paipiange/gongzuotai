@@ -137,11 +137,42 @@ describe('SettingsRepository', () => {
 
     expect(repo.getWechatChannelConfig()).toEqual({ appId: 'wx-example', appSecret: 'wechat-secret', defaultAuthor: '匿名作者' })
     const summary = repo.getWechatChannelSummary()
-    expect(summary).toEqual({ configured: true, appId: 'wx-example', defaultAuthor: '匿名作者', hasAppSecret: true })
+    expect(summary.configured).toBe(true)
+    expect(summary.appId).toBe('wx-example')
+    expect(summary.defaultAuthor).toBe('匿名作者')
+    expect(summary.hasAppSecret).toBe(true)
+    expect(summary.accounts).toEqual([])
+    expect(summary.activeId).toBeNull()
     expect(JSON.stringify(summary)).not.toContain('wechat-secret')
 
     repo.clearWechatChannelConfig()
     expect(repo.getWechatChannelConfig()).toBeNull()
+    storage.close()
+  })
+
+  it('manages multiple WeChat accounts and switches the active one', async () => {
+    const storage = await openTemporaryStorage()
+    const repo = new SettingsRepository(storage.db)
+
+    const a = repo.saveWechatAccount({ name: '主号', appId: 'wx-main', appSecret: 's1', defaultAuthor: '作者A' })
+    const b = repo.saveWechatAccount({ name: '小号', appId: 'wx-sub', appSecret: 's2' })
+
+    expect(repo.listWechatAccounts()).toHaveLength(2)
+    // 首个账号自动激活。
+    expect(repo.getActiveWechatAccountId()).toBe(a.id)
+
+    // 激活 b 后，发布配置应指向 b。
+    repo.setActiveWechatAccount(b.id)
+    expect(repo.getWechatChannelConfig()).toEqual({ appId: 'wx-sub', appSecret: 's2', defaultAuthor: '' })
+
+    // 脱敏：前端列表不含 appSecret。
+    const list = repo.listWechatAccounts()
+    expect(JSON.stringify(list)).not.toContain('s1')
+    expect(JSON.stringify(list)).not.toContain('s2')
+
+    // 移除激活账号后自动回退到剩余第一个。
+    repo.removeWechatAccount(b.id)
+    expect(repo.getActiveWechatAccountId()).toBe(a.id)
     storage.close()
   })
 

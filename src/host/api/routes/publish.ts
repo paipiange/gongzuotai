@@ -35,6 +35,49 @@ export function registerPublishRoutes(deps: ApiDeps, register: RegisterRoute) {
     }
   })
 
+  // 多账号管理：增删改、切换激活账号。appSecret 只进 Host，不返回给前端。
+  register('/api/paipiange.wechat.accounts', ['GET', 'POST', 'PATCH', 'DELETE'], async (request) => {
+    const url = new URL(request.url)
+    if (request.method === 'GET') {
+      return json({ accounts: settings.listWechatAccounts(), activeId: settings.getActiveWechatAccountId() })
+    }
+    if (request.method === 'DELETE') {
+      const id = url.searchParams.get('id') ?? ''
+      if (!id) return error('缺少 id')
+      const removed = settings.removeWechatAccount(id)
+      if (!removed) return error('账号不存在', 404)
+      wechat.invalidateToken()
+      return json({ accounts: settings.listWechatAccounts(), activeId: settings.getActiveWechatAccountId() })
+    }
+    if (request.method === 'PATCH') {
+      const id = url.searchParams.get('id') ?? ''
+      if (!id) return error('缺少 id')
+      const account = settings.getWechatAccount(id)
+      if (!account) return error('账号不存在', 404)
+      settings.setActiveWechatAccount(id)
+      wechat.invalidateToken()
+      return json({ accounts: settings.listWechatAccounts(), activeId: settings.getActiveWechatAccountId() })
+    }
+    // POST：新增或更新账号。
+    const body = await request.json().catch(() => null) as { id?: string; name?: string; appId?: string; appSecret?: string; defaultAuthor?: string } | null
+    if (!body) return error('请求体无效')
+    const appId = body.appId?.trim() ?? ''
+    const appSecret = body.appSecret?.trim() ?? ''
+    if (!appId || appId.length > 64) return error('请填写有效的公众号 AppID')
+    const existing = body.id ? settings.getWechatAccount(body.id) : null
+    if (!appSecret && !existing?.appSecret) return error('请填写公众号 AppSecret')
+    if (appSecret.length > 256) return error('AppSecret 过长')
+    const saved = settings.saveWechatAccount({
+      ...(body.id ? { id: body.id } : {}),
+      name: body.name ?? '',
+      appId,
+      ...(appSecret ? { appSecret } : {}),
+      defaultAuthor: body.defaultAuthor?.trim().slice(0, 32) || '',
+    })
+    wechat.invalidateToken()
+    return json({ account: saved, accounts: settings.listWechatAccounts(), activeId: settings.getActiveWechatAccountId() })
+  })
+
   register('/api/paipiange.wechat.draft', ['POST'], async (request) => {
     const body = await request.json().catch(() => null) as {
       title?: unknown

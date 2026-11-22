@@ -5077,6 +5077,58 @@
   gap: 0 12px;
   margin-top: 16px;
 }
+
+/* 多账号列表 */
+.pa-root .pa-wechat-accounts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+.pa-root .pa-wechat-account {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--pa-border-soft);
+  border-radius: 10px;
+  background: var(--pa-bg-soft);
+}
+.pa-root .pa-wechat-account[data-active='true'] {
+  border-color: color-mix(in srgb, var(--pa-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--pa-accent) 8%, transparent);
+}
+.pa-root .pa-wechat-account__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.pa-root .pa-wechat-account__info strong {
+  font-size: 13px;
+  color: var(--pa-text);
+}
+.pa-root .pa-wechat-account__info span {
+  font-size: 11px;
+  color: var(--pa-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pa-root .pa-wechat-account__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.pa-root .pa-wechat-account__active-badge {
+  font-size: 11px;
+  color: var(--pa-accent);
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--pa-accent) 40%, transparent);
+  border-radius: 999px;
+}
 .pa-root .pa-wechat-settings__form .pa-field:last-child {
   grid-column: 1 / -1;
 }
