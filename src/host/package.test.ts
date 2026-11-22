@@ -42,10 +42,11 @@ describe('publish packaging contract', () => {
     expect(pkg.dsh.client.inject).toContain('@deepseek-ai/dsh-client-ui-sidebar')
   })
 
-  it('ships only the lib, patch, readme and changelog in the tarball', () => {
+  it('ships only the lib, patch, readme, changelog and third-party notices in the tarball', () => {
     const pkg = readPackage()
     // 不把 src、测试、本地预览产物 dist 打进去，避免泄露源码与用户数据。
-    expect(pkg.files).toEqual(['lib', 'cordis.patch.yml', 'README.md', 'CHANGELOG.md'])
+    // THIRD_PARTY_NOTICES.md 随包发布以符合第三方许可证合规要求。
+    expect(pkg.files).toEqual(['lib', 'cordis.patch.yml', 'README.md', 'CHANGELOG.md', 'THIRD_PARTY_NOTICES.md'])
   })
 
   it('keeps better-sqlite3 as an external dependency so its native binding resolves', () => {
