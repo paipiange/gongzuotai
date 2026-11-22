@@ -596,7 +596,7 @@ export function StudioPage({ studio, initialCreation, resumeTask = null, onResum
           <label className="pa-field"><span>内容风格</span><select value={style} onChange={(event) => setStyle(event.target.value)}><option value="">不指定（自由发挥）</option><option value="cinematic">电影感叙事</option><option value="poetic">东方诗意</option><option value="clear">清晰专业</option><option value="lively">轻松活泼</option></select></label>
           {isVideo && (
             <>
-              <label className="pa-field"><span>生成引擎</span><select value={videoEngine} onChange={(event) => setVideoEngine(event.target.value as 'llm' | 'comfyui' | 'remotion')}><option value="llm">模型写动画（LLM → 逐帧渲染）</option><option value="comfyui">ComfyUI 出帧（本机/远程模型）</option><option value="remotion">Remotion 双引擎（3D + 节拍卡点）</option></select></label>
+              <label className="pa-field"><span>生成引擎</span><select value={videoEngine} onChange={(event) => setVideoEngine(event.target.value as 'llm' | 'comfyui' | 'remotion')}><option value="remotion">Remotion 双引擎（3D + 节拍卡点）</option><option value="llm">模型写动画（LLM → 逐帧渲染）</option><option value="comfyui">ComfyUI 出帧（本机/远程模型）</option></select></label>
               {videoEngine === 'comfyui' && (
                 <label className="pa-field"><span>ComfyUI 后端</span><select value={videoBackendId} onChange={(event) => setVideoBackendId(event.target.value)}>
                   {comfyBackends.length === 0 && <option value="">（未配置，去「设置中心 → 后端管理」添加 ComfyUI）</option>}

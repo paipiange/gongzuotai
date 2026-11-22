@@ -1048,9 +1048,19 @@
 }
 
 .pa-root .pa-template-card__art {
+  position: relative;
   display: block;
   height: 118px;
   overflow: hidden;
+}
+
+.pa-root .pa-template-card__cover {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .pa-root .pa-template-card__copy {
@@ -1062,11 +1072,17 @@
 .pa-root .pa-template-card__copy strong {
   font-family: "Songti SC", "STSong", serif;
   font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pa-root .pa-template-card__copy small {
   color: var(--pa-muted);
   font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pa-root .pa-empty-state {

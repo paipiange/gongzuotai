@@ -143,14 +143,6 @@ export const inspirations = [
   },
 ]
 
-export const templates = [
-  { title: '春日限定', subtitle: '诗意文案', art: 'blossom' as const },
-  { title: '国风山水', subtitle: '大气排版', art: 'river' as const },
-  { title: '古风写真', subtitle: '唯美散文', art: 'portrait' as const },
-  { title: '东方意境', subtitle: '情感文案', art: 'court' as const },
-  { title: '花开有期', subtitle: '治愈文章', art: 'night' as const },
-]
-
 export const pageMeta: Record<PageId, { title: string; description: string }> = {
   home: { title: '首页', description: '创作入口、灵感与模板' },
   create: { title: 'AI 创作', description: '选择适合内容目标的创作方式' },

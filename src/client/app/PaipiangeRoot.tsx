@@ -1,6 +1,6 @@
 import { CheckCircle, CloudArrowUp, X } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
-import { inspirations, quickActions, templates, type PageId, type StudioId } from './data'
+import { inspirations, quickActions, type PageId, type StudioId } from './data'
 import {
   loadCreations,
   removeCreation,
@@ -20,7 +20,7 @@ import { ErrorBoundary } from './ErrorBoundary'
 import type { TaskRecord } from './hostClient'
 import type { ToastState } from './primitives'
 import { resolveTaskResume, storedTaskOrigin } from './taskResume'
-import { assetUrl, getHomeCarousel } from './hostClient'
+import { assetUrl, getHomeCarousel, listTemplates, type TemplateRecord } from './hostClient'
 import { HERO_BG } from './heroBackground'
 
 export function PaipiangeRoot() {
@@ -35,6 +35,7 @@ export function PaipiangeRoot() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [carouselImages, setCarouselImages] = useState<string[]>([])
   const [carouselIntervalMs, setCarouselIntervalMs] = useState<number | undefined>(undefined)
+  const [homeTemplates, setHomeTemplates] = useState<TemplateRecord[]>([])
   const [theme, setTheme] = useState<string>(() => {
     if (typeof window === 'undefined') return 'amber'
     return window.localStorage.getItem('paipiange.theme') ?? 'amber'
@@ -91,6 +92,22 @@ export function PaipiangeRoot() {
       })
       .catch(() => {
         // 未连接 Host 时保留默认图，不做处理。
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Load real templates for the home "模板中心" section (from Host, sorted as in template center).
+  useEffect(() => {
+    let cancelled = false
+    listTemplates()
+      .then((rows) => {
+        if (cancelled) return
+        setHomeTemplates(rows)
+      })
+      .catch(() => {
+        // 未连接 Host 时首页模板区域显示空态，不做处理。
       })
     return () => {
       cancelled = true
@@ -227,7 +244,7 @@ export function PaipiangeRoot() {
       return
     }
     const action = quickActions.find((item) => `${item.title}${item.description}${item.category}`.toLowerCase().includes(normalized))
-    const template = templates.find((item) => `${item.title}${item.subtitle}`.toLowerCase().includes(normalized))
+    const template = homeTemplates.find((item) => `${item.name}${item.description}${item.category}`.toLowerCase().includes(normalized))
     const creation = creations.find((item) => `${item.title}${item.topic}${item.content}`.toLowerCase().includes(normalized))
     if (creation) {
       openCreation(creation)
@@ -236,7 +253,8 @@ export function PaipiangeRoot() {
       openStudio(action.id)
       showToast(`已找到：${action.title}`, 'success')
     } else if (template) {
-      showToast(`已找到模板：${template.title}`, 'success')
+      navigate('templates')
+      showToast(`已找到模板：${template.name}`, 'success')
     } else {
       showToast('暂未找到匹配内容', 'warning')
     }
@@ -274,7 +292,7 @@ export function PaipiangeRoot() {
         )}
         <main id="pa-main-content" className="pa-content" ref={mainRef} tabIndex={-1}>
           <ErrorBoundary resetKey={`${activePage}:${studio ?? ''}`}>
-            {activePage === 'home' && !studio && <HomePage inspirationIndex={inspirationIndex} activeCategory={activeCategory} creations={creations} carouselImages={carouselImages} carouselIntervalMs={carouselIntervalMs} onCategory={setActiveCategory} onShuffle={shuffleInspiration} onOpenStudio={openStudio} onOpenCreation={openCreation} onNavigate={navigate} onToast={showToast} />}
+            {activePage === 'home' && !studio && <HomePage inspirationIndex={inspirationIndex} activeCategory={activeCategory} creations={creations} carouselImages={carouselImages} carouselIntervalMs={carouselIntervalMs} homeTemplates={homeTemplates} onCategory={setActiveCategory} onShuffle={shuffleInspiration} onOpenStudio={openStudio} onOpenCreation={openCreation} onNavigate={navigate} onToast={showToast} />}
             {activePage === 'create' && !studio && <CreateHub onOpenStudio={openStudio} />}
             {studio === 'graphic' && <GraphicStudioPage onBack={() => { setStudio(null); setSelectedCreation(null); setStudioResumeTask(null) }} onToast={showToast} onOpenSettings={() => navigate('settings')} />}
             {studio && studio !== 'graphic' && <StudioPage studio={studio} initialCreation={selectedCreation} resumeTask={studioResumeTask} onResumeConsumed={() => setStudioResumeTask(null)} onBack={() => { setStudio(null); setSelectedCreation(null); setStudioResumeTask(null) }} onSave={saveCreation} onToast={showToast} onOpenSettings={() => navigate('settings')} />}

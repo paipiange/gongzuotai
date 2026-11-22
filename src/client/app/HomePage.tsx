@@ -1,7 +1,9 @@
 import { ArrowRight, CaretRight, FileText, Shuffle, Sparkle } from '@phosphor-icons/react'
 import { useMemo } from 'react'
-import { categoryPills, inspirations, quickActions, templates, type PageId, type QuickAction, type StudioId } from './data'
+import { categoryPills, inspirations, quickActions, type PageId, type QuickAction, type StudioId } from './data'
 import type { CreationRecord } from './workspaceStore'
+import { assetUrl } from './hostClient'
+import type { TemplateRecord } from './hostClient'
 import { EmptyState, ScenicArt, SectionHeading, formatLocalTime, statusLabels, studioLabels, type ToastState } from './primitives'
 import { Hero } from './chrome'
 
@@ -62,6 +64,7 @@ export function HomePage({
   creations,
   carouselImages,
   carouselIntervalMs,
+  homeTemplates,
   onCategory,
   onShuffle,
   onOpenStudio,
@@ -74,6 +77,7 @@ export function HomePage({
   creations: CreationRecord[]
   carouselImages?: string[]
   carouselIntervalMs?: number
+  homeTemplates: TemplateRecord[]
   onCategory: (category: string) => void
   onShuffle: () => void
   onOpenStudio: (studio: StudioId) => void
@@ -107,15 +111,25 @@ export function HomePage({
 
       <div className="pa-home__bottom-grid">
         <section className="pa-panel pa-templates-panel">
-          <SectionHeading title="精选模板" action="查看更多" onAction={() => onNavigate('create')} />
-          <div className="pa-template-grid">
-            {templates.map((template) => (
-              <button key={template.title} type="button" className="pa-template-card" onClick={() => onToast(`已选择模板：${template.title}`)}>
-                <span className="pa-template-card__art"><ScenicArt variant={template.art} label={`${template.title}原创模板插画`} /></span>
-                <span className="pa-template-card__copy"><strong>{template.title}</strong><small>{template.subtitle}</small></span>
-              </button>
-            ))}
-          </div>
+          <SectionHeading title="模板中心" action="更多模板" onAction={() => onNavigate('templates')} />
+          {homeTemplates.length === 0 ? (
+            <EmptyState title="暂无模板" description="模板中心还没有可用模板，可到「设置中心 → 模板管理」导入，或等待内置模板加载。" action="前往模板中心" onAction={() => onNavigate('templates')} />
+          ) : (
+            <div className="pa-template-grid">
+              {homeTemplates.slice(0, 5).map((template, index) => (
+                <button key={template.id} type="button" className="pa-template-card" onClick={() => onNavigate('templates')}>
+                  <span className="pa-template-card__art">
+                    {template.coverAssetId ? (
+                      <img className="pa-template-card__cover" src={assetUrl(template.coverAssetId)} alt={`${template.name}模板封面`} loading="lazy" />
+                    ) : (
+                      <ScenicArt variant={(['blossom', 'river', 'portrait', 'court', 'night'] as const)[index % 5]} label={`${template.name}模板插画`} />
+                    )}
+                  </span>
+                  <span className="pa-template-card__copy"><strong>{template.name}</strong><small>{template.description || '按模板提示词快速生成内容'}</small></span>
+                </button>
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="pa-panel pa-recent-panel">
