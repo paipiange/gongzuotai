@@ -1728,6 +1728,103 @@
   margin-bottom: 14px;
 }
 
+/* ---- 任务队列概览 ---- */
+
+.pa-root .pa-queue-overview {
+  margin-bottom: 14px;
+  padding: 13px 14px;
+  background: color-mix(in srgb, var(--pa-surface-ink) 30.0%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pa-accent-dim) 16.0%, transparent);
+  border-radius: 12px;
+}
+
+.pa-root .pa-queue-overview__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.pa-root .pa-queue-overview__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--pa-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pa-root .pa-queue-overview__title svg {
+  color: var(--pa-gold);
+}
+
+.pa-root .pa-queue-overview__stats {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.pa-root .pa-queue-overview__stat {
+  display: flex;
+  min-width: 88px;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 12px;
+  background: color-mix(in srgb, var(--pa-accent) 6.0%, transparent);
+  border-radius: 10px;
+}
+
+.pa-root .pa-queue-overview__stat strong {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.pa-root .pa-queue-overview__stat span {
+  color: var(--pa-muted);
+  font-size: 11px;
+}
+
+.pa-root .pa-queue-overview__stat[data-status='running'] strong { color: var(--pa-gold); }
+.pa-root .pa-queue-overview__stat[data-status='queued'] strong { color: var(--pa-text); }
+.pa-root .pa-queue-overview__stat[data-status='paused'] strong { color: var(--pa-muted); }
+
+.pa-root .pa-queue-overview__running {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pa-root .pa-queue-overview__item {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 7px 10px;
+  color: var(--pa-text);
+  background: color-mix(in srgb, var(--pa-surface-ink) 40.0%, transparent);
+  border-radius: 9px;
+  font-size: 12px;
+}
+
+.pa-root .pa-queue-overview__item-kind {
+  color: var(--pa-muted);
+}
+
+.pa-root .pa-queue-overview__item-summary {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pa-root .pa-queue-overview__item-meta {
+  color: var(--pa-muted);
+  font-size: 11px;
+}
+
+
 .pa-root .pa-record-search {
   display: flex;
   flex: 1 1 100%;

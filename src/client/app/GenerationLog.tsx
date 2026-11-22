@@ -1,4 +1,4 @@
-import { ClockCounterClockwise, ArrowClockwise, TextAa, ImageSquare, VideoCamera, CheckCircle, XCircle, CaretRight, Eye, ArrowSquareOut, MagnifyingGlass } from '@phosphor-icons/react'
+import { ClockCounterClockwise, ArrowClockwise, TextAa, ImageSquare, VideoCamera, CheckCircle, XCircle, CaretRight, Eye, ArrowSquareOut, MagnifyingGlass, Queue } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
 import { cancelTask, getTask, listTasks, pauseTask, resumeTask, setTaskPriority, assetUrl, type TaskKind, type TaskRecord, type TaskStatus } from './hostClient'
 import { Lightbox, absoluteAssetUrl } from './Lightbox'
@@ -67,6 +67,8 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
   const [loadingMore, setLoadingMore] = useState(false)
   const [detail, setDetail] = useState<TaskRecord | null>(null)
   const [lightbox, setLightbox] = useState<{ ids: string[]; index: number } | null>(null)
+  const [queueStats, setQueueStats] = useState<{ queued: number; running: number; paused: number }>({ queued: 0, running: 0, paused: 0 })
+  const [runningTasks, setRunningTasks] = useState<TaskRecord[]>([])
 
   const PAGE_SIZE = 50
 
@@ -104,9 +106,28 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
   }, [kindFilter, statusFilter, debouncedQuery])
 
   const hasRunningTasks = tasks.some((task) => task.status === 'queued' || task.status === 'running')
+
+  // 独立拉取活跃任务（排队/进行中/暂停）用于顶部队列概览，不随列表筛选变化。
+  const loadQueueStats = async () => {
+    try {
+      const active = await listTasks({ limit: 200 })
+      const queued = active.filter((t) => t.status === 'queued').length
+      const running = active.filter((t) => t.status === 'running').length
+      const paused = active.filter((t) => t.status === 'paused').length
+      setQueueStats({ queued, running, paused })
+      setRunningTasks(active.filter((t) => t.status === 'running').slice(0, 3))
+    } catch {
+      // 未连接 Host 时概览保持空态，不打断主列表。
+    }
+  }
+
+  useEffect(() => {
+    void loadQueueStats()
+  }, [])
+
   useEffect(() => {
     if (!hasRunningTasks) return
-    const timer = window.setInterval(() => { void load(true, true) }, 2000)
+    const timer = window.setInterval(() => { void load(true, true); void loadQueueStats() }, 2000)
     return () => window.clearInterval(timer)
   }, [hasRunningTasks, kindFilter, statusFilter, debouncedQuery])
 
@@ -266,6 +287,32 @@ export function GenerationLogPage({ onResume, onToast }: { onResume: (task: Task
           <button type="button" data-active={statusFilter === 'cancelled'} onClick={() => setStatusFilter('cancelled')}>已取消</button>
         </div>
       </div>
+
+      {(queueStats.queued > 0 || queueStats.running > 0 || queueStats.paused > 0) && (
+        <section className="pa-queue-overview" aria-label="任务队列概览">
+          <div className="pa-queue-overview__head">
+            <span className="pa-queue-overview__title"><Queue aria-hidden="true" size={16} />任务队列</span>
+            <button type="button" className="pa-link-button" onClick={() => void loadQueueStats()}>刷新</button>
+          </div>
+          <div className="pa-queue-overview__stats">
+            <div className="pa-queue-overview__stat" data-status="running"><strong>{queueStats.running}</strong><span>进行中</span></div>
+            <div className="pa-queue-overview__stat" data-status="queued"><strong>{queueStats.queued}</strong><span>排队中</span></div>
+            <div className="pa-queue-overview__stat" data-status="paused"><strong>{queueStats.paused}</strong><span>已暂停</span></div>
+          </div>
+          {runningTasks.length > 0 && (
+            <div className="pa-queue-overview__running">
+              {runningTasks.map((task) => (
+                <div key={task.id} className="pa-queue-overview__item">
+                  <span className="pa-status-badge" data-status="running">进行中</span>
+                  <span className="pa-queue-overview__item-kind">{KIND_LABEL[task.kind]}</span>
+                  <span className="pa-queue-overview__item-summary">{summaryOf(task)}</span>
+                  {task.attempt > 1 && <span className="pa-queue-overview__item-meta">第 {task.attempt} 次执行</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {!loaded ? (
         <section className="pa-panel pa-large-empty"><div className="pa-large-empty__icon"><ClockCounterClockwise aria-hidden="true" size={27} weight="duotone" /></div><h2>正在加载…</h2></section>
