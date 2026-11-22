@@ -41,7 +41,16 @@
 
 本仓库的 `src/host/videoEngine/` 为从 [dsh-video-workbench](https://github.com/Merziller/dsh-video-workbench)（MIT）vendor 进来的 Remotion + Three.js 渲染引擎源码。该目录在构建时被原样复制，属于第三方代码，MIT 许可要求保留原版权声明。相关维护说明见 `src/host/videoEngine/VENDOR.md`。
 
-### 3. 许可证文本
+### 3. 随包分发的字体（OFL-1.1）
+
+`src/host/videoEngine/packages/shared/fonts/` 下随包分发的字体：
+
+- **Noto Sans SC**（思源黑体）— SIL Open Font License 1.1
+- **Source Han Serif SC Heavy**（思源宋体）— SIL Open Font License 1.1
+
+两者均为 OFL-1.1，可免费用于商业与非商业视频分发。完整声明见 `src/host/videoEngine/packages/shared/fonts/LICENSES.md`。
+
+### 4. 许可证文本
 
 各依赖的完整许可证文本位于 `node_modules/<包名>/LICENSE*`。分发二进制或再发布时，请保留上述许可证及其版权声明。
 
