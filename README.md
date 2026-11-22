@@ -149,6 +149,7 @@ UI 验收同时覆盖 1280×774、390×844 和减少动画模式。开发预览�
 
 - 代码结构与数据流见 [docs/architecture.md](./docs/architecture.md)。
 - 未来规划见 [ROADMAP.md](./ROADMAP.md)。
+- 模板结构、占位符语法与贡献方式见 [docs/templates.md](./docs/templates.md)。
 - 想贡献代码请先读 [CONTRIBUTING.md](./CONTRIBUTING.md)。
 - 发现漏洞请查看 [SECURITY.md](./SECURITY.md)。
 - 第三方依赖许可见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。
