@@ -107,6 +107,13 @@ class WechatApiError extends Error {
 export class WechatPublishService {
   private tokenCache: { appId: string; token: string; expiresAt: number } | null = null
 
+  /**
+   * 图片上传结果缓存：dataUrl 的短哈希 → 上传后的 URL / media_id。
+   * 草稿创建失败重试时复用已上传的图片，避免重复消耗素材库上传额度。
+   * 仅存内存（进程生命周期内有效），不落盘，隐私边界不变。
+   */
+  private readonly uploadCache = new Map<string, string>()
+
   constructor(
     private readonly getConfig: () => WechatChannelConfig | null,
     private readonly fetchImpl: typeof fetch = fetch,
@@ -114,6 +121,11 @@ export class WechatPublishService {
 
   invalidateToken(): void {
     this.tokenCache = null
+  }
+
+  /** 清空图片上传缓存（账号切换后调用，避免跨账号复用 media_id）。 */
+  clearUploadCache(): void {
+    this.uploadCache.clear()
   }
 
   async testConnection(): Promise<{ ok: true; message: string }> {
@@ -311,6 +323,9 @@ export class WechatPublishService {
   }
 
   private async uploadInlineImage(token: string, dataUrl: string, index: number): Promise<string> {
+    const cacheKey = this.cacheKey(dataUrl)
+    const cached = this.uploadCache.get(cacheKey)
+    if (cached) return cached
     const image = decodeImageDataUrl(dataUrl, 2 * 1024 * 1024)
     const form = new FormData()
     form.append('media', new Blob([toArrayBuffer(image.data)], { type: image.mimeType }), `comic-${index + 1}${image.extension}`)
@@ -322,11 +337,15 @@ export class WechatPublishService {
     assertWechatOk(payload, response.status)
     const url = typeof payload.url === 'string' ? payload.url : ''
     if (!url) throw new Error(`第 ${index + 1} 张图片上传后未返回 URL`)
+    this.uploadCache.set(cacheKey, url)
     return url
   }
 
   /** Upload an image as a permanent material (type=image), returning its media_id for newspic drafts. */
   private async uploadPermanentImage(token: string, dataUrl: string, index: number): Promise<string> {
+    const cacheKey = `perm:${this.cacheKey(dataUrl)}`
+    const cached = this.uploadCache.get(cacheKey)
+    if (cached) return cached
     const image = decodeImageDataUrl(dataUrl, 2 * 1024 * 1024)
     const form = new FormData()
     form.append('media', new Blob([toArrayBuffer(image.data)], { type: image.mimeType }), `sticker-${index + 1}${image.extension}`)
@@ -338,10 +357,14 @@ export class WechatPublishService {
     assertWechatOk(payload, response.status)
     const mediaId = typeof payload.media_id === 'string' ? payload.media_id : ''
     if (!mediaId) throw new Error(`第 ${index + 1} 张图片上传后未返回 media_id`)
+    this.uploadCache.set(cacheKey, mediaId)
     return mediaId
   }
 
   private async uploadCover(token: string, dataUrl: string): Promise<string> {
+    const cacheKey = `thumb:${this.cacheKey(dataUrl)}`
+    const cached = this.uploadCache.get(cacheKey)
+    if (cached) return cached
     const image = decodeImageDataUrl(dataUrl, 2 * 1024 * 1024)
     if (image.mimeType !== 'image/jpeg') throw new Error('公众号封面必须转换为 JPEG')
     const form = new FormData()
@@ -354,7 +377,18 @@ export class WechatPublishService {
     assertWechatOk(payload, response.status)
     const mediaId = typeof payload.media_id === 'string' ? payload.media_id : ''
     if (!mediaId) throw new Error('公众号封面上传后未返回 media_id')
+    this.uploadCache.set(cacheKey, mediaId)
     return mediaId
+  }
+
+  /** 生成 dataUrl 的短哈希（缓存 key，非安全用途，无需 crypto）。 */
+  private cacheKey(dataUrl: string): string {
+    let hash = 0
+    const sample = dataUrl.length > 4096 ? dataUrl.slice(0, 4096) : dataUrl
+    for (let i = 0; i < sample.length; i += 1) {
+      hash = ((hash << 5) - hash + sample.charCodeAt(i)) | 0
+    }
+    return `${dataUrl.length}:${(hash >>> 0).toString(36)}`
   }
 }
 

@@ -47,6 +47,7 @@ export function registerPublishRoutes(deps: ApiDeps, register: RegisterRoute) {
       const removed = settings.removeWechatAccount(id)
       if (!removed) return error('账号不存在', 404)
       wechat.invalidateToken()
+      wechat.clearUploadCache()
       return json({ accounts: settings.listWechatAccounts(), activeId: settings.getActiveWechatAccountId() })
     }
     if (request.method === 'PATCH') {
@@ -56,6 +57,7 @@ export function registerPublishRoutes(deps: ApiDeps, register: RegisterRoute) {
       if (!account) return error('账号不存在', 404)
       settings.setActiveWechatAccount(id)
       wechat.invalidateToken()
+      wechat.clearUploadCache()
       return json({ accounts: settings.listWechatAccounts(), activeId: settings.getActiveWechatAccountId() })
     }
     // POST：新增或更新账号。

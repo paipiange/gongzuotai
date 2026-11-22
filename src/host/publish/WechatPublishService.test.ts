@@ -99,4 +99,40 @@ describe('WechatPublishService', () => {
     const service = new WechatPublishService(() => ({ appId: 'wx-test', appSecret: 'private-secret' }), fakeFetch)
     await expect(service.refreshDraft('draft-id')).resolves.toEqual({ exists: true, title: '快乐漫画', articleCount: 1 })
   })
+
+  it('reuses cached image uploads on retry instead of re-uploading', async () => {
+    let inlineUploads = 0
+    let coverUploads = 0
+    const fakeFetch: typeof fetch = async (input, init) => {
+      const url = String(input)
+      if (url.includes('cgi-bin/token')) return Response.json({ access_token: 'token-value', expires_in: 7200 })
+      if (url.includes('media/uploadimg')) {
+        inlineUploads += 1
+        return Response.json({ url: `https://mmbiz.qpic.cn/${inlineUploads}` })
+      }
+      if (url.includes('material/add_material')) {
+        coverUploads += 1
+        return Response.json({ media_id: `thumb-${coverUploads}` })
+      }
+      if (url.includes('draft/add')) return Response.json({ media_id: 'draft-id' })
+      throw new Error(`unexpected URL: ${url}`)
+    }
+    const service = new WechatPublishService(() => ({ appId: 'wx-test', appSecret: 'private-secret' }), fakeFetch)
+    const input = {
+      title: '快乐漫画',
+      images: [{ dataUrl: jpegDataUrl('image-1'), caption: '第一张' }],
+      coverDataUrl: jpegDataUrl('cover'),
+    }
+    await service.createDraft(input)
+    // 第二次发布相同图片，应命中缓存，不再上传。
+    await service.createDraft(input)
+    expect(inlineUploads).toBe(1)
+    expect(coverUploads).toBe(1)
+
+    // 清空缓存后再次发布应重新上传。
+    service.clearUploadCache()
+    await service.createDraft(input)
+    expect(inlineUploads).toBe(2)
+    expect(coverUploads).toBe(2)
+  })
 })
