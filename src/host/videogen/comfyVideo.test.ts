@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { createServer, type Server } from 'node:http'
 import { AddressInfo } from 'node:net'
 import { ComfyVideoGenerator } from './comfyVideo'
-import { encodeFramesToMp4 } from './encoder'
+import { encodeFramesToMp4, findFfmpeg } from './encoder'
 import { mkdtempSync, writeFileSync, existsSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -20,6 +20,16 @@ const REAL_PNG_64 = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAACXBIWXMAAAABAAAAAQBPJcTWAAAAb0lEQVR4nO3PAQkAAAyEwO8feiyGCMIF0G0nxxc0IMcXNCDHFzQgxxc0IMcXNCDHFzQgxxc0IMcXNCDHFzQgxxc0IMcXNCDHFzQgxxc0IMcXNCDHFzQgxxc0IMcXNCDHFzQgxxc0IMcXNCDHFzSg9sFe4OIMD8UiAAAAAElFTkSuQmCC',
   'base64',
 )
+
+// encodeFramesToMp4 依赖本机 ffmpeg（findFfmpeg 用 Windows 路径探测），CI（ubuntu）无 ffmpeg 时跳过。
+function hasFfmpeg(): boolean {
+  try {
+    findFfmpeg()
+    return true
+  } catch {
+    return false
+  }
+}
 
 describe('ComfyVideoGenerator', () => {
   let server: Server
@@ -88,7 +98,7 @@ describe('ComfyVideoGenerator', () => {
   })
 })
 
-describe('encodeFramesToMp4', () => {
+describe.skipIf(!hasFfmpeg())('encodeFramesToMp4', () => {
   it('把 PNG 帧序列合成有效 MP4（ftyp 魔数）', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'paipiange-test-'))
     const out = join(dir, 'out.mp4')

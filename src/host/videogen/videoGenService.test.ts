@@ -1,6 +1,18 @@
 import { describe, it, expect } from 'vitest'
 import { generateVideo } from './videoGenService'
+import { findBrowser } from './renderer'
+import { findFfmpeg } from './encoder'
 import type { LlmService } from '../textgen/types'
+
+// 本测试走「浏览器渲染 + ffmpeg 合成」链路，依赖本机 Edge/Chrome 与 ffmpeg。
+// CI（ubuntu）无这些依赖，跳过即可，不阻塞其余单元测试。
+function hasVideoToolchain(): boolean {
+  try {
+    return findBrowser() !== null && (() => { findFfmpeg(); return true })()
+  } catch {
+    return false
+  }
+}
 
 // Mock LLM 返回不可用文本，触发内置模板降级路径，验证「渲染 + 合成」链路。
 const mockLlm: LlmService = {
@@ -13,7 +25,7 @@ const mockLlm: LlmService = {
   listProviders: () => [],
 }
 
-describe('generateVideo', () => {
+describe.skipIf(!hasVideoToolchain())('generateVideo', () => {
   it('降级到内置模板并产出非空 MP4', async () => {
     const result = await generateVideo(
       mockLlm,
