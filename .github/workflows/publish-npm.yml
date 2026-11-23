@@ -1,0 +1,62 @@
+name: Publish to npm
+
+# 通过 OIDC trusted publishing 发布 dsh-paipiange + paipiange 双包到 npm。
+# 触发：推送 v* 标签。发布前需在 npm 包设置里配置 trusted publisher：
+#   dsh-paipiange -> 关联 paipiange/gongzuotai，workflow 路径 .github/workflows/publish-npm.yml，环境名 npm
+#   paipiange     -> 同上
+# 参考：https://docs.npmjs.com/generating-provenance-statements
+#       https://docs.npmjs.com/trusted-publishers
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  id-token: write # OIDC trusted publishing 必需
+
+jobs:
+  publish:
+    name: Publish dsh-paipiange + paipiange
+    runs-on: ubuntu-latest
+    environment: npm # 关联 npm trusted publisher 的 GitHub environment
+    strategy:
+      fail-fast: false # 一个包失败不阻断另一个
+      matrix:
+        package: [dsh-paipiange, paipiange]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.11.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build plugin
+        run: pnpm build:plugin
+
+      # 双包发布：本地 name 是 dsh-paipiange；发 paipiange 时临时改 name。
+      - name: Switch package name to ${{ matrix.package }}
+        if: matrix.package == 'paipiange'
+        run: node scripts/publish-dual.cjs
+
+      - name: Publish ${{ matrix.package }} to npm
+        # OIDC trusted publishing：无需 NPM_TOKEN，npm 自动用 GitHub OIDC 换取临时发布凭证。
+        run: npm publish --provenance --access public --ignore-scripts
+
+      # 还原 name，避免影响后续步骤（虽然每个 matrix 是独立 checkout，但保持干净）。
+      - name: Restore package name
+        if: matrix.package == 'paipiange'
+        run: node scripts/publish-dual.cjs --restore

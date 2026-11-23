@@ -60,8 +60,9 @@ export function bundledNativePath(platformKey = currentPlatformKey()): string | 
 function vendorWrapperEntry(): string {
   const here = dirname(fileURLToPath(import.meta.url))
   const candidates = [
-    join(here, '..', 'vendor', 'better-sqlite3', 'lib', 'index.cjs'),        // 编译态 lib/storage -> lib/vendor
-    join(here, '..', '..', 'vendor', 'better-sqlite3', 'lib', 'index.cjs'),  // 源码态 src/host/storage -> src/host/vendor
+    join(here, 'vendor', 'better-sqlite3', 'lib', 'index.cjs'),              // 编译态 lib/vendor（本模块打进 lib/index.js，here 即 lib/）
+    join(here, '..', 'vendor', 'better-sqlite3', 'lib', 'index.cjs'),        // 源码态 src/host/storage -> src/host/vendor
+    join(here, '..', '..', 'vendor', 'better-sqlite3', 'lib', 'index.cjs'),  // 兜底：再上溯一级
   ]
   for (const p of candidates) {
     if (existsSync(p)) return p
