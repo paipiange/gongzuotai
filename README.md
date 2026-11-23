@@ -13,20 +13,24 @@
 ### 通过 npm 安装（作为 Harness 插件）
 
 ```bash
-pnpm add dsh-paipiange@0.2.4
+pnpm add dsh-paipiange@0.2.6
 ```
 
-> ⚠️ **务必钉版本号安装**（`@0.2.4`），不要用裸包名或 `^0.2.0` 范围。原因：pnpm 的
+> ⚠️ **务必钉版本号安装**（`@0.2.6`），不要用裸包名或 `^0.2.0` 范围。原因：pnpm 的
 > `minimumReleaseAge`（默认 24 小时）会过滤「发布不足 24 小时」的版本，裸包名/范围
-> 会静默回退到更旧的版本（旧版 `better-sqlite3` 仍是强依赖，会在缺 Python 的机器上
-> 触发 `node-gyp` 编译失败）。钉版本可绕过该限制，直接拿到修复后的版本。
+> 会静默回退到更旧的版本（0.2.0~0.2.3 的 `better-sqlite3` 是强依赖，会在缺 Python 的
+> 机器上触发 `node-gyp` 编译失败；0.2.4 虽移到 optionalDependencies 但安装期仍可能触发
+> 编译）。**只有 0.2.6 彻底移除了 better-sqlite3 依赖（vendor 内置二进制），安装期零编译**。
+> 钉版本可绕过该限制，直接拿到修复后的版本。
 >
 > 若希望裸包名也能始终装到最新版，可在 Harness profile 的 `pnpm-workspace.yaml` 中
-> 豁免本插件（按包名豁免所有版本）：
+> 关闭发布年龄门控（`minimumReleaseAge: 0`）或豁免本插件：
 >
 > ```yaml
-> minimumReleaseAgeExclude:
->   - dsh-paipiange
+> # 二选一：
+> minimumReleaseAge: 0            # 永久关闭门控（推荐）
+> # minimumReleaseAgeExclude:     # 或只豁免本插件
+> #   - dsh-paipiange
 > ```
 >
 > 详见 [docs/install.md](./docs/install.md)。

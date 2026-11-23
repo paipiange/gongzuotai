@@ -27,25 +27,29 @@ pnpm pack           # 生成 dsh-paipiange-0.2.0.tgz
 发布到 npm 后可直接按包名安装，**务必钉版本号**：
 
 ```bash
-pnpm add dsh-paipiange@0.2.4
+pnpm add dsh-paipiange@0.2.6
 ```
 
-> ⚠️ **为什么要钉版本号（`@0.2.4`）而不是裸包名或 `^0.2.0`？**
+> ⚠️ **为什么要钉版本号（`@0.2.6`）而不是裸包名或 `^0.2.0`？**
 >
 > pnpm 的 `minimumReleaseAge`（默认 1440 分钟 = 24 小时）会过滤「发布不足 24 小时」的
 > 版本：裸包名 / `^0.2.0` 范围会**静默回退**到发布满 24 小时的最新版。对于当天刚发的
-> 版本，回退到的是更早的旧版——而旧版的 `better-sqlite3` 仍是强依赖，会在缺
-> Python / C++ 工具链的机器上触发 `node-gyp` 源码编译失败（`gyp ERR! find Python`）。
+> 版本，回退到的是更早的旧版——0.2.0~0.2.3 的 `better-sqlite3` 是**强依赖**，0.2.4 是
+> `optionalDependencies`，都会在缺 Python / C++ 工具链的机器上触发 `node-gyp` 源码编译
+> 失败（`gyp ERR! find Python`）。
 >
-> 钉版本号 `@0.2.4` 会绕过 minimumReleaseAge 过滤，直接拿到修复后的版本
-> （`better-sqlite3` 已移到 `optionalDependencies` + 内置 Electron ABI 二进制）。
+> **只有 0.2.6 彻底移除了 better-sqlite3 依赖**（vendor 纯 JS wrapper + 内置 Electron
+> ABI 二进制），安装期零编译。钉版本号 `@0.2.6` 绕过 minimumReleaseAge 过滤，直接拿到
+> 根治版本。
 >
 > **若希望裸包名也能始终装到最新版**，可在 Harness profile 的 `pnpm-workspace.yaml`
-> 中豁免本插件（按包名豁免所有版本，之后裸包名 / 范围即可直接拿到最新版）：
+> 中关闭发布年龄门控（推荐）或按包名豁免：
 >
 > ```yaml
-> minimumReleaseAgeExclude:
->   - dsh-paipiange
+> # 二选一：
+> minimumReleaseAge: 0            # 永久关闭门控，裸包名/范围都能追到 latest（推荐）
+> # minimumReleaseAgeExclude:     # 或只豁免本插件
+> #   - dsh-paipiange
 > ```
 >
 > 参考：这是 dsh 插件生态的已知坑，见
@@ -55,7 +59,7 @@ pnpm add dsh-paipiange@0.2.4
 
 ```bash
 # 1. 安装到 Harness 的插件依赖
-pnpm add ./dsh-paipiange-0.2.4.tgz
+pnpm add ./dsh-paipiange-0.2.6.tgz
 
 # 2. 在 Harness 的 profile 中声明 bundle（patch 注入）
 #    cordis.patch.yml 已声明：
@@ -64,17 +68,12 @@ pnpm add ./dsh-paipiange-0.2.4.tgz
 #            name: dsh-paipiange
 ```
 
-> ✅ 插件依赖 `better-sqlite3`（原生 addon）。为彻底免除安装期 node-gyp 源码编译
-> （需本机 C++ 工具链，常导致「别的机器安装报 `node-gyp ... not ok`」），插件做了两层处理：
->
-> 1. **`better-sqlite3` 声明为 `optionalDependencies`**——即使某台机器编译/下载失败，
->    也不会让整个 `pnpm add` 安装失败（只是降级为 warning）。
-> 2. **内置针对 dsh 桌面端 Electron ABI 预编译的二进制**（`lib/native/{platform}-{arch}/`），
->    运行时经 `nativeBinding` 直接加载，完全不依赖依赖树里那份 `better-sqlite3`。
->
-> 当前内置 `win32-x64` 与 `darwin-arm64`（dsh 官方桌面版支持的两个平台）。
-> 若你的平台未内置（或 dsh Electron 升级导致 ABI 变化），可参考
-> [docs/native-rebuild.md](./docs/native-rebuild.md) 手动重编译。
+> ✅ 插件**不再依赖 `better-sqlite3`**（原生 addon）。为彻底免除安装期 node-gyp 源码
+> 编译（需本机 C++ 工具链，常导致「别的机器安装报 `node-gyp ... not ok`」），插件把
+> better-sqlite3 的纯 JS wrapper vendor 进包内，并内置针对 dsh 桌面端 Electron ABI
+> 预编译的二进制（`lib/native/{platform}-{arch}/`），运行时经 `nativeBinding` 直接加载，
+> **package.json 的 dependencies / optionalDependencies 里都没有 better-sqlite3**，
+> 安装期零编译、零 prebuild 下载。
 
 安装后重启 Harness，侧边栏应出现「拍片哥工作台」入口。
 
