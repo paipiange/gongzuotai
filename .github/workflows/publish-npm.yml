@@ -33,7 +33,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22 # trusted publishing 要求 Node >= 22.14.0 / npm CLI >= 11.5.1
+          node-version: 24 # trusted publishing 要求 npm CLI >= 11.5.1；Node 24.5.0+ 才捆绑 npm 11（Node 22 是 npm 10 会报误导性 404）
           cache: pnpm
           registry-url: 'https://registry.npmjs.org'
 
@@ -53,7 +53,8 @@ jobs:
 
       - name: Publish ${{ matrix.package }} to npm
         # OIDC trusted publishing：无需 NPM_TOKEN，npm 自动用 GitHub OIDC 换取临时发布凭证。
-        run: npm publish --provenance --access public --ignore-scripts
+        # 用 npx npm@11 显式跑 npm 11（Node 22 捆绑的 npm 10 无法做 OIDC 交换，会报误导性 404）。
+        run: npx npm@11 publish --provenance --access public --ignore-scripts
 
       # 还原 name，避免影响后续步骤（虽然每个 matrix 是独立 checkout，但保持干净）。
       - name: Restore package name
