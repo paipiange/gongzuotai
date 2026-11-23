@@ -11,6 +11,16 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      package:
+        description: '要发布的包（留空则发布双包）'
+        required: false
+        type: choice
+        options:
+          - dsh-paipiange
+          - paipiange
+        default: ''
 
 permissions:
   contents: read
@@ -23,7 +33,7 @@ jobs:
     strategy:
       fail-fast: false # 一个包失败不阻断另一个
       matrix:
-        package: [dsh-paipiange, paipiange]
+        package: ${{ fromJSON(github.event_name == 'workflow_dispatch' && github.event.inputs.package != '' && format('["{0}"]', github.event.inputs.package) || '["dsh-paipiange","paipiange"]') }}
     steps:
       - uses: actions/checkout@v4
 
