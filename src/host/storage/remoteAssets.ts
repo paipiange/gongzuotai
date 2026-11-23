@@ -27,13 +27,13 @@ export interface RemoteAssetSpec {
 
 /**
  * 下载镜像列表，按优先级从高到低。运行时若 `PAIPIANGE_CDN` 环境变量存在，则置顶。
- * 默认走 GitHub raw，附带 jsDelivr 作为备用（对国内/海外网络各有兜底）。
+ * jsDelivr 有 CDN 加速（实测比 raw.githubusercontent 快 3-4 倍），优先；raw 作兜底。
  */
 function resolveMirrors(): string[] {
   const custom = process.env.PAIPIANGE_CDN
   const defaults = [
-    'https://raw.githubusercontent.com/paipiange/gongzuotai/main',
     'https://cdn.jsdelivr.net/gh/paipiange/gongzuotai@main',
+    'https://raw.githubusercontent.com/paipiange/gongzuotai/main',
   ]
   if (custom) {
     const trimmed = custom.replace(/\/+$/, '')
@@ -63,10 +63,10 @@ function sha256Of(buf: Buffer): string {
   return createHash('sha256').update(buf).digest('hex')
 }
 
-/** 单文件下载（超时 30s），成功返回 Buffer，失败抛错。 */
+/** 单文件下载（超时 120s，兼容慢网络下 GitHub/镜像拉大文件），成功返回 Buffer，失败抛错。 */
 async function fetchOnce(url: string): Promise<Buffer> {
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 30_000)
+  const timer = setTimeout(() => controller.abort(), 120_000)
   try {
     const res = await fetch(url, { signal: controller.signal, redirect: 'follow' })
     if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`)

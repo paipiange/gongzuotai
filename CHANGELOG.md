@@ -2,6 +2,13 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 格式，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.2.2] - 2026-11-23
+
+### 修复
+
+- 远程资源下载超时从 30s 提高到 120s，避免慢网络下 2.5MB 封面图下载超时失败。
+- 镜像优先级调整：jsDelivr（CDN 加速，实测快 3-4 倍）优先于 raw.githubusercontent，显著提升按需下载速度。
+
 ## [0.2.1] - 2026-11-23
 
 ### 优化
