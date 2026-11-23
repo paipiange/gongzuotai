@@ -43,9 +43,12 @@ pnpm add ./dsh-paipiange-0.2.0.tgz
 #            name: dsh-paipiange
 ```
 
-> ⚠️ 插件依赖 `better-sqlite3`（原生 addon），其 ABI 必须匹配实机 Electron 版本。
-> 手工 `pnpm add` 安装时若插件启动报 ABI 错误，请改用仓库内 `bash scripts/deploy.sh`
-> 一键部署（会自动探测 Electron 版本并重编译 native 依赖），详见 [docs/native-rebuild.md](./docs/native-rebuild.md)。
+> ✅ 插件依赖 `better-sqlite3`（原生 addon）。为避免安装时触发 node-gyp 源码编译
+> （需本机 C++ 工具链，常导致安装失败），插件已内置针对 dsh 桌面端 Electron ABI
+> 预编译的二进制（`lib/native/{platform}-{arch}/`），运行时经 `nativeBinding` 直接加载，
+> 无需手动编译。当前内置 `win32-x64` 与 `darwin-arm64`（dsh 官方桌面版支持的两个平台）。
+> 若你的平台未内置（或 dsh Electron 升级导致 ABI 变化），可参考
+> [docs/native-rebuild.md](./docs/native-rebuild.md) 手动重编译。
 
 安装后重启 Harness，侧边栏应出现「拍片哥工作台」入口。
 

@@ -1,18 +1,20 @@
 import { randomUUID } from 'node:crypto'
 import { copyFileSync, existsSync, rmSync } from 'node:fs'
 import { basename } from 'node:path'
-import { createRequire } from 'node:module'
 import type Database from 'better-sqlite3'
 import { seedBuiltinContent } from './builtinContent'
 import { getSchemaVersion, latestSchemaVersion, migrateDatabase } from './migrations'
 import { ensureStorageDirectories, resolvePrivatePath, resolveStoragePaths, type StoragePaths } from './paths'
+import { loadBetterSqlite3 } from './nativeBinding'
 
-// better-sqlite3 is a CJS module with native bindings. Loading it through a
-// CJS `require` (via createRequire) is the most robust path: it bypasses any
-// ESM↔CJS default-import interop quirks in the bundler or the host's module
-// loader (which can otherwise surface as `Database is not a constructor`).
-const requireCjs = createRequire(import.meta.url)
-const DatabaseCtor = requireCjs('better-sqlite3') as typeof Database
+// better-sqlite3 is a CJS module with native bindings. We load it through
+// `loadBetterSqlite3()`, which prefers the Electron-ABI binary bundled inside
+// the plugin package (via `nativeBinding`) and falls back to the dependency
+// compiled by node-gyp in a dev environment. See nativeBinding.ts for why
+// (dsh desktop runs Electron, whose ABI differs from stock Node, so npm's
+// prebuild never matches and source compilation fails on machines without
+// a C++ toolchain).
+const DatabaseCtor = loadBetterSqlite3() as typeof Database
 
 export interface StorageOptions {
   dataRoot?: string

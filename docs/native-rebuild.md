@@ -4,6 +4,54 @@
 DeepSeek Harness 桌面端（**Electron 44.7.0 / Node v24.21.0 / ABI 149**），
 因此 `.node` 编译产物必须针对该 ABI 编译，不能使用开发机标准 Node 的 ABI。
 
+## ✅ 首选：插件已内置二进制，用户无需编译
+
+从 0.2.3 起，插件把针对 dsh Electron ABI 编译好的 `better_sqlite3.node` 直接打包进
+tarball（`lib/native/{platform}-{arch}/better_sqlite3.node`），运行时经
+`nativeBinding` 选项显式加载（见 `src/host/storage/nativeBinding.ts`），**完全免除
+用户安装期的 node-gyp 源码编译**。这是解决「别的机器安装报 `node-gyp ... not ok`」
+的根本方案。
+
+内置平台（与 dsh 官方桌面版发布矩阵对齐）：
+- `win32-x64`（Windows x64）
+- `darwin-arm64`（macOS Apple Silicon）
+
+平台不匹配或二进制加载失败时，自动 fallback 到依赖里 node-gyp 编译的版本
+（仅用于开发态）。
+
+### 如何新增一个平台的二进制
+
+1. 在对应平台用 `node-gyp` 编译出 ABI 149 的 `.node`（见下方「手工重建」）。
+2. 放到 `src/host/native/{platform}-{arch}/better_sqlite3.node`。
+3. 构建时 `copyNativePlugin` 会自动拷进 `lib/native/`。
+
+### macOS（Apple Silicon / arm64）编译
+
+```bash
+# 确认工具链
+xcode-select -p || xcode-select --install
+
+# 确认 Mac 版 dsh 主程序 ABI（应与 Windows 版一致为 149）
+"/Applications/DeepSeek Harness.app/Contents/MacOS/DeepSeek Harness" \
+  -e "console.log(process.versions.electron, process.versions.modules)"
+
+# 编译
+mkdir -p /tmp/paipiange-native && cd /tmp/paipiange-native
+npm init -y >/dev/null 2>&1
+npm install better-sqlite3@12.11.1 --ignore-scripts
+cd node_modules/better-sqlite3
+npx node-gyp rebuild --release --target=44.7.0 --runtime=electron \
+  --dist-url=https://electronjs.org/headers
+# 产物：build/Release/better_sqlite3.node
+```
+
+> 若 `--target=44.7.0` 与 Mac 版 dsh 实际 Electron 版本不符，请替换成
+> 第一步查到的实际版本号（ABI 需与 dsh 运行时一致）。
+
+---
+
+## 以下为历史方案（用户手动重建 / 本机开发调试）
+
 ## ⚠️ 最关键的教训：判断 Electron 版本要读「安装目录」，不是「残留目录」
 
 机器上有**两个** Electron 相关位置，版本不同，极易搞错：

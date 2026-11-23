@@ -60,6 +60,41 @@ function copyAssetsPlugin() {
 }
 
 /**
+ * 把 `src/host/native/` 下的预编译原生二进制（better-sqlite3 的 Electron ABI .node）
+ * 拷到 `lib/native/`，随插件包分发。dsh 桌面端是 Electron，其 ABI 与标准 Node 不同，
+ * better-sqlite3 官方 prebuild 从不覆盖 Electron，导致用户机器 npm 安装时 node-gyp
+ * 源码编译失败；内置二进制可在运行时经 `nativeBinding` 直接加载，免除安装期编译。
+ */
+function copyNativePlugin() {
+  const projectRoot = dirname(fileURLToPath(import.meta.url))
+  const sourceDir = join(projectRoot, 'src/host/native')
+  const targetDir = 'native'
+  return {
+    name: 'paipiange-copy-native',
+    writeBundle() {
+      const outDir = join(projectRoot, 'lib')
+      if (!existsSync(sourceDir)) return
+      const copy = (src: string, dst: string) => {
+        if (!existsSync(src)) return
+        const files = readdirSync(src)
+        for (const f of files) {
+          const s = join(src, f)
+          const d = join(dst, f)
+          if (statSync(s).isDirectory()) {
+            mkdirSync(d, { recursive: true })
+            copy(s, d)
+          } else {
+            mkdirSync(dirname(d), { recursive: true })
+            copyFileSync(s, d)
+          }
+        }
+      }
+      copy(sourceDir, join(outDir, targetDir))
+    },
+  }
+}
+
+/**
  * 把 vendored 的 dsh-video 双引擎（Remotion + Three.js）原样拷到 `lib/videoEngine/`。
  * 引擎是纯 ESM JS（含 `import.meta.url`、`createRequire`、动态 import、.py 脚本、
  * 字体与影核广场模板），必须按目录结构落盘，由 remotionEngine.ts 在运行时动态 import，
@@ -121,7 +156,7 @@ export default defineConfig([
     clean: true,
     dts: true,
     external: hostExternals,
-    plugins: [copyAssetsPlugin(), copyVideoEnginePlugin()],
+    plugins: [copyAssetsPlugin(), copyNativePlugin(), copyVideoEnginePlugin()],
     outExtensions: () => ({ js: '.js', dts: '.d.ts' }),
   },
   {
