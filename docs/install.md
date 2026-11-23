@@ -14,32 +14,27 @@
 pnpm install
 pnpm build          # typecheck + 预览构建 + 插件构建
 pnpm test           # 全部单元测试（应全绿）
-pnpm pack           # 生成 dsh-paipiange-0.1.0.tgz
+pnpm pack           # 生成 dsh-paipiange-0.2.0.tgz
 ```
 
 `prepack` 会自动重跑 `build:plugin`，保证 tarball 内的 `lib/` 是最新产物。
 `prepublishOnly` 会在发布前执行 typecheck + 全量测试 + 构建三重校验。
 
-打包产物固定为 6 个文件：
-
-```text
-dsh-paipiange-0.1.0.tgz
-├── README.md
-├── cordis.patch.yml
-├── package.json
-└── lib/
-    ├── client.js       # Client 模块（单一 chunk，Harness lazy-CJS 契约）
-    ├── index.js        # Host 模块
-    └── index.d.ts      # Host 类型声明
-```
-
 ## 安装
 
-将 tarball 安装到目标 Harness 实例的插件目录（profile bundle）：
+### 方式一：从 npm 安装（推荐）
+
+发布到 npm 后可直接按包名安装：
+
+```bash
+pnpm add dsh-paipiange
+```
+
+### 方式二：从本地 tarball 安装
 
 ```bash
 # 1. 安装到 Harness 的插件依赖
-pnpm add ./dsh-paipiange-0.1.0.tgz
+pnpm add ./dsh-paipiange-0.2.0.tgz
 
 # 2. 在 Harness 的 profile 中声明 bundle（patch 注入）
 #    cordis.patch.yml 已声明：
@@ -47,6 +42,10 @@ pnpm add ./dsh-paipiange-0.1.0.tgz
 #          - id: paipiange
 #            name: dsh-paipiange
 ```
+
+> ⚠️ 插件依赖 `better-sqlite3`（原生 addon），其 ABI 必须匹配实机 Electron 版本。
+> 手工 `pnpm add` 安装时若插件启动报 ABI 错误，请改用仓库内 `bash scripts/deploy.sh`
+> 一键部署（会自动探测 Electron 版本并重编译 native 依赖），详见 [docs/native-rebuild.md](./docs/native-rebuild.md)。
 
 安装后重启 Harness，侧边栏应出现「拍片哥工作台」入口。
 

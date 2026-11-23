@@ -33,7 +33,7 @@
 ### 新增
 
 - Harness Host / Client 双端骨架与 `cordis.patch.yml`，侧边栏「拍片哥工作台」入口。
-- 暖棕金国风全页面 UI：文章 / 图片 / 视频（占位）/ 标题 / 营销 / 小红书 / 素材 / 分析 / 发布 / 灵感 / 记录 / 设置。
+- 暖棕金国风全页面 UI：文章 / 图片 / 视频（0.1.0 时为入口占位，0.2.0 起接入 Remotion 双引擎）/ 标题 / 营销 / 小红书 / 素材 / 分析 / 发布 / 灵感 / 记录 / 设置。
 - Host 侧 SQLite 持久化（9 表迁移 + 封面列 v2），创作 CRUD / 搜索 / 软删除 / 恢复 / 版本快照 / 一致性备份。
 - Host HTTP API（`/api/paipiange.*`），经官方 `webServer` 服务注册，`connection` 信任校验，Node↔Fetch 桥接层。
 - 文本生成：文章/标题/营销/小红书接 Harness `ctx.llm`（`prepareCall` 异步 + `listProviders` 运行时发现），SSE 流式逐字渲染。

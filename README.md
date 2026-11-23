@@ -10,6 +10,16 @@
 
 ## 快速开始
 
+### 通过 npm 安装（作为 Harness 插件）
+
+```bash
+pnpm add dsh-paipiange
+```
+
+> ⚠️ 插件依赖 `better-sqlite3`（原生 addon），ABI 需匹配实机 Electron。若安装后插件报 ABI 错误，请用仓库内 `bash scripts/deploy.sh` 一键部署。详见 [docs/install.md](./docs/install.md)。
+
+### 从源码构建
+
 ```bash
 # 1. 克隆并安装依赖
 git clone https://github.com/paipiange/gongzuotai.git
