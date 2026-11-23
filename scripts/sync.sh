@@ -58,6 +58,10 @@ fi
 if [ -d "$PROJECT_ROOT/lib/videoEngine" ]; then
   cp -rf "$PROJECT_ROOT/lib/videoEngine" "$TARGET/lib/" || fail "复制 lib/videoEngine 失败"
 fi
+# 同步内置原生二进制目录（better-sqlite3 的 Electron ABI 预编译 .node）
+if [ -d "$PROJECT_ROOT/lib/native" ]; then
+  cp -rf "$PROJECT_ROOT/lib/native" "$TARGET/lib/" || fail "复制 lib/native 失败"
+fi
 clean_stale "$TARGET/lib"
 
 log "4/5 同步 lib 产物到 .pnpm 副本（dsh 实际加载位置）..."
@@ -73,6 +77,9 @@ if [ -n "$PNPM_COPIES" ]; then
     fi
     if [ -d "$PROJECT_ROOT/lib/videoEngine" ]; then
       cp -rf "$PROJECT_ROOT/lib/videoEngine" "$pkg/lib/" || fail "复制 lib/videoEngine 到 $pkg 失败"
+    fi
+    if [ -d "$PROJECT_ROOT/lib/native" ]; then
+      cp -rf "$PROJECT_ROOT/lib/native" "$pkg/lib/" || fail "复制 lib/native 到 $pkg 失败"
     fi
     cp -f "$PROJECT_ROOT/package.json" "$pkg/package.json" || fail "复制 package.json 到 $pkg 失败"
     clean_stale "$pkg/lib"
