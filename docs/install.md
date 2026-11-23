@@ -22,51 +22,73 @@ pnpm pack           # 生成 dsh-paipiange-0.2.0.tgz
 
 ## 安装
 
-### 方式一：从 npm 安装（推荐）
+### 方式一：dsh 插件命令（推荐，新机器首选）
 
-发布到 npm 后可直接按包名安装，**务必钉版本号**：
+在已装好 DeepSeek Harness 的机器上，用 dsh 的插件安装命令，**务必钉版本号**：
 
 ```bash
-pnpm add dsh-paipiange@0.2.6
+dsh plugin add dsh-paipiange@0.2.7
 ```
 
-> ⚠️ **为什么要钉版本号（`@0.2.6`）而不是裸包名或 `^0.2.0`？**
+### 方式二：dsh 插件市场界面
+
+打开 Harness 的插件市场（Plugin Market / dshmarket），搜索 `paipiange`（或「拍片哥」），
+点击安装。若市场里版本滞后，请改用方式一钉版本。
+
+### 方式三：手动改 profile 的 package.json（兜底，100% 有效）
+
+在 Harness profile（默认 `~/.dsh/profiles/desktop/package.json`）里声明依赖与 bundle：
+
+```json
+{
+  "dependencies": {
+    "dsh-paipiange": "0.2.7"
+  },
+  "dsh": {
+    "profile": {
+      "bundles": ["dsh-paipiange"]
+    }
+  }
+}
+```
+
+保存后重启 Harness（或触发其自动安装）。
+
+> ### ⚠️ 三个必踩的坑，务必规避
+>
+> **坑 1：一定要钉版本号 `@0.2.7`，不要裸包名或 `^0.2.0`。**
 >
 > pnpm 的 `minimumReleaseAge`（默认 1440 分钟 = 24 小时）会过滤「发布不足 24 小时」的
 > 版本：裸包名 / `^0.2.0` 范围会**静默回退**到发布满 24 小时的最新版。对于当天刚发的
 > 版本，回退到的是更早的旧版——0.2.0~0.2.3 的 `better-sqlite3` 是**强依赖**，0.2.4 是
 > `optionalDependencies`，都会在缺 Python / C++ 工具链的机器上触发 `node-gyp` 源码编译
-> 失败（`gyp ERR! find Python`）。
+> 失败（`gyp ERR! find Python`）。**只有 0.2.6/0.2.7 彻底移除了 better-sqlite3 依赖**
+> （vendor 纯 JS wrapper + 内置 Electron ABI 二进制），安装期零编译。
 >
-> **只有 0.2.6 彻底移除了 better-sqlite3 依赖**（vendor 纯 JS wrapper + 内置 Electron
-> ABI 二进制），安装期零编译。钉版本号 `@0.2.6` 绕过 minimumReleaseAge 过滤，直接拿到
-> 根治版本。
+> **坑 2：走 npm registry 安装，绝不用本地 `file:` tarball（尤其路径含中文）。**
 >
-> **若希望裸包名也能始终装到最新版**，可在 Harness profile 的 `pnpm-workspace.yaml`
-> 中关闭发布年龄门控（推荐）或按包名豁免：
+> 用 `"dsh-paipiange": "file:D:/某路径/工作台/xxx.tgz"` 这类本地文件引用安装时，pnpm
+> 会把 `file:` 路径 URL 编码进符号链接目录名（含中文「工作台」和 `+` 号），dsh 主程序
+> 动态 import 插件时无法解析该符号链接，报
+> `ERR_MODULE_NOT_FOUND: Cannot find package 'dsh-paipiange'`，插件「只有名字、没有
+> 描述」，功能失效。**必须用 npm 版本号 `"dsh-paipiange": "0.2.7"`（走 registry，符号
+> 链接为纯 ASCII 路径）。**
+>
+> **坑 3：旧版本已 deprecate，但 deprecate 挡不住 minimumReleaseAge 门控。**
+>
+> npm 上 0.2.0~0.2.5 已全部标记 deprecated（broken），0.2.7 是唯一推荐版本。但 pnpm 的
+> 时间门控优先级高于 deprecated 标记，所以即便旧版已 deprecate，裸包名/范围仍可能回退
+> 到旧版——**还是得钉 `@0.2.7`**。
+>
+> **若希望裸包名也能始终装到最新版**（一劳永逸），可在 Harness profile 的
+> `pnpm-workspace.yaml` 中关闭发布年龄门控：
 >
 > ```yaml
-> # 二选一：
-> minimumReleaseAge: 0            # 永久关闭门控，裸包名/范围都能追到 latest（推荐）
-> # minimumReleaseAgeExclude:     # 或只豁免本插件
-> #   - dsh-paipiange
+> minimumReleaseAge: 0            # 永久关闭门控，裸包名/范围都能追到 latest
 > ```
 >
 > 参考：这是 dsh 插件生态的已知坑，见
 > [deepseek-harness discussion #9178](https://github.com/deepseek-ai/deepseek-harness/discussions/9178)。
-
-### 方式二：从本地 tarball 安装
-
-```bash
-# 1. 安装到 Harness 的插件依赖
-pnpm add ./dsh-paipiange-0.2.6.tgz
-
-# 2. 在 Harness 的 profile 中声明 bundle（patch 注入）
-#    cordis.patch.yml 已声明：
-#      - insert:
-#          - id: paipiange
-#            name: dsh-paipiange
-```
 
 > ✅ 插件**不再依赖 `better-sqlite3`**（原生 addon）。为彻底免除安装期 node-gyp 源码
 > 编译（需本机 C++ 工具链，常导致「别的机器安装报 `node-gyp ... not ok`」），插件把
@@ -75,7 +97,7 @@ pnpm add ./dsh-paipiange-0.2.6.tgz
 > **package.json 的 dependencies / optionalDependencies 里都没有 better-sqlite3**，
 > 安装期零编译、零 prebuild 下载。
 
-安装后重启 Harness，侧边栏应出现「拍片哥工作台」入口。
+安装后重启 Harness，侧边栏应出现「拍片哥工作台」入口（带描述与功能，而非只有名字）。
 
 ## 升级
 

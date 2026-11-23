@@ -10,27 +10,36 @@
 
 ## 快速开始
 
-### 通过 npm 安装（作为 Harness 插件）
+### 安装（作为 Harness 插件）
+
+**新机器首选：dsh 插件命令，务必钉版本号**
 
 ```bash
-pnpm add dsh-paipiange@0.2.6
+dsh plugin add dsh-paipiange@0.2.7
 ```
 
-> ⚠️ **务必钉版本号安装**（`@0.2.6`），不要用裸包名或 `^0.2.0` 范围。原因：pnpm 的
-> `minimumReleaseAge`（默认 24 小时）会过滤「发布不足 24 小时」的版本，裸包名/范围
-> 会静默回退到更旧的版本（0.2.0~0.2.3 的 `better-sqlite3` 是强依赖，会在缺 Python 的
-> 机器上触发 `node-gyp` 编译失败；0.2.4 虽移到 optionalDependencies 但安装期仍可能触发
-> 编译）。**只有 0.2.6 彻底移除了 better-sqlite3 依赖（vendor 内置二进制），安装期零编译**。
-> 钉版本可绕过该限制，直接拿到修复后的版本。
+也可在 Harness 插件市场（Plugin Market）搜索 `paipiange` 一键安装，或手动在 profile 的
+`package.json` 声明 `"dsh-paipiange": "0.2.7"`。
+
+> ⚠️ **三个必踩的坑，务必规避：**
 >
-> 若希望裸包名也能始终装到最新版，可在 Harness profile 的 `pnpm-workspace.yaml` 中
-> 关闭发布年龄门控（`minimumReleaseAge: 0`）或豁免本插件：
+> **1. 一定要钉版本号 `@0.2.7`，不要裸包名或 `^0.2.0`。** pnpm 的 `minimumReleaseAge`
+> （默认 24 小时）会过滤「发布不足 24 小时」的版本，裸包名/范围会静默回退到旧版
+> （0.2.0~0.2.3 的 `better-sqlite3` 是强依赖，缺 Python 时触发 `node-gyp` 编译失败）。
+> 只有 0.2.6/0.2.7 彻底移除了 better-sqlite3 依赖（vendor 内置二进制），安装期零编译。
+>
+> **2. 走 npm registry 安装，绝不用本地 `file:` tarball（尤其路径含中文）。** 用
+> `"file:D:/.../工作台/xxx.tgz"` 安装时，pnpm 会把中文路径 URL 编码进符号链接目录名，
+> dsh 主程序 import 插件时无法解析，报 `ERR_MODULE_NOT_FOUND`，插件「只有名字、没有描述」。
+> 必须用 npm 版本号走 registry（纯 ASCII 符号链接）。
+>
+> **3. 旧版已 deprecate，但挡不住 minimumReleaseAge 门控，还是得钉 `@0.2.7`。**
+>
+> 若希望裸包名也能始终装到最新版，可在 Harness profile 的 `pnpm-workspace.yaml` 关闭
+> 发布年龄门控：
 >
 > ```yaml
-> # 二选一：
-> minimumReleaseAge: 0            # 永久关闭门控（推荐）
-> # minimumReleaseAgeExclude:     # 或只豁免本插件
-> #   - dsh-paipiange
+> minimumReleaseAge: 0            # 永久关闭门控，裸包名/范围都能追到 latest
 > ```
 >
 > 详见 [docs/install.md](./docs/install.md)。
