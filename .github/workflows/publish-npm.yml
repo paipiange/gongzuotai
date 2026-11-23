@@ -2,7 +2,7 @@ name: Publish to npm
 
 # 通过 OIDC trusted publishing 发布 dsh-paipiange + paipiange 双包到 npm。
 # 触发：推送 v* 标签。发布前需在 npm 包设置里配置 trusted publisher：
-#   dsh-paipiange -> 关联 paipiange/gongzuotai，workflow 路径 .github/workflows/publish-npm.yml，环境名 npm
+#   dsh-paipiange -> 关联 paipiange/gongzuotai，workflow 文件名 publish-npm.yml，允许 npm publish
 #   paipiange     -> 同上
 # 参考：https://docs.npmjs.com/generating-provenance-statements
 #       https://docs.npmjs.com/trusted-publishers
@@ -20,7 +20,6 @@ jobs:
   publish:
     name: Publish dsh-paipiange + paipiange
     runs-on: ubuntu-latest
-    environment: npm # 关联 npm trusted publisher 的 GitHub environment
     strategy:
       fail-fast: false # 一个包失败不阻断另一个
       matrix:
@@ -34,7 +33,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22 # trusted publishing 要求 Node >= 22.14.0 / npm CLI >= 11.5.1
           cache: pnpm
           registry-url: 'https://registry.npmjs.org'
 
