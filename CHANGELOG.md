@@ -2,6 +2,12 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 格式，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.2.6] - 2026-11-23
+
+### 修复
+
+- **正式发布 vendor 根治方案**：把 better-sqlite3 的纯 JS wrapper vendor 进插件、连同内置 Electron ABI 二进制一起分发、从 package.json 彻底移除 better-sqlite3 依赖（不在 dependencies、也不在 optionalDependencies）。此版本为根治「别的机器安装报 `node-gyp ... not ok`」的实际发布版；0.2.4 在 npm 上仍残留 optionalDependencies 旧方案，0.2.5 因发布事务被代理缓存干扰导致版本号占位，均不可用。
+
 ## [0.2.4] - 2026-11-23
 
 ### 修复
