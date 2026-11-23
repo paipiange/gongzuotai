@@ -24,17 +24,30 @@ pnpm pack           # 生成 dsh-paipiange-0.2.0.tgz
 
 ### 方式一：从 npm 安装（推荐）
 
-发布到 npm 后可直接按包名安装：
+发布到 npm 后可直接按包名安装，**务必钉版本号**：
 
 ```bash
-pnpm add dsh-paipiange
+pnpm add dsh-paipiange@0.2.4
 ```
+
+> ⚠️ **为什么要钉版本号（`@0.2.4`）而不是裸包名或 `^0.2.0`？**
+>
+> pnpm 的 `minimumReleaseAge`（默认 1440 分钟 = 24 小时）会过滤「发布不足 24 小时」的
+> 版本：裸包名 / `^0.2.0` 范围会**静默回退**到发布满 24 小时的最新版。对于当天刚发的
+> 版本，回退到的是更早的旧版——而旧版的 `better-sqlite3` 仍是强依赖，会在缺
+> Python / C++ 工具链的机器上触发 `node-gyp` 源码编译失败（`gyp ERR! find Python`）。
+>
+> 钉版本号 `@0.2.4` 会绕过 minimumReleaseAge 过滤，直接拿到修复后的版本
+> （`better-sqlite3` 已移到 `optionalDependencies` + 内置 Electron ABI 二进制）。
+>
+> 参考：这是 dsh 插件生态的已知坑，见
+> [deepseek-harness discussion #9178](https://github.com/deepseek-ai/deepseek-harness/discussions/9178)。
 
 ### 方式二：从本地 tarball 安装
 
 ```bash
 # 1. 安装到 Harness 的插件依赖
-pnpm add ./dsh-paipiange-0.2.0.tgz
+pnpm add ./dsh-paipiange-0.2.4.tgz
 
 # 2. 在 Harness 的 profile 中声明 bundle（patch 注入）
 #    cordis.patch.yml 已声明：

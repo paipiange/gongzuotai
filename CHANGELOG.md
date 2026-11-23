@@ -8,6 +8,12 @@
 
 - 彻底根治「别的机器安装报 `node-gyp ... not ok`」：上一版虽已内置 Electron ABI 的预编译二进制，但 `better-sqlite3` 仍作为强依赖存在，pnpm 安装时仍会强制执行其 `install` 脚本（`prebuild-install || node-gyp rebuild`），在缺 Python / C++ 工具链的机器上直接让整个安装 `exit code 1`，内置二进制根本没机会被加载。现把 `better-sqlite3` 从 `dependencies` 移到 `optionalDependencies`，安装期编译失败只降级为 warning，不再阻断安装。
 
+### 已知坑：pnpm `minimumReleaseAge` 导致裸包名装到旧版
+
+- **现象**：用户用裸包名 `paipiange` 或 `^0.2.0` 范围安装，装到的却是旧版（0.2.0），旧版 better-sqlite3 仍是强依赖，照样报编译错误——看起来「修复没生效」，实则是**根本没装到 0.2.4**。
+- **根因**：pnpm 的 `minimumReleaseAge`（默认 1440 分钟 = 24 小时）会过滤「发布不足 24 小时」的版本。当天发布的版本全部被过滤，pnpm 静默回退到发布满 24 小时的最新版（本例是当天最早的 0.2.0）。这是 dsh 插件生态已知坑（deepseek-harness discussion #9178）。
+- **解法**：安装命令**钉版本号**（`paipiange@0.2.4` / `dsh-paipiange@0.2.4`），绕过 minimumReleaseAge 过滤。README 与 docs/install.md 已同步改为钉版本，并附机制说明。
+
 ## [0.2.3] - 2026-11-23
 
 ### 修复

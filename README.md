@@ -13,10 +13,14 @@
 ### 通过 npm 安装（作为 Harness 插件）
 
 ```bash
-pnpm add dsh-paipiange
+pnpm add dsh-paipiange@0.2.4
 ```
 
-> ⚠️ 插件依赖 `better-sqlite3`（原生 addon），ABI 需匹配实机 Electron。若安装后插件报 ABI 错误，请用仓库内 `bash scripts/deploy.sh` 一键部署。详见 [docs/install.md](./docs/install.md)。
+> ⚠️ **务必钉版本号安装**（`@0.2.4`），不要用裸包名或 `^0.2.0` 范围。原因：pnpm 的
+> `minimumReleaseAge`（默认 24 小时）会过滤「发布不足 24 小时」的版本，裸包名/范围
+> 会静默回退到更旧的版本（旧版 `better-sqlite3` 仍是强依赖，会在缺 Python 的机器上
+> 触发 `node-gyp` 编译失败）。钉版本可绕过该限制，直接拿到修复后的版本。详见
+> [docs/install.md](./docs/install.md)。
 
 ### 从源码构建
 
