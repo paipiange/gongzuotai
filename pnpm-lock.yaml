@@ -44,10 +44,6 @@ importers:
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
-    optionalDependencies:
-      better-sqlite3:
-        specifier: 12.11.1
-        version: 12.11.1
     devDependencies:
       '@electron/rebuild':
         specifier: ^4.2.1
@@ -67,6 +63,9 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^5.1.1
         version: 5.2.0(vite@7.3.8(@types/node@24.19.2)(terser@5.51.3))
+      better-sqlite3:
+        specifier: 12.11.1
+        version: 12.11.1
       tsdown:
         specifier: ^0.17.2
         version: 0.17.4(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(typescript@5.9.3)
@@ -3922,12 +3921,10 @@ snapshots:
     dependencies:
       bindings: 1.5.0
       prebuild-install: 7.1.3
-    optional: true
 
   bindings@1.5.0:
     dependencies:
       file-uri-to-path: 1.0.0
-    optional: true
 
   birpc@4.2.0: {}
 
@@ -3936,7 +3933,6 @@ snapshots:
       buffer: 5.7.1
       inherits: 2.0.4
       readable-stream: 3.6.2
-    optional: true
 
   browserslist@4.29.5:
     dependencies:
@@ -3952,7 +3948,6 @@ snapshots:
     dependencies:
       base64-js: 1.5.1
       ieee754: 1.2.1
-    optional: true
 
   buffer@6.0.3:
     dependencies:
@@ -3977,8 +3972,7 @@ snapshots:
 
   check-error@2.1.3: {}
 
-  chownr@1.1.4:
-    optional: true
+  chownr@1.1.4: {}
 
   chownr@3.0.0: {}
 
@@ -4028,19 +4022,16 @@ snapshots:
   decompress-response@6.0.0:
     dependencies:
       mimic-response: 3.1.0
-    optional: true
 
   deep-eql@5.0.2: {}
 
-  deep-extend@0.6.0:
-    optional: true
+  deep-extend@0.6.0: {}
 
   define-lazy-prop@2.0.0: {}
 
   defu@6.1.7: {}
 
-  detect-libc@2.1.2:
-    optional: true
+  detect-libc@2.1.2: {}
 
   dot-case@3.0.4:
     dependencies:
@@ -4058,7 +4049,6 @@ snapshots:
   end-of-stream@1.4.5:
     dependencies:
       once: 1.4.0
-    optional: true
 
   enhanced-resolve@5.27.0:
     dependencies:
@@ -4170,8 +4160,7 @@ snapshots:
       signal-exit: 3.0.7
       strip-final-newline: 2.0.0
 
-  expand-template@2.0.3:
-    optional: true
+  expand-template@2.0.3: {}
 
   expect-type@1.4.0: {}
 
@@ -4185,11 +4174,9 @@ snapshots:
     optionalDependencies:
       picomatch: 4.0.7
 
-  file-uri-to-path@1.0.0:
-    optional: true
+  file-uri-to-path@1.0.0: {}
 
-  fs-constants@1.0.0:
-    optional: true
+  fs-constants@1.0.0: {}
 
   fs-monkey@1.0.3: {}
 
@@ -4204,8 +4191,7 @@ snapshots:
     dependencies:
       resolve-pkg-maps: 1.0.0
 
-  github-from-package@0.0.0:
-    optional: true
+  github-from-package@0.0.0: {}
 
   glob-to-regexp@0.4.1: {}
 
@@ -4230,11 +4216,9 @@ snapshots:
 
   import-without-cache@0.2.5: {}
 
-  inherits@2.0.4:
-    optional: true
+  inherits@2.0.4: {}
 
-  ini@1.3.8:
-    optional: true
+  ini@1.3.8: {}
 
   is-arrayish@0.2.1: {}
 
@@ -4328,13 +4312,11 @@ snapshots:
 
   mimic-fn@2.1.0: {}
 
-  mimic-response@3.1.0:
-    optional: true
+  mimic-response@3.1.0: {}
 
   minimist@1.2.6: {}
 
-  minimist@1.2.8:
-    optional: true
+  minimist@1.2.8: {}
 
   minipass@7.1.3: {}
 
@@ -4342,15 +4324,13 @@ snapshots:
     dependencies:
       minipass: 7.1.3
 
-  mkdirp-classic@0.5.3:
-    optional: true
+  mkdirp-classic@0.5.3: {}
 
   ms@2.1.3: {}
 
   nanoid@3.3.20: {}
 
-  napi-build-utils@2.0.0:
-    optional: true
+  napi-build-utils@2.0.0: {}
 
   neo-async@2.6.2: {}
 
@@ -4362,7 +4342,6 @@ snapshots:
   node-abi@3.101.0:
     dependencies:
       semver: 7.8.6
-    optional: true
 
   node-abi@4.40.0:
     dependencies:
@@ -4400,7 +4379,6 @@ snapshots:
   once@1.4.0:
     dependencies:
       wrappy: 1.0.2
-    optional: true
 
   onetime@5.1.2:
     dependencies:
@@ -4482,7 +4460,6 @@ snapshots:
       simple-get: 4.0.1
       tar-fs: 2.1.5
       tunnel-agent: 0.6.0
-    optional: true
 
   prismjs@1.30.0: {}
 
@@ -4497,7 +4474,6 @@ snapshots:
     dependencies:
       end-of-stream: 1.4.5
       once: 1.4.0
-    optional: true
 
   quansync@1.0.0: {}
 
@@ -4507,7 +4483,6 @@ snapshots:
       ini: 1.3.8
       minimist: 1.2.8
       strip-json-comments: 2.0.1
-    optional: true
 
   react-dom@18.3.1(react@18.3.1):
     dependencies:
@@ -4544,7 +4519,6 @@ snapshots:
       inherits: 2.0.4
       string_decoder: 1.3.0
       util-deprecate: 1.0.2
-    optional: true
 
   recast@0.23.21:
     dependencies:
@@ -4657,8 +4631,7 @@ snapshots:
       '@rollup/rollup-win32-x64-msvc': 4.68.3
       fsevents: 2.3.3
 
-  safe-buffer@5.2.1:
-    optional: true
+  safe-buffer@5.2.1: {}
 
   scheduler@0.21.0:
     dependencies:
@@ -4668,7 +4641,7 @@ snapshots:
     dependencies:
       loose-envify: 1.4.0
 
-  schema-utils@4.8.5(webpack@5.105.0(esbuild@0.28.1)(postcss@8.5.33)):
+  schema-utils@4.8.5(webpack@5.105.0(postcss@8.5.33)):
     dependencies:
       '@types/json-schema': 7.0.15
       ajv: 8.20.0
@@ -4695,15 +4668,13 @@ snapshots:
 
   signal-exit@3.0.7: {}
 
-  simple-concat@1.0.1:
-    optional: true
+  simple-concat@1.0.1: {}
 
   simple-get@4.0.1:
     dependencies:
       decompress-response: 6.0.0
       once: 1.4.0
       simple-concat: 1.0.1
-    optional: true
 
   sisteransi@1.0.5: {}
 
@@ -4730,12 +4701,10 @@ snapshots:
   string_decoder@1.3.0:
     dependencies:
       safe-buffer: 5.2.1
-    optional: true
 
   strip-final-newline@2.0.0: {}
 
-  strip-json-comments@2.0.1:
-    optional: true
+  strip-json-comments@2.0.1: {}
 
   strip-literal@3.1.0:
     dependencies:
@@ -4763,7 +4732,6 @@ snapshots:
       mkdirp-classic: 0.5.3
       pump: 3.0.4
       tar-stream: 2.2.0
-    optional: true
 
   tar-stream@2.2.0:
     dependencies:
@@ -4772,7 +4740,6 @@ snapshots:
       fs-constants: 1.0.0
       inherits: 2.0.4
       readable-stream: 3.6.2
-    optional: true
 
   tar@7.5.23:
     dependencies:
@@ -4782,11 +4749,11 @@ snapshots:
       minizlib: 3.1.0
       yallist: 5.0.0
 
-  terser-webpack-plugin@5.6.1(esbuild@0.28.1)(postcss@8.5.33)(webpack@5.105.0(esbuild@0.28.1)(postcss@8.5.33)):
+  terser-webpack-plugin@5.6.1(esbuild@0.28.1)(postcss@8.5.33)(webpack@5.105.0(postcss@8.5.33)):
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
       jest-worker: 27.5.1
-      schema-utils: 4.8.5(webpack@5.105.0(esbuild@0.28.1)(postcss@8.5.33))
+      schema-utils: 4.8.5(webpack@5.105.0(postcss@8.5.33))
       terser: 5.51.3
       webpack: 5.105.0(esbuild@0.28.1)(postcss@8.5.33)
     optionalDependencies:
@@ -4858,7 +4825,6 @@ snapshots:
   tunnel-agent@0.6.0:
     dependencies:
       safe-buffer: 5.2.1
-    optional: true
 
   typescript@5.9.3: {}
 
@@ -4986,9 +4952,9 @@ snapshots:
       loader-runner: 4.3.2
       mime-types: 2.1.35
       neo-async: 2.6.2
-      schema-utils: 4.8.5(webpack@5.105.0(esbuild@0.28.1)(postcss@8.5.33))
+      schema-utils: 4.8.5(webpack@5.105.0(postcss@8.5.33))
       tapable: 2.3.4
-      terser-webpack-plugin: 5.6.1(esbuild@0.28.1)(postcss@8.5.33)(webpack@5.105.0(esbuild@0.28.1)(postcss@8.5.33))
+      terser-webpack-plugin: 5.6.1(esbuild@0.28.1)(postcss@8.5.33)(webpack@5.105.0(postcss@8.5.33))
       watchpack: 2.6.4
       webpack-sources: 3.7.1
     transitivePeerDependencies:
@@ -5018,8 +4984,7 @@ snapshots:
       siginfo: 2.0.0
       stackback: 0.0.2
 
-  wrappy@1.0.2:
-    optional: true
+  wrappy@1.0.2: {}
 
   ws@8.21.0: {}
 

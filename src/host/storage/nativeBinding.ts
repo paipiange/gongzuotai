@@ -4,20 +4,21 @@ import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 
 /**
- * better-sqlite3 native 绑定加载器。
+ * better-sqlite3 native 绑定加载器（彻底免安装期编译版）。
  *
  * 背景：better-sqlite3 的官方 prebuild 只覆盖标准 Node.js ABI，从不发布 Electron 版。
- * dsh 桌面端是 Electron（本机主程序 Electron 44.7.0 / ABI 149），因此 `npm install`
- * 时 `prebuild-install` 找不到匹配的 Electron 二进制，会 fallback 到 `node-gyp` 源码
- * 编译——而用户机器通常没有 C++ 工具链（Windows 缺 VS Build Tools，macOS 缺 Xcode CLT），
- * 直接导致安装失败（`node-gyp ... not ok`）。
+ * dsh 桌面端是 Electron（本机主程序 Electron 44.7.0 / ABI 149），因此安装时
+ * `prebuild-install` 找不到匹配二进制、fallback 到 `node-gyp` 源码编译——而用户机器
+ * 通常没有 C++ 工具链（Windows 缺 VS Build Tools，macOS 缺 Xcode CLT），导致安装失败。
  *
- * 解法：把针对 dsh Electron ABI 编译好的 `.node` 二进制随插件包分发到
- * `lib/native/{platform}-{arch}/better_sqlite3.node`，运行时按当前平台选取，
- * 通过 better-sqlite3 的 `nativeBinding` 选项显式加载，彻底免除安装期编译。
+ * 根治方案：把 better-sqlite3 的**纯 JS wrapper**（lib/*.js，仅 52KB）vendor 进插件
+ * `src/host/vendor/better-sqlite3/`，连同针对 dsh Electron ABI 编译好的 `.node` 二进制
+ * （`lib/native/{platform}-{arch}/better_sqlite3.node`）一起分发。运行时**完全不依赖
+ * npm 上的 better-sqlite3**，从 package.json 中彻底移除该依赖，安装期不会触发任何
+ * native 编译或 prebuild 下载，根治「别的机器装报 node-gyp not ok」。
  *
- * 平台不匹配或内置二进制加载失败时，回退到默认 `require('better-sqlite3')`
- * （用于本机开发态，此时 node_modules 里通常是 node-gyp 编译好的、ABI 匹配的版本）。
+ * wrapper 通过 `options.nativeBinding` 显式加载内置二进制；vendor 时已移除它对
+ * `bindings` 包的外部依赖（见 vendor/better-sqlite3/lib/database.js 顶部注释）。
  */
 
 const requireCjs = createRequire(import.meta.url)
@@ -51,42 +52,62 @@ export function bundledNativePath(platformKey = currentPlatformKey()): string | 
   return null
 }
 
+/**
+ * 定位 vendor 的 better-sqlite3 JS wrapper 入口（lib/index.cjs）。
+ * 编译态：`lib/vendor/better-sqlite3/lib/index.cjs`；
+ * 源码态：`src/host/vendor/better-sqlite3/lib/index.cjs`。
+ */
+function vendorWrapperEntry(): string {
+  const here = dirname(fileURLToPath(import.meta.url))
+  const candidates = [
+    join(here, '..', 'vendor', 'better-sqlite3', 'lib', 'index.cjs'),        // 编译态 lib/storage -> lib/vendor
+    join(here, '..', '..', 'vendor', 'better-sqlite3', 'lib', 'index.cjs'),  // 源码态 src/host/storage -> src/host/vendor
+  ]
+  for (const p of candidates) {
+    if (existsSync(p)) return p
+  }
+  throw new Error('better-sqlite3 vendor wrapper not found')
+}
+
 type DatabaseConstructor = new (filename: string, options?: Record<string, unknown>) => unknown
 
 /**
- * 加载一个可用的 better-sqlite3 Database 构造函数。
+ * 加载 better-sqlite3 Database 构造函数。
  *
- * 优先级：
- *  1. 包内内置的 Electron ABI 二进制（`nativeBinding` 显式加载）——覆盖 dsh 桌面端；
- *  2. 默认 `require('better-sqlite3')`（依赖里编译好的版本）——本机开发/测试态；
+ * 策略（两层）：
+ *  1. **生产态（dsh 桌面端 / Electron ABI 149）**：用 vendor 的 JS wrapper + 内置的
+ *     Electron ABI 二进制（nativeBinding），完全不依赖 npm 依赖树。
+ *  2. **测试/开发态（标准 Node）**：内置二进制是 Electron ABI，在标准 Node 下会
+ *     `NODE_MODULE_VERSION mismatch`。此时 fallback 到 devDependencies 里的
+ *     better-sqlite3（标准 Node ABI，本机测试环境已编译好）。
  *
- * 两者都失败时抛出带排障指引的错误。
+ * 这样终端用户安装时 package.json 的 dependencies 里没有 better-sqlite3，安装期零编译；
+ * 本机开发/测试又不受影响。
  */
 export function loadBetterSqlite3(): DatabaseConstructor {
+  // 1. 生产态：内置 Electron ABI 二进制 + vendor wrapper。
   const bundled = bundledNativePath()
   if (bundled) {
     try {
-      // 用 nativeBinding 直接加载包内二进制，构造一个 Database 验证 ABI 匹配。
-      const ctor = requireCjs('better-sqlite3') as DatabaseConstructor
-      // 通过 new ctor(':memory:', { nativeBinding }) 做一次冒烟，确认 ABI 兼容。
-      const probe = new ctor(':memory:', { nativeBinding: bundled }) as { close?: () => void }
+      const wrapper = requireCjs(vendorWrapperEntry()) as DatabaseConstructor
+      // 冒烟：用内置 nativeBinding 构造 :memory:，确认 wrapper 与二进制 ABI 匹配。
+      const probe = new wrapper(':memory:', { nativeBinding: bundled }) as { close?: () => void }
       probe.close?.()
-      // 冒烟通过：返回一个始终绑定内置二进制的构造包装。
+      // 返回始终绑定内置二进制的构造包装。
       const Bound = function BoundDatabase(filename: string, options?: Record<string, unknown>) {
-        return new ctor(filename, { ...options, nativeBinding: bundled })
+        return new wrapper(filename, { ...options, nativeBinding: bundled })
       }
-      // 保留静态成员（如 SqliteError），便于调用方引用。
-      Object.setPrototypeOf(Bound, ctor)
+      Object.setPrototypeOf(Bound, wrapper)
       return Bound as unknown as DatabaseConstructor
     } catch (err) {
-      // ABI 不匹配或加载失败 → 落到 fallback，不立即抛错。
+      // ABI 不匹配（标准 Node 测试态）→ 落到 fallback。
       if (process.env.PAIPIANGE_DEBUG_NATIVE) {
-        console.warn('[paipiange] bundled better-sqlite3 failed, fallback to dependency:', (err as Error).message)
+        console.warn('[paipiange] bundled native binding failed, fallback to dev dependency:', (err as Error).message)
       }
     }
   }
 
-  // Fallback：依赖里的 better-sqlite3（开发态 node_modules 已按当前 ABI 编译）。
+  // 2. 测试/开发态：devDependencies 里的 better-sqlite3（标准 Node ABI）。
   try {
     const ctor = requireCjs('better-sqlite3') as DatabaseConstructor
     const probe = new ctor(':memory:')
@@ -97,7 +118,7 @@ export function loadBetterSqlite3(): DatabaseConstructor {
     throw new Error(
       'better-sqlite3 原生绑定加载失败。' +
         '本插件针对 dsh 桌面端（Electron）内置了预编译二进制，但当前环境无法使用，' +
-        '且依赖里的 better-sqlite3 也未编译成功。' +
+        '且开发依赖里的 better-sqlite3 也未编译成功。' +
         '请检查：1) 是否用 dsh 桌面端加载本插件（而非普通 Node）；' +
         '2) 若为源码安装，请先安装编译工具链后重装依赖。原始错误：' +
         detail,
@@ -107,5 +128,10 @@ export function loadBetterSqlite3(): DatabaseConstructor {
 
 /** better-sqlite3 的 SqliteError 类型（供上层捕获/判断）。 */
 export function loadSqliteError(): unknown {
-  return (requireCjs('better-sqlite3') as { SqliteError?: unknown }).SqliteError
+  // 优先从 vendor wrapper 取；失败则回退 dev 依赖。
+  try {
+    return (requireCjs(vendorWrapperEntry()) as { SqliteError?: unknown }).SqliteError
+  } catch {
+    return (requireCjs('better-sqlite3') as { SqliteError?: unknown }).SqliteError
+  }
 }

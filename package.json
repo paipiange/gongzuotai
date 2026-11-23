@@ -72,9 +72,6 @@
     "three": "^0.170.0",
     "typescript": "^5.8.3"
   },
-  "optionalDependencies": {
-    "better-sqlite3": "12.11.1"
-  },
   "devDependencies": {
     "@electron/rebuild": "^4.2.1",
     "@types/better-sqlite3": "9.6.0",
@@ -82,6 +79,7 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^5.1.1",
+    "better-sqlite3": "12.11.1",
     "tsdown": "^0.17.2",
     "typescript": "^5.9.3",
     "vite": "^7.2.2",

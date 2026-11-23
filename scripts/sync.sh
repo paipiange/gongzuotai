@@ -62,6 +62,10 @@ fi
 if [ -d "$PROJECT_ROOT/lib/native" ]; then
   cp -rf "$PROJECT_ROOT/lib/native" "$TARGET/lib/" || fail "复制 lib/native 失败"
 fi
+# 同步 vendored better-sqlite3 JS wrapper（nativeBinding 运行时 createRequire 加载）
+if [ -d "$PROJECT_ROOT/lib/vendor" ]; then
+  cp -rf "$PROJECT_ROOT/lib/vendor" "$TARGET/lib/" || fail "复制 lib/vendor 失败"
+fi
 clean_stale "$TARGET/lib"
 
 log "4/5 同步 lib 产物到 .pnpm 副本（dsh 实际加载位置）..."
@@ -80,6 +84,9 @@ if [ -n "$PNPM_COPIES" ]; then
     fi
     if [ -d "$PROJECT_ROOT/lib/native" ]; then
       cp -rf "$PROJECT_ROOT/lib/native" "$pkg/lib/" || fail "复制 lib/native 到 $pkg 失败"
+    fi
+    if [ -d "$PROJECT_ROOT/lib/vendor" ]; then
+      cp -rf "$PROJECT_ROOT/lib/vendor" "$pkg/lib/" || fail "复制 lib/vendor 到 $pkg 失败"
     fi
     cp -f "$PROJECT_ROOT/package.json" "$pkg/package.json" || fail "复制 package.json 到 $pkg 失败"
     clean_stale "$pkg/lib"

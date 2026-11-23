@@ -1,8 +1,10 @@
 node_modules/
 dist/
-lib/
+/lib/
 *.tgz
 *.log
+# vendored dsh-video 引擎里嵌套的构建产物 lib/（随引擎 copy，非源码，不入库）
+src/host/videoEngine/**/lib/
 .env
 .env.*
 !.env.example
@@ -26,7 +28,10 @@ ai_image_studio_workbench/
 *.zip
 
 # 第三方参考仓库（lemo-opuscar，含 CC BY-NC 文档与演示视频，仅本地参考，不入库）
-vendor/
+/vendor/
+
+# 注意：src/host/vendor/ 下只有 vendored 的 better-sqlite3 JS wrapper（插件运行时依赖），
+# 必须入库，故此处不整体忽略 src/host/vendor/。
 
 # 风格库中间产物（styles.meta.json 由 build-styles.ts 生成，不入库）
 src/host/videogen/styles/styles.meta.json

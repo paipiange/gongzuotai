@@ -95,6 +95,40 @@ function copyNativePlugin() {
 }
 
 /**
+ * 把 vendored 的 better-sqlite3 纯 JS wrapper 拷到 `lib/vendor/better-sqlite3/`，随插件包分发。
+ * wrapper 是 CJS（`module.exports = require('./database')`），运行时由 nativeBinding.ts 经
+ * `createRequire` 动态加载，配合内置的 Electron ABI 二进制（lib/native）使用，完全免除
+ * 安装期对 npm better-sqlite3 的依赖（避免其 install 脚本触发 node-gyp 编译失败）。
+ */
+function copyVendorPlugin() {
+  const projectRoot = dirname(fileURLToPath(import.meta.url))
+  const sourceDir = join(projectRoot, 'src/host/vendor/better-sqlite3')
+  return {
+    name: 'paipiange-copy-vendor',
+    writeBundle() {
+      const outDir = join(projectRoot, 'lib')
+      if (!existsSync(sourceDir)) return
+      const copy = (src: string, dst: string) => {
+        if (!existsSync(src)) return
+        const files = readdirSync(src)
+        for (const f of files) {
+          const s = join(src, f)
+          const d = join(dst, f)
+          if (statSync(s).isDirectory()) {
+            mkdirSync(d, { recursive: true })
+            copy(s, d)
+          } else {
+            mkdirSync(dirname(d), { recursive: true })
+            copyFileSync(s, d)
+          }
+        }
+      }
+      copy(sourceDir, join(outDir, 'vendor', 'better-sqlite3'))
+    },
+  }
+}
+
+/**
  * 把 vendored 的 dsh-video 双引擎（Remotion + Three.js）原样拷到 `lib/videoEngine/`。
  * 引擎是纯 ESM JS（含 `import.meta.url`、`createRequire`、动态 import、.py 脚本、
  * 字体与影核广场模板），必须按目录结构落盘，由 remotionEngine.ts 在运行时动态 import，
@@ -141,10 +175,12 @@ const clientExternals = [
 ]
 
 const hostExternals = [
-  'better-sqlite3',
   // vendored dsh-video 引擎：运行时由 remotionEngine.ts 动态 import（copy 到 lib/videoEngine），
   // 不能打进 bundle。这里把整个目录路径 external，避免 tsdown 尝试编译其 ESM 源码。
   /videoEngine[\\/]/,
+  // vendored better-sqlite3 JS wrapper：运行时由 nativeBinding.ts 经 createRequire 动态
+  // 加载（copy 到 lib/vendor），不能打进 bundle。
+  /vendor[\\/]better-sqlite3[\\/]/,
 ]
 
 export default defineConfig([
@@ -156,7 +192,7 @@ export default defineConfig([
     clean: true,
     dts: true,
     external: hostExternals,
-    plugins: [copyAssetsPlugin(), copyNativePlugin(), copyVideoEnginePlugin()],
+    plugins: [copyAssetsPlugin(), copyNativePlugin(), copyVendorPlugin(), copyVideoEnginePlugin()],
     outExtensions: () => ({ js: '.js', dts: '.d.ts' }),
   },
   {
