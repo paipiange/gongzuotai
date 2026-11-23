@@ -1,6 +1,6 @@
 {
   "name": "dsh-paipiange",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "面向 DeepSeek Harness 的本地优先 AI 内容创作工作台：公众号/小红书/知乎/头条多平台文案、配图、视频与 Q 版情侣漫画，一键选题到发布。",
   "license": "MIT",
   "author": "paipiange contributors",
@@ -66,12 +66,14 @@
     "@remotion/cli": "4.0.542",
     "@remotion/renderer": "4.0.542",
     "@remotion/three": "4.0.542",
-    "better-sqlite3": "12.11.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "remotion": "4.0.542",
     "three": "^0.170.0",
     "typescript": "^5.8.3"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "12.11.1"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.2.1",

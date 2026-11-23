@@ -21,6 +21,7 @@ interface PackageJson {
     client: { inject: string[]; platform: string }
   }
   dependencies: Record<string, string>
+  optionalDependencies?: Record<string, string>
 }
 
 function readPackage(): PackageJson {
@@ -49,10 +50,14 @@ describe('publish packaging contract', () => {
     expect(pkg.files).toEqual(['lib', 'cordis.patch.yml', 'README.md', 'CHANGELOG.md', 'THIRD_PARTY_NOTICES.md'])
   })
 
-  it('keeps better-sqlite3 as an external dependency so its native binding resolves', () => {
+  it('keeps better-sqlite3 as an optional external dependency so its native binding resolves', () => {
     const pkg = readPackage()
-    expect(pkg.dependencies['better-sqlite3']).toBeTruthy()
-    // better-sqlite3 是原生依赖，不能在打包时内联，必须留给安装器重建 ABI。
+    // better-sqlite3 是原生依赖，不能在打包时内联（tsdown 里 external），必须留给安装器解析。
+    // 但绝不能作为强依赖：否则 pnpm 安装时会强制执行其 install 脚本（prebuild-install ||
+    // node-gyp rebuild），在缺 Python/C++ 工具链的机器上直接让整个安装 exit code 1。
+    // 插件已内置 Electron ABI 预编译二进制，better-sqlite3 只作 fallback，故放 optionalDependencies。
+    expect(pkg.dependencies['better-sqlite3']).toBeUndefined()
+    expect(pkg.optionalDependencies?.['better-sqlite3']).toBe('12.11.1')
     expect(pkg.dependencies['@deepseek-ai/cordis']).toBeTruthy()
   })
 })

@@ -43,10 +43,15 @@ pnpm add ./dsh-paipiange-0.2.0.tgz
 #            name: dsh-paipiange
 ```
 
-> ✅ 插件依赖 `better-sqlite3`（原生 addon）。为避免安装时触发 node-gyp 源码编译
-> （需本机 C++ 工具链，常导致安装失败），插件已内置针对 dsh 桌面端 Electron ABI
-> 预编译的二进制（`lib/native/{platform}-{arch}/`），运行时经 `nativeBinding` 直接加载，
-> 无需手动编译。当前内置 `win32-x64` 与 `darwin-arm64`（dsh 官方桌面版支持的两个平台）。
+> ✅ 插件依赖 `better-sqlite3`（原生 addon）。为彻底免除安装期 node-gyp 源码编译
+> （需本机 C++ 工具链，常导致「别的机器安装报 `node-gyp ... not ok`」），插件做了两层处理：
+>
+> 1. **`better-sqlite3` 声明为 `optionalDependencies`**——即使某台机器编译/下载失败，
+>    也不会让整个 `pnpm add` 安装失败（只是降级为 warning）。
+> 2. **内置针对 dsh 桌面端 Electron ABI 预编译的二进制**（`lib/native/{platform}-{arch}/`），
+>    运行时经 `nativeBinding` 直接加载，完全不依赖依赖树里那份 `better-sqlite3`。
+>
+> 当前内置 `win32-x64` 与 `darwin-arm64`（dsh 官方桌面版支持的两个平台）。
 > 若你的平台未内置（或 dsh Electron 升级导致 ABI 变化），可参考
 > [docs/native-rebuild.md](./docs/native-rebuild.md) 手动重编译。
 

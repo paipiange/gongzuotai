@@ -2,6 +2,12 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 格式，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.2.4] - 2026-11-23
+
+### 修复
+
+- 彻底根治「别的机器安装报 `node-gyp ... not ok`」：上一版虽已内置 Electron ABI 的预编译二进制，但 `better-sqlite3` 仍作为强依赖存在，pnpm 安装时仍会强制执行其 `install` 脚本（`prebuild-install || node-gyp rebuild`），在缺 Python / C++ 工具链的机器上直接让整个安装 `exit code 1`，内置二进制根本没机会被加载。现把 `better-sqlite3` 从 `dependencies` 移到 `optionalDependencies`，安装期编译失败只降级为 warning，不再阻断安装。
+
 ## [0.2.3] - 2026-11-23
 
 ### 修复

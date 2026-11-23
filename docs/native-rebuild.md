@@ -12,6 +12,12 @@ tarball（`lib/native/{platform}-{arch}/better_sqlite3.node`），运行时经
 用户安装期的 node-gyp 源码编译**。这是解决「别的机器安装报 `node-gyp ... not ok`」
 的根本方案。
 
+> **配套关键改动**：`better-sqlite3` 已从 `dependencies` 移到 `optionalDependencies`。
+> 原因是——即便内置了二进制，只要它仍作为强依赖存在，pnpm 安装 `paipiange` 时仍会
+> 强制执行 `better-sqlite3` 的 `install` 脚本（`prebuild-install || node-gyp rebuild`），
+> 在缺少 Python / C++ 工具链的机器上直接让整个安装 `exit code 1`，内置二进制根本没机会被加载。
+> 移到 `optionalDependencies` 后，安装期编译失败只会降级为 warning，不再阻断安装。
+
 内置平台（与 dsh 官方桌面版发布矩阵对齐）：
 - `win32-x64`（Windows x64）
 - `darwin-arm64`（macOS Apple Silicon）
