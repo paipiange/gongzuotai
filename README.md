@@ -19,8 +19,17 @@ pnpm add dsh-paipiange@0.2.4
 > ⚠️ **务必钉版本号安装**（`@0.2.4`），不要用裸包名或 `^0.2.0` 范围。原因：pnpm 的
 > `minimumReleaseAge`（默认 24 小时）会过滤「发布不足 24 小时」的版本，裸包名/范围
 > 会静默回退到更旧的版本（旧版 `better-sqlite3` 仍是强依赖，会在缺 Python 的机器上
-> 触发 `node-gyp` 编译失败）。钉版本可绕过该限制，直接拿到修复后的版本。详见
-> [docs/install.md](./docs/install.md)。
+> 触发 `node-gyp` 编译失败）。钉版本可绕过该限制，直接拿到修复后的版本。
+>
+> 若希望裸包名也能始终装到最新版，可在 Harness profile 的 `pnpm-workspace.yaml` 中
+> 豁免本插件（按包名豁免所有版本）：
+>
+> ```yaml
+> minimumReleaseAgeExclude:
+>   - dsh-paipiange
+> ```
+>
+> 详见 [docs/install.md](./docs/install.md)。
 
 ### 从源码构建
 

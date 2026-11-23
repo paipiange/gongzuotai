@@ -40,6 +40,14 @@ pnpm add dsh-paipiange@0.2.4
 > 钉版本号 `@0.2.4` 会绕过 minimumReleaseAge 过滤，直接拿到修复后的版本
 > （`better-sqlite3` 已移到 `optionalDependencies` + 内置 Electron ABI 二进制）。
 >
+> **若希望裸包名也能始终装到最新版**，可在 Harness profile 的 `pnpm-workspace.yaml`
+> 中豁免本插件（按包名豁免所有版本，之后裸包名 / 范围即可直接拿到最新版）：
+>
+> ```yaml
+> minimumReleaseAgeExclude:
+>   - dsh-paipiange
+> ```
+>
 > 参考：这是 dsh 插件生态的已知坑，见
 > [deepseek-harness discussion #9178](https://github.com/deepseek-ai/deepseek-harness/discussions/9178)。
 
