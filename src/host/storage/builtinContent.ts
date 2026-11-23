@@ -5,6 +5,7 @@ import type Database from 'better-sqlite3'
 import { InspirationRepository, type CreateInspirationInput } from './inspirationRepository'
 import { TemplateRepository, type CreateTemplateInput } from './templateRepository'
 import { AssetRepository } from './assetRepository'
+import { ensureRemoteAsset, remoteAssetIfCached, remoteAssetCacheRoot } from './remoteAssets'
 
 /**
  * 预置内容（内置模板 + 内置灵感）。
@@ -299,6 +300,27 @@ export function seedBuiltinContent(db: Database.Database): { templates: number; 
   return { templates: templateCount, inspirations: inspirationCount }
 }
 
+/**
+ * 内置素材的远程资源清单。为减小 tarball 体积，这些大图不再打进插件包，
+ * 改为首次 seed 时从远程按需下载到本地缓存（`remoteAssets.ts`），之后永久复用。
+ * `urlPath` 为 GitHub 仓库内实际路径（含 src/host/ 前缀），`cachePath` 为本地缓存相对路径。
+ */
+const REMOTE_BUILTIN_ASSETS: Array<{ urlPath: string; cachePath: string; sha256: string }> = [
+  // 模板封面
+  { urlPath: 'src/host/assets/template-covers/longform_writing.png', cachePath: 'assets/template-covers/longform_writing.png', sha256: '9cfab43cdaf830098a097363739d33f19fe4ee52917535f415a527a3a879794f' },
+  { urlPath: 'src/host/assets/template-covers/product_launch.png', cachePath: 'assets/template-covers/product_launch.png', sha256: 'e6c6bf62bbacba97aee8f2e22765271c7b79931056a95292028814f9574f9c06' },
+  { urlPath: 'src/host/assets/template-covers/video_script.png', cachePath: 'assets/template-covers/video_script.png', sha256: '6b7da8911859be07eb8f03de6eeda88396621a5283b02a97fcf3de0d61b7dd14' },
+  { urlPath: 'src/host/assets/template-covers/wechat_comment.png', cachePath: 'assets/template-covers/wechat_comment.png', sha256: '2d8f52579ddf8aae34425eb4804a048f9c5bfa906071591537f094dd857f22ea' },
+  { urlPath: 'src/host/assets/template-covers/wechat_deep_read.png', cachePath: 'assets/template-covers/wechat_deep_read.png', sha256: '44c303536b1a64e4ed1fd64943113a9f4e7bf5b2dafbccad51c2bda3b54c92f4' },
+  { urlPath: 'src/host/assets/template-covers/xhs_grass.jpg', cachePath: 'assets/template-covers/xhs_grass.jpg', sha256: '9ceabdf9c18c40c16a5c0380c7127d08153c92b1396e7d7f37a443e299d244cc' },
+  { urlPath: 'src/host/assets/template-covers/xhs_tips.png', cachePath: 'assets/template-covers/xhs_tips.png', sha256: '43dac6ab682f6f41022b8009d4752d9bde521c9d04ca1830d60805c2b43ad0c6' },
+  { urlPath: 'src/host/assets/template-covers/zhihu_answer.png', cachePath: 'assets/template-covers/zhihu_answer.png', sha256: '605d9574894b54706dec0629da3fa2f0a42b34f050bec1657003d21217f47a6b' },
+  // 情侣漫画参考图
+  { urlPath: 'src/host/assets/couple-comic/female_reference.png', cachePath: 'assets/couple-comic/female_reference.png', sha256: '30b76260edea9d439b53bd0e2d9fee5dd5ed792b2da38c1882959224191ae52e' },
+  { urlPath: 'src/host/assets/couple-comic/male_reference.png', cachePath: 'assets/couple-comic/male_reference.png', sha256: 'c510cfcf2f2f5fc89f745278f08faa5d55ee78de34772fe7932b333ba713c903' },
+  { urlPath: 'src/host/assets/couple-comic/two_panel_style_reference.png', cachePath: 'assets/couple-comic/two_panel_style_reference.png', sha256: 'ef4f80431c05a9e9ade444dcb1036b4d9aaf08cd1e356310d1e008f5f862b59f' },
+]
+
 /** 情侣漫画内置参考图（随插件包分发到 lib/assets/couple-comic/）。 */
 const COUPLE_COMIC_REFERENCE_IMAGES = [
   { file: 'female_reference.png', name: '情侣漫画·女主参考图', tags: ['情侣漫画', '参考图', '女主', '内置'] },
@@ -323,19 +345,21 @@ export function seedCoupleComicAssets(
   db: Database.Database,
   assets: AssetRepository,
   resourceDir?: string,
+  dataRoot?: string,
 ): number {
   if (getSeedVersion(db, 'couple_comic_assets_version') >= 1) return 0
 
   // 编译产物里本模块位于 lib/index.js，资源被拷贝到 lib/assets/couple-comic/。
   // 因此相对 import.meta.url 直接取 ./assets/couple-comic。
   const base = resourceDir ?? join(dirname(fileURLToPath(import.meta.url)), 'assets', 'couple-comic')
+  const cacheBase = dataRoot ? join(remoteAssetCacheRoot(dataRoot), 'assets', 'couple-comic') : null
   const templates = new TemplateRepository(db)
   let count = 0
 
   db.transaction(() => {
     for (const ref of COUPLE_COMIC_REFERENCE_IMAGES) {
-      const filePath = join(base, ref.file)
-      if (!existsSync(filePath)) continue
+      const filePath = resolveAssetFile(join(base, ref.file), cacheBase ? join(cacheBase, ref.file) : join(base, ref.file))
+      if (!filePath) continue
       const data = readFileSync(filePath)
       const width = data.length > 24 ? data.readUInt32BE(16) : null
       const height = data.length > 24 ? data.readUInt32BE(20) : null
@@ -388,17 +412,19 @@ export function seedTemplateCovers(
   db: Database.Database,
   assets: AssetRepository,
   resourceDir?: string,
+  dataRoot?: string,
 ): number {
   if (getSeedVersion(db, TEMPLATE_COVER_VERSION_KEY) >= 1) return 0
 
   const base = resourceDir ?? join(dirname(fileURLToPath(import.meta.url)), 'assets', 'template-covers')
+  const cacheBase = dataRoot ? join(remoteAssetCacheRoot(dataRoot), 'assets', 'template-covers') : null
   const templates = new TemplateRepository(db)
   let count = 0
 
   db.transaction(() => {
     for (const cover of TEMPLATE_COVER_IMAGES) {
-      const filePath = join(base, cover.file)
-      if (!existsSync(filePath)) continue
+      const filePath = resolveAssetFile(join(base, cover.file), cacheBase ? join(cacheBase, cover.file) : join(base, cover.file))
+      if (!filePath) continue
       const data = readFileSync(filePath)
       const width = cover.mimeType === 'image/png' && data.length > 24 ? data.readUInt32BE(16) : null
       const height = cover.mimeType === 'image/png' && data.length > 24 ? data.readUInt32BE(20) : null
@@ -420,3 +446,58 @@ export function seedTemplateCovers(
 
   return count
 }
+
+/**
+ * 解析内置素材文件路径：优先用「插件包内」资源（开发态/旧版打包仍可用），
+ * 若包内不存在则退回「远程下载缓存」目录。两者都不存在返回 null（调用方跳过）。
+ */
+function resolveAssetFile(pkgPath: string, cachePath: string): string | null {
+  if (existsSync(pkgPath)) return pkgPath
+  if (existsSync(cachePath)) return cachePath
+  return null
+}
+
+/**
+ * 后台下载所有缺失的内置素材资源到本地缓存，并在下载完成后重新执行 seed，
+ * 把内置模板封面 / 情侣漫画参考图补写进素材库。
+ *
+ * 用于「瘦包」场景：资源不再打进 tarball，首次启动时本地包内无这些文件，
+ * seed 会跳过；本函数异步拉取后再次 seed，让内置素材在下载完成后自动出现。
+ * 失败静默（不影响其他功能，下次启动重试）。
+ */
+export async function downloadMissingBuiltinAssets(
+  db: Database.Database,
+  assets: AssetRepository,
+  dataRoot: string,
+): Promise<number> {
+  const root = dataRoot
+  let downloaded = 0
+
+  for (const spec of REMOTE_BUILTIN_ASSETS) {
+    // 已缓存则跳过下载
+    if (remoteAssetIfCached(root, spec)) continue
+    try {
+      await ensureRemoteAsset(root, spec)
+      downloaded += 1
+    } catch {
+      // 单个资源下载失败不阻断其余资源
+    }
+  }
+
+  // 下载完成后重新 seed（幂等：若某类资源已因「包内存在」而 seed 过，版本号已写，不会重复）。
+  if (downloaded > 0) {
+    try {
+      seedCoupleComicAssets(db, assets, undefined, root)
+    } catch {
+      // 忽略 seed 失败
+    }
+    try {
+      seedTemplateCovers(db, assets, undefined, root)
+    } catch {
+      // 忽略 seed 失败
+    }
+  }
+
+  return downloaded
+}
+

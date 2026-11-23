@@ -32,7 +32,7 @@ videoEngine/
 
 ## 本地适配改动（vendor 后必须的 patch）
 
-升级 vendor 时，**必须重新应用以下两处改动**（已记录，避免升级后路径解析失效）：
+升级 vendor 时，**必须重新应用以下改动**（已记录，避免升级后路径解析失效）：
 
 ### 1. `packages/shared/index.js` → `resolveRemotionRuntime()`
 
@@ -48,6 +48,20 @@ videoEngine/
   templates/scripts/voice-packs 均能正确定位（无需改动）。
 - `REPO_ROOT` 因 `isDevWorkspace=false`，默认指向 `~/.dsh/video-workbench`（运行时
   工作区/配置/生成的临时工程放用户目录，符合隐私规范）。
+
+### 3. `packages/shared/compliance.js` → `BUNDLED_FONTS_DIR` 支持环境变量注入
+
+原实现 `BUNDLED_FONTS_DIR = resolve(__dirname, 'fonts')` 固定指向包内字体目录。
+为配合「瘦包」——字体（约 9MB）不再打进 tarball，改为运行时按需下载——此处
+让字体源目录可被 `PAIPIANGE_FONTS_DIR` 环境变量覆盖：
+
+```js
+export const BUNDLED_FONTS_DIR =
+  process.env.PAIPIANGE_FONTS_DIR || resolve(__dirname, 'fonts')
+```
+
+桥接层 `src/host/videogen/remotionEngine.ts` 的 `ensureEngineFonts()` 会在出片前
+把字体下载到本地缓存并注入该变量；未设置时行为与原版完全一致。
 
 ## 运行时依赖（Remotion 全家桶）
 

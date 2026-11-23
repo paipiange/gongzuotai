@@ -19,14 +19,20 @@ function rawPlugin() {
 }
 
 /**
- * 把 `src/host/assets/` 下的内置资源（如情侣漫画参考图 PNG）原样拷到 `lib/assets/`，
- * 随插件包分发，供 Host 在 seed 时从磁盘读取写入素材库。
+ * 把 `src/host/assets/` 下的内置资源拷到 `lib/assets/`，随插件包分发。
+ *
+ * 体积优化：`couple-comic/` 与 `template-covers/` 两个大图目录（约 22MB）已改为
+ * 运行时按需下载（见 src/host/storage/remoteAssets.ts），不再打进 tarball；
+ * 这里只拷贝轻量的 `styles.json`（供 videogen 样式库读取）。
+ *
  * tsdown 无内置 copy 能力，这里用 writeBundle 钩子在产物落地后补一次拷贝。
  */
 function copyAssetsPlugin() {
   const projectRoot = dirname(fileURLToPath(import.meta.url))
   const sourceDir = join(projectRoot, 'src/host/assets')
   const targetDir = 'assets'
+  // 排除改为远程下载的大图目录（保持打包瘦身）
+  const EXCLUDE_DIRS = new Set(['couple-comic', 'template-covers'])
   return {
     name: 'paipiange-copy-assets',
     writeBundle() {
@@ -39,6 +45,7 @@ function copyAssetsPlugin() {
           const s = join(src, f)
           const d = join(dst, f)
           if (statSync(s).isDirectory()) {
+            if (EXCLUDE_DIRS.has(f)) continue
             mkdirSync(d, { recursive: true })
             copy(s, d)
           } else {
@@ -57,6 +64,9 @@ function copyAssetsPlugin() {
  * 引擎是纯 ESM JS（含 `import.meta.url`、`createRequire`、动态 import、.py 脚本、
  * 字体与影核广场模板），必须按目录结构落盘，由 remotionEngine.ts 在运行时动态 import，
  * 不能打进 bundle（否则 `import.meta.url` 指向 lib/index.js，路径解析全部失效）。
+ *
+ * 体积优化：`packages/shared/fonts/` 里的两个 WOFF2 字体（约 9MB）改为运行时按需
+ * 下载（remotionEngine.ts 预下载后经 PAIPIANGE_FONTS_DIR 注入），此处排除不拷贝。
  */
 function copyVideoEnginePlugin() {
   const projectRoot = dirname(fileURLToPath(import.meta.url))
@@ -76,6 +86,8 @@ function copyVideoEnginePlugin() {
             mkdirSync(d, { recursive: true })
             copy(s, d)
           } else {
+            // 排除字体文件（运行时按需下载），但保留 LICENSES.md 等轻量文件
+            if (f.endsWith('.woff2') && src.endsWith(join('packages', 'shared', 'fonts'))) continue
             mkdirSync(dirname(d), { recursive: true })
             copyFileSync(s, d)
           }

@@ -4,7 +4,7 @@ import { existsSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs
 import { join } from 'node:path'
 import { spawn } from 'node:child_process'
 import { PaipiangeDatabase } from './storage/database'
-import { seedCoupleComicAssets, seedTemplateCovers } from './storage/builtinContent'
+import { seedCoupleComicAssets, seedTemplateCovers, downloadMissingBuiltinAssets } from './storage/builtinContent'
 import { CreationRepository } from './storage/creationRepository'
 import { SettingsRepository } from './storage/SettingsRepository'
 import { AssetRepository } from './storage/assetRepository'
@@ -85,17 +85,21 @@ export async function apply(ctx: Context, config: Config = {}) {
   // 幂等地把内置情侣漫画参考图写入素材库，并回填模板封面。
   // 失败不阻断插件启动（仅缺失内置参考图，不影响其他功能）。
   try {
-    seedCoupleComicAssets(storage.db, assets)
+    seedCoupleComicAssets(storage.db, assets, undefined, storage.paths.root)
   } catch {
     // 内置参考图 seed 失败属于非致命问题，忽略并继续启动。
   }
 
   // 幂等地把内置模板封面图写入素材库，并回填到对应模板。
   try {
-    seedTemplateCovers(storage.db, assets)
+    seedTemplateCovers(storage.db, assets, undefined, storage.paths.root)
   } catch {
     // 模板封面 seed 失败属于非致命问题，忽略并继续启动。
   }
+
+  // 后台下载缺失的内置素材（瘦包后资源不再打进 tarball），下载完成后补 seed。
+  // 不 await，避免拖慢启动；失败静默，下次启动重试。
+  void downloadMissingBuiltinAssets(storage.db, assets, storage.paths.root).catch(() => {})
 
   try {
     await runAutomaticBackup(storage, settings)

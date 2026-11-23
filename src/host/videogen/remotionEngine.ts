@@ -19,6 +19,7 @@
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { existsSync } from 'node:fs'
+import { ensureRemoteAsset } from '../storage/remoteAssets'
 
 /** 引擎入口（vendored dsh-tool-media 的 produceFullVideo）。 */
 export interface ProduceFullVideoOptions {
@@ -84,6 +85,48 @@ function resolveEngineEntry(): string {
 
 /** 是否已成功加载引擎（惰性单例）。 */
 let engineModule: { produceFullVideo: (opts: ProduceFullVideoOptions) => Promise<ProduceFullVideoResult> } | null = null
+
+/**
+ * 视频引擎渲染所需的 SIL OFL 字体（瘦包后不再打进 tarball）。
+ * `urlPath` 为 GitHub 仓库内实际路径（含 src/host/ 前缀），
+ * `cachePath` 为本地缓存相对路径（与 remoteAssets.ts 的缓存根对齐）。
+ */
+const REMOTE_FONTS = [
+  { urlPath: 'src/host/videoEngine/packages/shared/fonts/NotoSansSC-VF.woff2', cachePath: 'videoEngine/packages/shared/fonts/NotoSansSC-VF.woff2', sha256: '0fe36c8e0cef92f1134a2e0b2453edf2074d5ded4ffe7c38500b4fa6814310e8' },
+  { urlPath: 'src/host/videoEngine/packages/shared/fonts/SourceHanSerifSC-Heavy.woff2', cachePath: 'videoEngine/packages/shared/fonts/SourceHanSerifSC-Heavy.woff2', sha256: 'a8a5b285c7c21298fe1ecdd53bdc0a21571a3504e86159f97303936b32b16889' },
+]
+
+/**
+ * 出片前确保字体就位：若本地包内已有字体目录则直接用；否则按需下载到缓存，
+ * 并通过 PAIPIANGE_FONTS_DIR 注入给 vendored 引擎（compliance.js 读取该变量）。
+ * 下载失败不抛错（引擎会降级，缺字体的渲染由引擎自行兜底/报错）。
+ * dataRoot 缺省时按 StoragePaths 的默认规则（DSH_HOME / ~/.dsh）推断。
+ */
+export async function ensureEngineFonts(dataRoot?: string): Promise<void> {
+  if (process.env.PAIPIANGE_FONTS_DIR) return // 已注入，无需重复处理
+
+  // 包内字体（未瘦包/开发态）优先
+  const bundledDir = join(dirname(fileURLToPath(import.meta.url)), 'videoEngine', 'packages', 'shared', 'fonts')
+  if (existsSync(join(bundledDir, 'NotoSansSC-VF.woff2'))) return
+
+  // 推断缓存根：与 storage/paths.ts 的默认逻辑一致
+  let root = dataRoot
+  if (!root) {
+    const { resolveStoragePaths } = await import('../storage/paths')
+    root = resolveStoragePaths().root
+  }
+
+  try {
+    const { remoteAssetCacheRoot } = await import('../storage/remoteAssets')
+    const cacheRoot = remoteAssetCacheRoot(root)
+    for (const spec of REMOTE_FONTS) {
+      await ensureRemoteAsset(root, spec)
+    }
+    process.env.PAIPIANGE_FONTS_DIR = join(cacheRoot, 'videoEngine', 'packages', 'shared', 'fonts')
+  } catch {
+    // 下载失败：不设置环境变量，引擎走包内缺字体的兜底路径
+  }
+}
 
 /**
  * 加载引擎模块（惰性 + 缓存）。首次调用时动态 import vendored 引擎入口。

@@ -17,7 +17,7 @@ import { generateFallbackHtml } from './fallbackTemplate'
 import { ComfyVideoGenerator } from './comfyVideo'
 import { generateDirectorScript, type DirectorScript } from './directorService'
 import { getStyle, styleToPrompt } from './styles'
-import { produceRemotionVideo } from './remotionEngine'
+import { produceRemotionVideo, ensureEngineFonts } from './remotionEngine'
 
 /** 视频生成引擎：本地 LLM 写 HTML 动画，ComfyUI 出帧序列，或 Remotion+Three.js 双引擎。 */
 export type VideoEngine = 'llm' | 'comfyui' | 'remotion'
@@ -564,6 +564,9 @@ async function generateViaRemotion(
     if (options.signal?.aborted) throw new Error('已取消')
 
     options.onProgress?.({ stage: 'coding', message: '正在由 Remotion 双引擎策划并生成视频…' })
+
+    // 出片前确保渲染字体就位（瘦包后字体按需下载，失败则引擎降级）
+    await ensureEngineFonts()
 
     // 把引擎的进度文案（"1/5 ..."）透传为 stage 进度。
     const onProgress = (msg: string) => {

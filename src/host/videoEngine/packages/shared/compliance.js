@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
-export const BUNDLED_FONTS_DIR = resolve(__dirname, 'fonts')
+export const BUNDLED_FONTS_DIR =
+  process.env.PAIPIANGE_FONTS_DIR || resolve(__dirname, 'fonts')
 
 export const BUNDLED_FONTS = [
   {

@@ -21,7 +21,6 @@ Thumbs.db
 main.js
 ai_image_studio_workbench/
 /assets/
-src/host/assets/couple-comic/
 
 # 创作素材 / 技能包（可能含用户内容，不入库）
 *.zip
