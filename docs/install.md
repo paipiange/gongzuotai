@@ -20,6 +20,37 @@ pnpm pack           # 生成 dsh-paipiange-0.2.0.tgz
 `prepack` 会自动重跑 `build:plugin`，保证 tarball 内的 `lib/` 是最新产物。
 `prepublishOnly` 会在发布前执行 typecheck + 全量测试 + 构建三重校验。
 
+## 发布到 npm（OIDC trusted publishing）
+
+`dsh-paipiange` 与 `paipiange` 是两份独立 npm 包，代码完全相同，仅 name 不同，需各自发布。
+
+发布走 **GitHub Actions OIDC trusted publishing**（免长期 token，规避「绕过 2FA 的 token 无法
+direct publish」的 npm 政策限制）。
+
+### 一次性配置（npm 网页端，两个包各做一次）
+
+对 `dsh-paipiange` 和 `paipiange` 分别操作：
+
+1. 打开包的 **Settings → Trusted Publishing**，点 **Add trusted publisher**，选 **GitHub Actions**。
+2. 填写：
+   - Organization/user：`paipiange`
+   - Repository：`gongzuotai`
+   - Workflow filename：`publish-npm.yml`（只填文件名，带 `.yml`）
+3. **Allowed actions 勾选「Allow npm publish」**（否则只允许 staged publish，版本不会自动落地）。
+4. 保存。
+
+### 触发发布
+
+```bash
+git tag v0.2.8 && git push origin v0.2.8
+```
+
+推送 `v*` 标签后，`.github/workflows/publish-npm.yml` 自动：
+typecheck + build → 用 `scripts/publish-dual.cjs` 切换包名 → `npm publish --provenance --access public`
+发布双包。发布前需确保 `package.json` 的 `version` 已 bump 到目标版本。
+
+> 注意：trusted publishing 要求 npm CLI ≥ 11.5.1、Node ≥ 22.14.0，workflow 已固定 Node 22。
+
 ## 安装
 
 ### 方式一：dsh 插件命令（推荐，新机器首选）
