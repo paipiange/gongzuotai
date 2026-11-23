@@ -2,6 +2,16 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 格式，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.2.3] - 2026-11-23
+
+### 修复
+
+- 安装期不再触发 better-sqlite3 源码编译：better-sqlite3 官方 prebuild 只覆盖标准 Node ABI，从不发布 Electron 版，而 dsh 桌面端是 Electron（ABI 149），导致用户机器 `npm install` 时 `prebuild-install` 找不到匹配二进制、fallback 到 `node-gyp` 源码编译，缺 C++ 工具链就报 `node-gyp ... not ok` 安装失败。现改为把针对 Electron ABI 149 编译好的 `.node` 直接打包进插件（`lib/native/{platform}-{arch}/`），运行时经 `nativeBinding` 显式加载（`src/host/storage/nativeBinding.ts`），彻底免除安装期编译。
+
+### 测试
+
+- 新增 nativeBinding 单测 4 个，全量测试增至 248 个。
+
 ## [0.2.2] - 2026-11-23
 
 ### 修复
