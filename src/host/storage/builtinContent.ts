@@ -347,7 +347,12 @@ export function seedCoupleComicAssets(
   resourceDir?: string,
   dataRoot?: string,
 ): number {
-  if (getSeedVersion(db, 'couple_comic_assets_version') >= 1) return 0
+  if (getSeedVersion(db, 'couple_comic_assets_version_v2') >= 1) return 0
+  // 兜底：素材库里已有情侣漫画参考图时不再重复 seed（避免老用户升级后重复插入）。
+  if (assets.list('image', 1, 0, ['情侣漫画', '参考图']).length > 0) {
+    setSeedVersion(db, 1, 'couple_comic_assets_version_v2')
+    return 0
+  }
 
   // 编译产物里本模块位于 lib/index.js，资源被拷贝到 lib/assets/couple-comic/。
   // 因此相对 import.meta.url 直接取 ./assets/couple-comic。
@@ -379,7 +384,10 @@ export function seedCoupleComicAssets(
       }
       count += 1
     }
-    setSeedVersion(db, 1, 'couple_comic_assets_version')
+    // 只有实际入库了至少一张图才写版本号。否则（瘦包首次启动时包内无图、
+    // 缓存也未下载）会提前把版本号写死，导致后续 downloadMissingBuiltinAssets
+    // 下载完成后重新 seed 时因版本号已写而永远无法补上。
+    if (count > 0) setSeedVersion(db, 1, 'couple_comic_assets_version_v2')
   })()
 
   return count
@@ -397,7 +405,7 @@ const TEMPLATE_COVER_IMAGES = [
   { file: 'longform_writing.png', mimeType: 'image/png', template: '通用长文写作框架', name: '模板封面·通用长文写作框架', tags: ['模板封面', '内置', '通用长文写作框架'] },
 ] as const
 
-const TEMPLATE_COVER_VERSION_KEY = 'template_cover_version'
+const TEMPLATE_COVER_VERSION_KEY = 'template_cover_version_v2'
 
 /**
  * 把内置模板的封面图写入素材库，并回填到对应模板的 `cover_asset_id`。
@@ -415,6 +423,12 @@ export function seedTemplateCovers(
   dataRoot?: string,
 ): number {
   if (getSeedVersion(db, TEMPLATE_COVER_VERSION_KEY) >= 1) return 0
+  // 兜底：即便版本号丢失，只要素材库里已有「模板封面」asset，就不再重复 seed
+  // （避免老用户升级后重复插入封面图）。
+  if (assets.list('image', 1, 0, ['模板封面']).length > 0) {
+    setSeedVersion(db, 1, TEMPLATE_COVER_VERSION_KEY)
+    return 0
+  }
 
   const base = resourceDir ?? join(dirname(fileURLToPath(import.meta.url)), 'assets', 'template-covers')
   const cacheBase = dataRoot ? join(remoteAssetCacheRoot(dataRoot), 'assets', 'template-covers') : null
@@ -441,7 +455,9 @@ export function seedTemplateCovers(
       if (template) templates.setCoverAssetId(template.id, saved.id)
       count += 1
     }
-    setSeedVersion(db, 1, TEMPLATE_COVER_VERSION_KEY)
+    // 只有实际入库了至少一张图才写版本号，避免瘦包首次启动时（包内无图、缓存未下载）
+    // 提前写死版本号，导致下载完成后无法补 seed。
+    if (count > 0) setSeedVersion(db, 1, TEMPLATE_COVER_VERSION_KEY)
   })()
 
   return count

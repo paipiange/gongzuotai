@@ -2,6 +2,13 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 格式，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.3.4] - 2026-11-26
+
+### 修复
+
+- **「已安装插件」列表里 paipiange 描述为空**：dsh 的插件标题/描述并非读 `package.json` 的 `description`，而是读 `locale/*.json` 里的 `meta.title` / `meta.description`（`en.json` 为发现入口）。此前插件没有 locale 目录，导致列表无描述。现新增 `locale/en.json` + `locale/zh.json`，并在 `exports` 补 `"./locale/*.json"`、`files` 补 `locale`。（0.3.2 曾误判为 exports 缺 `./package.json`，实际根因是缺 locale 文件。）
+- **模板封面图 / 情侣漫画参考图在新装机器上可能永久缺失**：`seedTemplateCovers` / `seedCoupleComicAssets` 在「瘦包首次启动、包内无图、远程缓存未下载」时会先 `setSeedVersion` 把幂等版本号写死，导致后续 `downloadMissingBuiltinAssets` 下载完成后重新 seed 时因版本号已写而永远跳过。现改为「只有实际入库 ≥1 张图才写版本号」，并升级版本 key（`*_v2`）+ 增加「素材库已有对应 tag 资产则跳过」的兜底，覆盖新装与已中招升级两种场景。
+
 ## [0.3.3] - 2026-11-26
 
 ### 修正
