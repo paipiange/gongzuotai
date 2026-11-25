@@ -111,7 +111,7 @@ export function HomeCarouselSettings({ onToast }: { onToast: ToastFn }) {
         <div className="pa-carousel-settings__head">
           <div>
             <h2>首页轮播图</h2>
-            <p>默认内置图 + {DEFAULT_REMOTE_CAROUSEL.length} 张远程模板封面图（GitHub 托管）自动轮播；可勾选是否纳入，也可上传本地图片追加。</p>
+            <p>默认内置图 + {DEFAULT_REMOTE_CAROUSEL.length} 张远程轮播图（GitHub 托管）自动轮播；可勾选是否纳入，也可上传本地图片追加。</p>
           </div>
           <div className="pa-carousel-settings__actions">
             <input ref={inputRef} type="file" accept={ACCEPT} multiple hidden onChange={(event) => void onPickFiles(event.target.files)} />
@@ -132,7 +132,7 @@ export function HomeCarouselSettings({ onToast }: { onToast: ToastFn }) {
           <p className="pa-carousel-settings__empty">Host 服务未连接，轮播图设置不可用。</p>
         ) : (
           <>
-            {/* 默认图：内置 base64 + 远程模板封面图，固定排最前，带纳入轮播开关 */}
+            {/* 默认图：内置 base64 + 远程轮播图，固定排最前，带纳入轮播开关 */}
             <div className="pa-carousel-default">
               <img src={HERO_BG} alt="默认首页图" loading="lazy" />
               <span className="pa-carousel-list__index">默认</span>
@@ -142,7 +142,7 @@ export function HomeCarouselSettings({ onToast }: { onToast: ToastFn }) {
               </label>
             </div>
 
-            {/* 默认远程轮播图：模板封面，GitHub 托管，随 includeDefault 开关一起纳入 */}
+            {/* 默认远程轮播图：首页专属 banner，GitHub 托管，随 includeDefault 开关一起纳入 */}
             <ul className="pa-carousel-list">
               {DEFAULT_REMOTE_CAROUSEL.map((src, index) => (
                 <li key={src} className="pa-carousel-list__item">
@@ -156,7 +156,7 @@ export function HomeCarouselSettings({ onToast }: { onToast: ToastFn }) {
             {assetIds.length === 0 ? (
               <p className="pa-carousel-settings__empty">
                 {includeDefault
-                  ? '当前显示内置默认图 + 远程模板封面图。点击「上传图片」追加自定义轮播图。'
+                  ? '当前显示内置默认图 + 远程轮播图。点击「上传图片」追加自定义轮播图。'
                   : '默认图已关闭且无自定义图，首页仍回退显示内置默认图。'}
               </p>
             ) : (
@@ -178,7 +178,7 @@ export function HomeCarouselSettings({ onToast }: { onToast: ToastFn }) {
             {(assetIds.length > 0 || includeDefault) && (
               <p className="pa-carousel-settings__hint">
                 <Plus aria-hidden="true" size={12} />
-                首页轮播顺序：{includeDefault ? `内置默认图 → 远程模板封面图 ${DEFAULT_REMOTE_CAROUSEL.length} 张 → ` : ''}{assetIds.length > 0 ? `自定义图 ${assetIds.length} 张` : '无自定义图'}。
+                首页轮播顺序：{includeDefault ? `内置默认图 → 远程轮播图 ${DEFAULT_REMOTE_CAROUSEL.length} 张 → ` : ''}{assetIds.length > 0 ? `自定义图 ${assetIds.length} 张` : '无自定义图'}。
               </p>
             )}
           </>

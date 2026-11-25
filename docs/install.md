@@ -58,7 +58,7 @@ typecheck + build → 用 `scripts/publish-dual.cjs` 切换包名 → `npm publi
 在已装好 DeepSeek Harness 的机器上，用 dsh 的插件安装命令，**务必钉版本号**：
 
 ```bash
-dsh plugin add dsh-paipiange@0.3.2
+dsh plugin add dsh-paipiange@0.3.3
 ```
 
 ### 方式二：dsh 插件市场界面
@@ -74,7 +74,7 @@ dsh plugin add dsh-paipiange@0.3.2
 ```json
 {
   "dependencies": {
-    "dsh-paipiange": "0.3.2"
+    "dsh-paipiange": "0.3.3"
   },
   "dsh": {
     "profile": {
@@ -88,7 +88,7 @@ dsh plugin add dsh-paipiange@0.3.2
 
 > ### ⚠️ 四个必踩的坑，务必规避
 >
-> **坑 1：一定要钉版本号 `@0.3.2`，不要裸包名或 `^0.2.0`。**
+> **坑 1：一定要钉版本号 `@0.3.3`，不要裸包名或 `^0.2.0`。**
 >
 > pnpm 的 `minimumReleaseAge`（默认 1440 分钟 = 24 小时）会过滤「发布不足 24 小时」的
 > 版本：裸包名 / `^0.2.0` 范围会**静默回退**到发布满 24 小时的最新版。对于当天刚发的
@@ -103,7 +103,7 @@ dsh plugin add dsh-paipiange@0.3.2
 > 会把 `file:` 路径 URL 编码进符号链接目录名（含中文「工作台」和 `+` 号），dsh 主程序
 > 动态 import 插件时无法解析该符号链接，报
 > `ERR_MODULE_NOT_FOUND: Cannot find package 'dsh-paipiange'`，插件「只有名字、没有
-> 描述」，功能失效。**必须用 npm 版本号 `"dsh-paipiange": "0.3.2"`（走 registry，符号
+> 描述」，功能失效。**必须用 npm 版本号 `"dsh-paipiange": "0.3.3"`（走 registry，符号
 > 链接为纯 ASCII 路径）。**
 >
 > **坑 3：市场搜索务必用 `dsh-paipiange`，不要搜裸名 `paipiange`。**
@@ -116,9 +116,9 @@ dsh plugin add dsh-paipiange@0.3.2
 >
 > **坑 4：旧版本已 deprecate，但 deprecate 挡不住 minimumReleaseAge 门控。**
 >
-> npm 上 0.2.0~0.2.5 已全部标记 deprecated（broken），0.3.2 是唯一推荐版本。但 pnpm 的
+> npm 上 0.2.0~0.2.5 已全部标记 deprecated（broken），0.3.3 是唯一推荐版本。但 pnpm 的
 > 时间门控优先级高于 deprecated 标记，所以即便旧版已 deprecate，裸包名/范围仍可能回退
-> 到旧版——**还是得钉 `@0.3.2`**。
+> 到旧版——**还是得钉 `@0.3.3`**。
 >
 > **若希望裸包名也能始终装到最新版**（一劳永逸），可在 Harness profile 的
 > `pnpm-workspace.yaml` 中关闭发布年龄门控：

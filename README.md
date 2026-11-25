@@ -15,15 +15,15 @@
 **新机器首选：dsh 插件命令，务必钉版本号**
 
 ```bash
-dsh plugin add dsh-paipiange@0.3.2
+dsh plugin add dsh-paipiange@0.3.3
 ```
 
 也可在 Harness 插件市场（Plugin Market）搜索 `dsh-paipiange` 一键安装，或手动在 profile 的
-`package.json` 声明 `"dsh-paipiange": "0.3.2"`。
+`package.json` 声明 `"dsh-paipiange": "0.3.3"`。
 
 > ⚠️ **四个必踩的坑，务必规避：**
 >
-> **1. 一定要钉版本号 `@0.3.2`，不要裸包名或 `^0.2.0`。** pnpm 的 `minimumReleaseAge`
+> **1. 一定要钉版本号 `@0.3.3`，不要裸包名或 `^0.2.0`。** pnpm 的 `minimumReleaseAge`
 > （默认 24 小时）会过滤「发布不足 24 小时」的版本，裸包名/范围会静默回退到旧版
 > （0.2.0~0.2.3 的 `better-sqlite3` 是强依赖，缺 Python 时触发 `node-gyp` 编译失败）。
 > 只有 0.2.6+ 彻底移除了 better-sqlite3 依赖（vendor 内置二进制），安装期零编译。
@@ -38,7 +38,7 @@ dsh plugin add dsh-paipiange@0.3.2
 > 与 dsh 按 entry 名「paipiange」对账时 id 错配，会导致侧边栏 tab 不显示、插件无描述。
 > 请优先安装 `dsh-paipiange`（id 与包名一致，正常显示）。
 >
-> **4. 旧版已 deprecate，但挡不住 minimumReleaseAge 门控，还是得钉 `@0.3.2`。**
+> **4. 旧版已 deprecate，但挡不住 minimumReleaseAge 门控，还是得钉 `@0.3.3`。**
 >
 > 若希望裸包名也能始终装到最新版，可在 Harness profile 的 `pnpm-workspace.yaml` 关闭
 > 发布年龄门控：

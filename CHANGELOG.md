@@ -2,11 +2,18 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 格式，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.3.3] - 2026-11-26
+
+### 修正
+
+- **首页默认轮播图改用专属图**：0.3.2 误把「模板封面图」当作首页轮播图，现改为 5 张专属首页 banner（`src/host/assets/carousel/01~05_*.png`，2508×627 横版，人物右侧 + 左侧留白），托管在 GitHub 公开仓库经 jsDelivr 加速。首页轮播顺序变为「内置 base64 兜底图 → 5 张远程轮播图 → 用户自定义上传图」，加载失败自动跳过、首图永不缺失。
+- **轮播图不再打进插件包**：`carousel` 目录加入 tsdown 的 copy 排除列表（与 couple-comic / template-covers 一致），5 张图走前端 jsDelivr 直接引用，保持瘦包。
+
 ## [0.3.2] - 2026-11-26
 
 ### 新增
 
-- **首页默认多张远程轮播图**：复用已开源的 8 张模板封面图作为默认轮播图，托管在 GitHub 公开仓库（`paipiange/gongzuotai`），经 jsDelivr CDN 加速访问。首页轮播顺序变为「内置 base64 兜底图 → 8 张远程模板封面图 → 用户自定义上传图」，加载失败的远程图自动跳过、首图永不缺失。
+- **首页默认多张远程轮播图**：托管在 GitHub 公开仓库（`paipiange/gongzuotai`），经 jsDelivr CDN 加速访问。首页轮播顺序变为「内置 base64 兜底图 → 远程轮播图 → 用户自定义上传图」，加载失败的远程图自动跳过、首图永不缺失。
 
 ### 修复
 

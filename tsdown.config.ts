@@ -33,8 +33,10 @@ function copyAssetsPlugin() {
   const projectRoot = dirname(fileURLToPath(import.meta.url))
   const sourceDir = join(projectRoot, 'src/host/assets')
   const targetDir = 'assets'
-  // 排除改为远程下载的大图目录（保持打包瘦身）
-  const EXCLUDE_DIRS = new Set(['couple-comic', 'template-covers'])
+  // 排除改为远程下载/远程引用的图片目录（保持打包瘦身）
+  // couple-comic / template-covers：host 侧 remoteAssets 按需下载缓存
+  // carousel：首页轮播图，前端 jsDelivr 直接引用（defaultCarousel.ts），不打进 tarball
+  const EXCLUDE_DIRS = new Set(['couple-comic', 'template-covers', 'carousel'])
   return {
     name: 'paipiange-copy-assets',
     writeBundle() {
