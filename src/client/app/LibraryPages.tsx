@@ -53,6 +53,7 @@ import {
   schedulePublish,
   setAssetTags,
   setPublishStatus,
+  setPublishPlatform,
   suggestInspirations,
   fetchAihot,
   fetchTophubNodes,
@@ -105,6 +106,7 @@ function publishActionLabel(action: string): string {
     wechat_draft: '同步微信公众号草稿',
     status_refresh: '刷新发布状态',
     manual_status: '手动更新状态',
+    platform_change: '切换发布平台',
   }
   return labels[action] ?? action
 }
@@ -620,6 +622,7 @@ export function PublishQueuePage({ creations, onOpen, onToast }: {
   const [publishPreview, setPublishPreview] = useState<{ item: PublishItem; title: string; text: string; html: string | null } | null>(null)
   const [publishDetail, setPublishDetail] = useState<PublishDetail | null>(null)
   const [publishActionId, setPublishActionId] = useState<string | null>(null)
+  const [changingPlatformId, setChangingPlatformId] = useState<string | null>(null)
   const [recentAttempts, setRecentAttempts] = useState<PublishAttempt[]>([])
 
   const refresh = async () => {
@@ -649,6 +652,20 @@ export function PublishQueuePage({ creations, onOpen, onToast }: {
       void refresh()
     } catch (cause) {
       onToast(cause instanceof Error ? cause.message : '状态更新失败', 'warning')
+    }
+  }
+
+  const changePlatform = async (item: PublishItem, platform: PublishPlatform) => {
+    if (platform === item.platform) return
+    setChangingPlatformId(item.id)
+    try {
+      await setPublishPlatform(item.id, platform)
+      onToast(`已切换发布平台为「${PLATFORM_LABELS[platform]}」`, 'success')
+      void refresh()
+    } catch (cause) {
+      onToast(cause instanceof Error ? cause.message : '切换平台失败', 'warning')
+    } finally {
+      setChangingPlatformId(null)
     }
   }
 
@@ -886,7 +903,18 @@ export function PublishQueuePage({ creations, onOpen, onToast }: {
             return (
               <article key={item.id} className="pa-panel pa-publish-card">
                 <div className="pa-publish-card__top">
-                  <span className="pa-status-badge" data-status="queued">{PLATFORM_LABELS[item.platform]}</span>
+                  <label className="pa-publish-platform-select">
+                    <span className="pa-visually-hidden">选择发布平台</span>
+                    <select
+                      value={item.platform}
+                      disabled={changingPlatformId === item.id}
+                      onChange={(event) => void changePlatform(item, event.target.value as PublishPlatform)}
+                    >
+                      {(Object.keys(PLATFORM_LABELS) as PublishPlatform[]).map((platform) => (
+                        <option key={platform} value={platform}>{PLATFORM_LABELS[platform]}</option>
+                      ))}
+                    </select>
+                  </label>
                   <span className="pa-status-badge" data-status={item.status === 'published' ? 'draft' : 'queued'}>{item.status === 'draft' ? '草稿' : item.status === 'ready' ? '待发布' : item.status === 'exported' ? '已导出' : '已发布'}</span>
                   <small>{formatLocalTime(item.updatedAt)}</small>
                 </div>

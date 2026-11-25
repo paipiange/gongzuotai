@@ -2,6 +2,18 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 格式，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.3.2] - 2026-11-26
+
+### 新增
+
+- **首页默认多张远程轮播图**：复用已开源的 8 张模板封面图作为默认轮播图，托管在 GitHub 公开仓库（`paipiange/gongzuotai`），经 jsDelivr CDN 加速访问。首页轮播顺序变为「内置 base64 兜底图 → 8 张远程模板封面图 → 用户自定义上传图」，加载失败的远程图自动跳过、首图永不缺失。
+
+### 修复
+
+- **裸包名 `paipiange` 安装后「最左边 tab 不显示」**：tsdown 的 client banner 硬编码 `id: 'dsh-paipiange'`，裸包名发布时 client 模块 id 与 dsh 按包名对账的 id 不匹配，导致 client 模块无法物化。现改为动态读取 `package.json` 的 `name`，双包发布各自生成正确 id。
+- **插件列表「没有描述」**：`package.json` 的 `exports` 缺 `"./package.json"`，导致 dsh 的 `readPluginMeta` 读取 description 时抛 `ERR_PACKAGE_PATH_NOT_EXPORTED`。已补上该导出。
+- **CI 双包发布顺序**：`publish-dual.cjs` 切名步骤移到 build 之前，保证裸包名产物 name 正确；并重写 `--restore` 为 `git checkout`，修复原先字符串替换不可逆导致 name 累积成 `dsh-dsh-paipiange` 的污染。
+
 ## [0.2.6] - 2026-11-23
 
 ### 修复

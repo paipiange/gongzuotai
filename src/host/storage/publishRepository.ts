@@ -121,17 +121,19 @@ export class PublishRepository {
   }
 
   update(id: string, input: {
-    status?: PublishStatus; exportPath?: string | null; externalUrl?: string | null; externalId?: string | null
+    status?: PublishStatus; platform?: PublishPlatform; exportPath?: string | null; externalUrl?: string | null; externalId?: string | null
     lastError?: string | null; retryCount?: number; lastCheckedAt?: string | null
     exportedAt?: string | null; publishedAt?: string | null; scheduledAt?: string | null
   }) {
     const current = this.getById(id)
     if (!current) return null
+    if (input.platform !== undefined && !PLATFORMS.includes(input.platform)) throw new Error(`不支持的发布平台: ${input.platform}`)
     const now = new Date().toISOString()
     const nextStatus = input.status ?? current.status
     const next: PublishItemRecord = {
       ...current,
       status: nextStatus,
+      platform: input.platform ?? current.platform,
       exportPath: input.exportPath === undefined ? current.exportPath : input.exportPath,
       externalUrl: input.externalUrl === undefined ? current.externalUrl : input.externalUrl,
       externalId: input.externalId === undefined ? current.externalId : input.externalId,
@@ -146,7 +148,7 @@ export class PublishRepository {
       updatedAt: now,
     }
     this.db.prepare(`
-      UPDATE publish_items SET status=@status, export_path=@exportPath, external_url=@externalUrl,
+      UPDATE publish_items SET status=@status, platform=@platform, export_path=@exportPath, external_url=@externalUrl,
         external_id=@externalId, last_error=@lastError, retry_count=@retryCount,
         last_checked_at=@lastCheckedAt, exported_at=@exportedAt, published_at=@publishedAt,
         scheduled_at=@scheduledAt, updated_at=@updatedAt

@@ -252,6 +252,27 @@ export function registerContentRoutes(deps: ApiDeps, register: RegisterRoute) {
       return json({ items: publish.list({ status: status === 'draft' || status === 'ready' || status === 'exported' || status === 'published' ? status as PublishStatus : undefined }) })
   })
 
+  register('/api/paipiange.publish.platform', ['PATCH'], async (request) => {
+      const id = new URL(request.url).searchParams.get('id') ?? ''
+      if (!id) return error('缺少 id')
+      const body = await request.json().catch(() => null) as { platform?: string } | null
+      if (!body || !body.platform) return error('缺少 platform')
+      if (!['wechat', 'xiaohongshu', 'zhihu', 'toutiao', 'other'].includes(body.platform)) return error('不支持的发布平台')
+      const current = publish.getById(id)
+      if (!current) return error('发布项不存在', 404)
+      if (body.platform === current.platform) return json({ item: current })
+      const attempt = publish.createAttempt({
+        publishItemId: current.id,
+        platform: body.platform as PublishPlatform,
+        action: 'platform_change',
+        retryNo: current.retryCount,
+        request: { from: current.platform, to: body.platform },
+      })
+      const updated = publish.update(id, { platform: body.platform as PublishPlatform })
+      publish.finishAttempt(attempt.id, { status: 'success', result: { from: current.platform, to: body.platform } })
+      return updated ? json({ item: updated }) : error('发布项不存在', 404)
+  })
+
   register('/api/paipiange.publish.status', ['PATCH'], async (request) => {
       const id = new URL(request.url).searchParams.get('id') ?? ''
       if (!id) return error('缺少 id')

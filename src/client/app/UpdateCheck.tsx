@@ -7,8 +7,18 @@ type Toast = (message: string, tone?: 'info' | 'success' | 'warning') => void
 // 避免与 package.json 中的 version 字段漂移。
 declare const __APP_VERSION__: string
 
-// ===== 更新源（GitHub Release 为正式更新源）=====
+// ===== 更新源 =====
+// 从 GitHub 公开仓库的 package.json 读版本号（而非 api.github.com/releases）。
+// api.github.com 未认证请求限流严格（共享代理 IP 极易 403），而 raw / jsDelivr
+// 走内容 CDN 不受该限流影响，且带 CORS 头，前端可直接 fetch。
 const GITHUB_REPO = 'paipiange/gongzuotai'
+const RELEASES_URL = `https://github.com/${GITHUB_REPO}/releases`
+
+// 镜像列表：jsDelivr（CDN 加速，优先）→ raw.githubusercontent（兜底）。
+const VERSION_SOURCES = [
+  `https://cdn.jsdelivr.net/gh/${GITHUB_REPO}@main/package.json`,
+  `https://raw.githubusercontent.com/${GITHUB_REPO}/main/package.json`,
+]
 
 const CURRENT_VERSION = __APP_VERSION__
 
@@ -19,45 +29,50 @@ interface CheckState {
   message?: string
 }
 
-/** 设置页「检查更新」卡片：对比 GitHub Release / npm 最新版本并提示升级。 */
+/** 设置页「检查更新」卡片：对比 GitHub 仓库最新版本并提示升级。 */
 export function UpdateCheck({ onToast }: { onToast: Toast }) {
   const [state, setState] = useState<CheckState>({ status: 'idle' })
 
-  const settle = (latest: string, url: string) => {
+  const settle = (latest: string) => {
     if (latest === CURRENT_VERSION) {
       setState({ status: 'latest', latest })
       onToast('已是最新版本', 'success')
     } else {
-      setState({ status: 'outdated', latest, url })
+      setState({ status: 'outdated', latest, url: RELEASES_URL })
       onToast(`发现新版本 v${latest}`, 'info')
     }
   }
 
   const check = async () => {
-    if (!GITHUB_REPO) {
-      setState({ status: 'error', message: '更新源尚未配置' })
-      onToast('更新源尚未配置（后续接入 GitHub）', 'info')
-      return
-    }
     setState({ status: 'checking' })
-    try {
-      const response = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
-        headers: { accept: 'application/vnd.github+json' },
-      })
-      if (!response.ok) {
-        setState({ status: 'error', message: `查询失败（HTTP ${response.status}）` })
+    let lastError: unknown = null
+    for (const source of VERSION_SOURCES) {
+      try {
+        const response = await fetch(source, {
+          headers: { accept: 'application/vnd.github+json' },
+          cache: 'no-store',
+        })
+        if (!response.ok) {
+          lastError = new Error(`HTTP ${response.status}`)
+          continue
+        }
+        const data = await response.json() as { version?: string }
+        const latest = (data.version ?? '').replace(/^v/, '').trim()
+        if (!latest) {
+          lastError = new Error('版本号缺失')
+          continue
+        }
+        settle(latest)
         return
+      } catch (cause) {
+        lastError = cause
       }
-      const data = await response.json() as { tag_name?: string; html_url?: string; name?: string }
-      const latest = (data.tag_name ?? '').replace(/^v/, '')
-      if (!latest) {
-        setState({ status: 'error', message: '未找到发布版本' })
-        return
-      }
-      settle(latest, data.html_url ?? `https://github.com/${GITHUB_REPO}/releases`)
-    } catch (cause) {
-      setState({ status: 'error', message: cause instanceof Error ? cause.message : '网络错误' })
     }
+    setState({
+      status: 'error',
+      message: lastError instanceof Error ? lastError.message : '查询失败',
+    })
+    onToast('查询更新失败，请稍后重试', 'warning')
   }
 
   return (

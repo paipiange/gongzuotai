@@ -22,6 +22,7 @@ import type { ToastState } from './primitives'
 import { resolveTaskResume, storedTaskOrigin } from './taskResume'
 import { assetUrl, getHomeCarousel, listTemplates, type TemplateRecord } from './hostClient'
 import { HERO_BG } from './heroBackground'
+import { DEFAULT_REMOTE_CAROUSEL } from './defaultCarousel'
 
 export function PaipiangeRoot() {
   const [activePage, setActivePage] = useState<PageId>('home')
@@ -82,10 +83,11 @@ export function PaipiangeRoot() {
       .then((config) => {
         if (cancelled) return
         const custom = config.assetIds.map((id) => assetUrl(id))
-        // 默认图是否纳入轮播：includeDefault 为 true 时默认图作为第一张；
-        // 关闭且没有自定义图时，仍回退默认图，保证首页不空白。
+        // 轮播顺序：内置 base64 兜底图 → 默认远程轮播图（模板封面）→ 用户自定义上传图。
+        // includeDefault 为 false 时跳过「内置 + 远程」整套默认图；若因此为空，仍回退兜底图。
+        const defaults = [HERO_BG, ...DEFAULT_REMOTE_CAROUSEL]
         const images = config.includeDefault || custom.length === 0
-          ? [HERO_BG, ...custom]
+          ? [...defaults, ...custom]
           : custom
         setCarouselImages(images)
         setCarouselIntervalMs(config.intervalMs)

@@ -4,8 +4,10 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'tsdown'
 
-// 注入版本号：让 client 端「检查更新」读 package.json 版本，避免两处硬编码漂移。
-const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string }
+// 注入包名 + 版本号：client 端 __ModuleLoader__.load 的 id 必须等于 package name，
+// 否则市场安装「paipiange」裸名包时，dsh 按 entry 名「paipiange」对账、却收到 id「dsh-paipiange」，
+// 两边对不上 → client 模块无法物化 → 侧边栏 tab 不显示。版本号同理，避免多处硬编码漂移。
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { name: string; version: string }
 
 function rawPlugin() {
   return {
@@ -211,7 +213,9 @@ export default defineConfig([
       __APP_VERSION__: JSON.stringify(pkg.version),
     },
     banner: {
-      js: `window.__ModuleLoader__.load({ id: 'dsh-paipiange', factory: (require) => { var module = { exports: {} }; var exports = module.exports;`,
+      // id 必须等于 package name（构建 dsh-paipiange 时是 dsh-paipiange，构建 paipiange 时是 paipiange），
+      // 否则双包发布（publish-dual.cjs 只改文本文件、不改 lib 产物）会导致裸名包 client 模块 id 错配。
+      js: `window.__ModuleLoader__.load({ id: '${pkg.name}', factory: (require) => { var module = { exports: {} }; var exports = module.exports;`,
     },
     footer: {
       // 直接返回干净的 { name, inject, apply } 对象，避免 rolldown 的

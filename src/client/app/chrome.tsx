@@ -171,19 +171,32 @@ export function Topbar({
 }
 
 export function Hero({ onStart, images, intervalMs }: { onStart: () => void; images?: string[]; intervalMs?: number }) {
+  const [failed, setFailed] = useState<Set<number>>(() => new Set())
+
   const slides = useMemo(() => {
     if (!images || images.length === 0) return [HERO_BG]
     return images
   }, [images])
 
+  // 过滤掉加载失败的远程图，但永远保留第一张（内置 base64 兜底图）。
+  const visibleSlides = useMemo(() => {
+    const kept = slides.filter((_, index) => index === 0 || !failed.has(index))
+    return kept.length > 0 ? kept : [HERO_BG]
+  }, [slides, failed])
+
   const [active, setActive] = useState(0)
-  const multi = slides.length > 1
+  const multi = visibleSlides.length > 1
+
+  // 当可见张数变化时，把 active 钳制到有效范围。
+  useEffect(() => {
+    setActive((current) => (current >= visibleSlides.length ? 0 : current))
+  }, [visibleSlides.length])
 
   // 拖拽/触摸滑动切换
   const dragRef = useRef<{ startX: number; startY: number; moved: boolean } | null>(null)
 
-  const goNext = () => setActive((current) => (current + 1) % slides.length)
-  const goPrev = () => setActive((current) => (current - 1 + slides.length) % slides.length)
+  const goNext = () => setActive((current) => (current + 1) % visibleSlides.length)
+  const goPrev = () => setActive((current) => (current - 1 + visibleSlides.length) % visibleSlides.length)
 
   // 自动轮播：用户交互后短暂暂停由「交互时重置定时器」实现。
   const [interactKey, setInteractKey] = useState(0)
@@ -192,11 +205,11 @@ export function Hero({ onStart, images, intervalMs }: { onStart: () => void; ima
   useEffect(() => {
     if (!multi) return
     const timer = window.setInterval(() => {
-      setActive((current) => (current + 1) % slides.length)
+      setActive((current) => (current + 1) % visibleSlides.length)
     }, intervalMs && intervalMs > 0 ? intervalMs : 5000)
     return () => window.clearInterval(timer)
     // 用户交互会重置定时器（interactKey 变化触发重建），避免刚切完又被自动切走。
-  }, [multi, slides.length, intervalMs, interactKey])
+  }, [multi, visibleSlides.length, intervalMs, interactKey])
 
   const onPointerDown = (event: React.PointerEvent<HTMLElement>) => {
     if (!multi) return
@@ -235,7 +248,7 @@ export function Hero({ onStart, images, intervalMs }: { onStart: () => void; ima
       onPointerUp={onPointerUp}
       onPointerLeave={() => { dragRef.current = null }}
     >
-      {slides.map((src, index) => (
+      {visibleSlides.map((src, index) => (
         <img
           key={`${index}-${src.slice(0, 48)}`}
           src={src}
@@ -244,6 +257,15 @@ export function Hero({ onStart, images, intervalMs }: { onStart: () => void; ima
           data-active={index === active}
           aria-hidden={index !== active}
           draggable={false}
+          onError={() => {
+            // 远程图加载失败时隐藏该张（第一张 base64 兜底图永不隐藏）。
+            setFailed((prev) => {
+              if (index === 0 || prev.has(index)) return prev
+              const next = new Set(prev)
+              next.add(index)
+              return next
+            })
+          }}
         />
       ))}
       {multi && (
@@ -265,7 +287,7 @@ export function Hero({ onStart, images, intervalMs }: { onStart: () => void; ima
             <CaretRight aria-hidden="true" size={20} />
           </button>
           <div className="pa-hero__dots" role="tablist" aria-label="轮播图切换">
-            {slides.map((src, index) => (
+            {visibleSlides.map((_src, index) => (
               <button
                 key={index}
                 type="button"

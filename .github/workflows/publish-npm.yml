@@ -53,13 +53,16 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Build plugin
-        run: pnpm build:plugin
-
-      # 双包发布：本地 name 是 dsh-paipiange；发 paipiange 时临时改 name。
+      # 双包发布：本地 name 是 dsh-paipiange；发 paipiange 时必须在 build **之前**切名，
+      # 因为 tsdown.config.ts 的 client banner 里 `__ModuleLoader__.load({ id: '${pkg.name}' })`
+      # 会把 package name 烧进 lib/client.js。若 build 后再切名，paipiange 包的 client.js 里
+      # id 仍是 dsh-paipiange，与 dsh 按 entry 名「paipiange」对账时 id 错配，导致侧边栏 tab 不显示。
       - name: Switch package name to ${{ matrix.package }}
         if: matrix.package == 'paipiange'
         run: node scripts/publish-dual.cjs
+
+      - name: Build plugin
+        run: pnpm build:plugin
 
       - name: Publish ${{ matrix.package }} to npm
         # OIDC trusted publishing：无需 NPM_TOKEN，npm 自动用 GitHub OIDC 换取临时发布凭证。

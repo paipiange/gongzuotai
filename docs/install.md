@@ -58,13 +58,14 @@ typecheck + build → 用 `scripts/publish-dual.cjs` 切换包名 → `npm publi
 在已装好 DeepSeek Harness 的机器上，用 dsh 的插件安装命令，**务必钉版本号**：
 
 ```bash
-dsh plugin add dsh-paipiange@0.2.7
+dsh plugin add dsh-paipiange@0.3.2
 ```
 
 ### 方式二：dsh 插件市场界面
 
-打开 Harness 的插件市场（Plugin Market / dshmarket），搜索 `paipiange`（或「拍片哥」），
-点击安装。若市场里版本滞后，请改用方式一钉版本。
+打开 Harness 的插件市场（Plugin Market / dshmarket），搜索 `dsh-paipiange`（或「拍片哥」），
+点击安装。**务必搜 `dsh-paipiange`，不要搜裸名 `paipiange`**（裸名包 client bundle 的 id 与
+包名错配，会导致侧边栏 tab 不显示、插件无描述）。若市场里版本滞后，请改用方式一钉版本。
 
 ### 方式三：手动改 profile 的 package.json（兜底，100% 有效）
 
@@ -73,7 +74,7 @@ dsh plugin add dsh-paipiange@0.2.7
 ```json
 {
   "dependencies": {
-    "dsh-paipiange": "0.2.7"
+    "dsh-paipiange": "0.3.2"
   },
   "dsh": {
     "profile": {
@@ -85,15 +86,15 @@ dsh plugin add dsh-paipiange@0.2.7
 
 保存后重启 Harness（或触发其自动安装）。
 
-> ### ⚠️ 三个必踩的坑，务必规避
+> ### ⚠️ 四个必踩的坑，务必规避
 >
-> **坑 1：一定要钉版本号 `@0.2.7`，不要裸包名或 `^0.2.0`。**
+> **坑 1：一定要钉版本号 `@0.3.2`，不要裸包名或 `^0.2.0`。**
 >
 > pnpm 的 `minimumReleaseAge`（默认 1440 分钟 = 24 小时）会过滤「发布不足 24 小时」的
 > 版本：裸包名 / `^0.2.0` 范围会**静默回退**到发布满 24 小时的最新版。对于当天刚发的
 > 版本，回退到的是更早的旧版——0.2.0~0.2.3 的 `better-sqlite3` 是**强依赖**，0.2.4 是
 > `optionalDependencies`，都会在缺 Python / C++ 工具链的机器上触发 `node-gyp` 源码编译
-> 失败（`gyp ERR! find Python`）。**只有 0.2.6/0.2.7 彻底移除了 better-sqlite3 依赖**
+> 失败（`gyp ERR! find Python`）。**只有 0.2.6+ 彻底移除了 better-sqlite3 依赖**
 > （vendor 纯 JS wrapper + 内置 Electron ABI 二进制），安装期零编译。
 >
 > **坑 2：走 npm registry 安装，绝不用本地 `file:` tarball（尤其路径含中文）。**
@@ -102,14 +103,22 @@ dsh plugin add dsh-paipiange@0.2.7
 > 会把 `file:` 路径 URL 编码进符号链接目录名（含中文「工作台」和 `+` 号），dsh 主程序
 > 动态 import 插件时无法解析该符号链接，报
 > `ERR_MODULE_NOT_FOUND: Cannot find package 'dsh-paipiange'`，插件「只有名字、没有
-> 描述」，功能失效。**必须用 npm 版本号 `"dsh-paipiange": "0.2.7"`（走 registry，符号
+> 描述」，功能失效。**必须用 npm 版本号 `"dsh-paipiange": "0.3.2"`（走 registry，符号
 > 链接为纯 ASCII 路径）。**
 >
-> **坑 3：旧版本已 deprecate，但 deprecate 挡不住 minimumReleaseAge 门控。**
+> **坑 3：市场搜索务必用 `dsh-paipiange`，不要搜裸名 `paipiange`。**
 >
-> npm 上 0.2.0~0.2.5 已全部标记 deprecated（broken），0.2.7 是唯一推荐版本。但 pnpm 的
+> npm 上 `dsh-paipiange` 与 `paipiange` 是两份独立包、代码相同，仅 name 不同。但双包发布
+> 时裸名 `paipiange` 的 client bundle 里 `__ModuleLoader__.load` 的 id 仍烧着 `dsh-paipiange`
+> （历史构建 bug），与 dsh 按 entry 名「paipiange」对账时 id 错配，导致 client 模块无法
+> 物化——**侧边栏不显示入口、插件详情页无描述**。请优先安装 `dsh-paipiange`（id 与包名
+> 一致，正常显示）。
+>
+> **坑 4：旧版本已 deprecate，但 deprecate 挡不住 minimumReleaseAge 门控。**
+>
+> npm 上 0.2.0~0.2.5 已全部标记 deprecated（broken），0.3.2 是唯一推荐版本。但 pnpm 的
 > 时间门控优先级高于 deprecated 标记，所以即便旧版已 deprecate，裸包名/范围仍可能回退
-> 到旧版——**还是得钉 `@0.2.7`**。
+> 到旧版——**还是得钉 `@0.3.2`**。
 >
 > **若希望裸包名也能始终装到最新版**（一劳永逸），可在 Harness profile 的
 > `pnpm-workspace.yaml` 中关闭发布年龄门控：
