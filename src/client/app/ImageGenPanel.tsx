@@ -41,6 +41,8 @@ export function ImageGenPanel({ onToast, creationId, resumeTask = null, onResume
   const [layoutId, setLayoutId] = useState('')
   const [colorId, setColorId] = useState('')
   const [size, setSize] = useState(1024)
+  const [customWidth, setCustomWidth] = useState('')
+  const [customHeight, setCustomHeight] = useState('')
   const [count, setCount] = useState(1)
   const [backends, setBackends] = useState<Backend[]>([])
   const [modelPick, setModelPick] = useState('')
@@ -71,6 +73,8 @@ export function ImageGenPanel({ onToast, creationId, resumeTask = null, onResume
     if (typeof state.layoutId === 'string') setLayoutId(state.layoutId)
     if (typeof state.colorId === 'string') setColorId(state.colorId)
     if (Number.isFinite(Number(state.size))) setSize(Number(state.size))
+    if (Number.isFinite(Number(state.width))) setCustomWidth(String(state.width))
+    if (Number.isFinite(Number(state.height))) setCustomHeight(String(state.height))
     if (Number.isFinite(Number(state.count))) setCount(Math.max(1, Math.min(4, Number(state.count))))
     if (typeof state.modelPick === 'string') setModelPick(state.modelPick)
     if (Number.isFinite(Number(state.denoise))) setDenoise(Number(state.denoise))
@@ -125,6 +129,10 @@ export function ImageGenPanel({ onToast, creationId, resumeTask = null, onResume
     }
 
     const prompt = buildImagePrompt({ topic, style, layout, color })
+    // 解析自定义宽高：两个都填了合法正整数才用宽高覆盖方形 size，否则回退方形预设。
+    const parsedWidth = Number.parseInt(customWidth, 10)
+    const parsedHeight = Number.parseInt(customHeight, 10)
+    const hasCustomSize = Number.isFinite(parsedWidth) && parsedWidth > 0 && Number.isFinite(parsedHeight) && parsedHeight > 0
     const controller = new AbortController()
     const clientRequestId = crypto.randomUUID()
     activeRequestRef.current = { controller, clientRequestId }
@@ -139,13 +147,13 @@ export function ImageGenPanel({ onToast, creationId, resumeTask = null, onResume
           kind: 'studio',
           id: 'image',
           label: 'AI 图片生成',
-          state: { topic, styleId, layoutId, colorId, size, count, modelPick, denoise },
+          state: { topic, styleId, layoutId, colorId, size, width: hasCustomSize ? parsedWidth : undefined, height: hasCustomSize ? parsedHeight : undefined, count, modelPick, denoise },
         },
         clientRequestId,
         request: {
           prompt,
           count,
-          size,
+          ...(hasCustomSize ? { width: parsedWidth, height: parsedHeight } : { size }),
           ...(modelId ? { model: modelId } : {}),
           ...(referenceImages.length ? { images: referenceImages, denoise } : {}),
         },
@@ -280,6 +288,9 @@ export function ImageGenPanel({ onToast, creationId, resumeTask = null, onResume
     setStyleId('')
     setLayoutId('')
     setColorId('')
+    setCustomWidth('')
+    setCustomHeight('')
+    setSize(1024)
     setResults([])
     setLastPrompt('')
     setCoverId(null)
@@ -363,12 +374,25 @@ export function ImageGenPanel({ onToast, creationId, resumeTask = null, onResume
 
         <label className="pa-field">
           <span>尺寸</span>
-          <select value={size} onChange={(event) => setSize(Number(event.target.value))}>
+          <select value={customWidth || customHeight ? 'custom' : size} onChange={(event) => { if (event.target.value === 'custom') { setCustomWidth('1024'); setCustomHeight('1024') } else { setCustomWidth(''); setCustomHeight(''); setSize(Number(event.target.value)) } }}>
             <option value={512}>512×512</option>
             <option value={768}>768×768</option>
             <option value={1024}>1024×1024</option>
+            <option value="custom">自定义宽高</option>
           </select>
         </label>
+
+        {customWidth || customHeight ? (
+          <div className="pa-field pa-field--full pa-imagegen-panel__size-custom">
+            <span>自定义宽 × 高（像素）</span>
+            <div className="pa-imagegen-panel__size-inputs">
+              <input type="number" inputMode="numeric" min={256} max={4096} step={64} placeholder="宽" value={customWidth} onChange={(event) => setCustomWidth(event.target.value)} aria-label="自定义宽度" />
+              <span aria-hidden="true">×</span>
+              <input type="number" inputMode="numeric" min={256} max={4096} step={64} placeholder="高" value={customHeight} onChange={(event) => setCustomHeight(event.target.value)} aria-label="自定义高度" />
+            </div>
+            <small>建议 256–4096 之间，且为 64 的倍数（部分模型要求）</small>
+          </div>
+        ) : null}
 
         <label className="pa-field">
           <span>数量</span>
