@@ -48,7 +48,7 @@ describe('publish packaging contract', () => {
     const pkg = readPackage()
     // 不把 src、测试、本地预览产物 dist 打进去，避免泄露源码与用户数据。
     // THIRD_PARTY_NOTICES.md 随包发布以符合第三方许可证合规要求。
-    expect(pkg.files).toEqual(['lib', 'cordis.patch.yml', 'README.md', 'CHANGELOG.md', 'THIRD_PARTY_NOTICES.md'])
+    expect(pkg.files).toEqual(['lib', 'locale', 'cordis.patch.yml', 'README.md', 'CHANGELOG.md', 'THIRD_PARTY_NOTICES.md'])
   })
 
   it('keeps better-sqlite3 out of runtime dependencies so install never compiles it', () => {
