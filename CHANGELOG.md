@@ -2,6 +2,13 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 格式，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.3.5] - 2026-11-26
+
+### 修复
+
+- **「检查更新」误报「发现新版本」**：原版本比较用 `latest !== 当前版本` 的字符串不等判断，只要远程版本号与本地不同（含远程更低，如 CDN 缓存命中旧版）就误判为「有新版本」。现改为语义化版本号比较（`major.minor.patch`），仅当远程版本**严格高于**当前版本才提示升级。
+- **更新源改为优先读 npm registry**：`dist-tags.latest` 是最权威、即时、无 CDN 缓存延迟的「已发布最新版本」，优于 `@main` 分支 package.json（可能被 jsDelivr CDN 缓存旧版）。npm registry 作主源，GitHub raw / jsDelivr package.json 作兜底。
+
 ## [0.3.4] - 2026-11-26
 
 ### 修复
