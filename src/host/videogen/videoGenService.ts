@@ -17,7 +17,7 @@ import { generateFallbackHtml } from './fallbackTemplate'
 import { ComfyVideoGenerator } from './comfyVideo'
 import { generateDirectorScript, type DirectorScript } from './directorService'
 import { getStyle, styleToPrompt } from './styles'
-import { produceRemotionVideo, ensureEngineFonts } from './remotionEngine'
+import { produceRemotionAiVideo, ensureEngineFonts } from './remotionEngine'
 
 /** 视频生成引擎：本地 LLM 写 HTML 动画，ComfyUI 出帧序列，或 Remotion+Three.js 双引擎。 */
 export type VideoEngine = 'llm' | 'comfyui' | 'remotion'
@@ -545,8 +545,12 @@ async function generateViaComfyUI(
 }
 
 /**
- * Remotion 双引擎：复用 vendored dsh-video-workbench 引擎一站式出片。
- * 引擎内部自行完成：策划 → 逐幕 TTS 配音 → 双引擎画面工程 → 混音 → 逐帧渲染 MP4。
+ * Remotion 双引擎：复用 vendored dsh-video-workbench 引擎，走「AI 逐幕编码」路线
+ * （runAiStudioPipeline / ai-coded 模式）出片。
+ *
+ * 与旧的 produceFullVideo（本地草稿快速生成）不同：ai-coded 会让 LLM 为每一镜编写
+ * 带 useCurrentFrame 动画的 Remotion TSX（含 tsc 校验 + 自动修复），画面逐帧真的有
+ * 位移/粒子/运镜，而非「静态模板布局 + 字幕 + 配音」这种近似一张图的成片。
  * 输出为 final.mp4，读回 Buffer 后清理临时工程目录。
  */
 async function generateViaRemotion(
@@ -563,29 +567,36 @@ async function generateViaRemotion(
   try {
     if (options.signal?.aborted) throw new Error('已取消')
 
-    options.onProgress?.({ stage: 'coding', message: '正在由 Remotion 双引擎策划并生成视频…' })
+    options.onProgress?.({ stage: 'coding', message: '正在由 Remotion 双引擎策划并逐幕编写动画…' })
 
     // 出片前确保渲染字体就位（瘦包后字体按需下载，失败则引擎降级）
     await ensureEngineFonts()
 
-    // 把引擎的进度文案（"1/5 ..."）透传为 stage 进度。
-    const onProgress = (msg: string) => {
+    // 把引擎的分阶段进度透传为 stage 进度。
+    const onProgress = (evt: { stage?: string; progress?: number; message?: string }) => {
+      const msg = evt?.message || evt?.stage || ''
       options.onProgress?.({ stage: 'encode', message: msg })
     }
 
-    const result = await produceRemotionVideo({
+    const result = await produceRemotionAiVideo({
       projectDir: workDir,
       topic: request.topic,
-      title: request.topic,
-      style: request.remotionStyle || request.style || 'tech',
+      userPrompt: request.subtitle || request.style || '',
       engine: 'remotion',
+      creationMode: 'ai-coded',
+      bgmMode: request.remotionBgmMode || 'llm-coded',
+      narrationMode: 'tts',
+      durationMode: 'custom',
+      targetDurationSec: durationSec,
+      targetPlatform: 'universal',
       aspectRatio: request.aspectRatio ?? '16:9',
       quality: request.remotionQuality ?? '1080p',
       width,
       height,
       fps,
-      bgmMode: request.remotionBgmMode,
-      voiceId: request.remotionVoiceId,
+      voiceId: request.remotionVoiceId || 'auto',
+      pacingMode: 'dynamic',
+      render: true,
       onProgress,
     })
 

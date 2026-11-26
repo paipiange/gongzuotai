@@ -55,6 +55,33 @@ export interface ProduceFullVideoResult {
   }
 }
 
+/** AI 逐幕编码出片（runAiStudioPipeline）的入参，复用 dsh-tool-media 的 ai_create_video 语义。 */
+export interface AiStudioPipelineOptions {
+  projectDir: string
+  topic?: string
+  userPrompt?: string
+  sources?: unknown[]
+  engine?: 'remotion' | 'html'
+  creationMode?: 'ai-coded' | 'schema-plan'
+  bgmMode?: string
+  narrationMode?: string
+  durationMode?: string
+  targetDurationSec?: number
+  targetPlatform?: string
+  aspectRatio?: string
+  quality?: string
+  width?: number
+  height?: number
+  voiceId?: string
+  ttsEngine?: string
+  allowPlaceholder?: boolean
+  fps?: number
+  aiBadge?: boolean
+  pacingMode?: string
+  render?: boolean
+  onProgress?: (msg: { stage: string; progress?: number; message?: string }) => void
+}
+
 /**
  * 定位 vendored 引擎的入口文件。
  *
@@ -84,7 +111,10 @@ function resolveEngineEntry(): string {
 }
 
 /** 是否已成功加载引擎（惰性单例）。 */
-let engineModule: { produceFullVideo: (opts: ProduceFullVideoOptions) => Promise<ProduceFullVideoResult> } | null = null
+let engineModule: {
+  produceFullVideo: (opts: ProduceFullVideoOptions) => Promise<ProduceFullVideoResult>
+  runAiStudioPipeline: (opts: AiStudioPipelineOptions) => Promise<ProduceFullVideoResult>
+} | null = null
 
 /**
  * 视频引擎渲染所需的 SIL OFL 字体（瘦包后不再打进 tarball）。
@@ -131,13 +161,14 @@ export async function ensureEngineFonts(dataRoot?: string): Promise<void> {
 /**
  * 加载引擎模块（惰性 + 缓存）。首次调用时动态 import vendored 引擎入口。
  */
-export async function loadVideoEngine(): Promise<{ produceFullVideo: (opts: ProduceFullVideoOptions) => Promise<ProduceFullVideoResult> }> {
+export async function loadVideoEngine(): Promise<{ produceFullVideo: (opts: ProduceFullVideoOptions) => Promise<ProduceFullVideoResult>; runAiStudioPipeline: (opts: AiStudioPipelineOptions) => Promise<ProduceFullVideoResult> }> {
   if (engineModule) return engineModule
   const entry = resolveEngineEntry()
   // 用 file URL 动态 import，确保 Windows 路径与 ESM 解析正确。
   const { pathToFileURL } = await import('node:url')
   engineModule = (await import(pathToFileURL(entry).href)) as unknown as {
     produceFullVideo: (opts: ProduceFullVideoOptions) => Promise<ProduceFullVideoResult>
+    runAiStudioPipeline: (opts: AiStudioPipelineOptions) => Promise<ProduceFullVideoResult>
   }
   return engineModule
 }
@@ -149,4 +180,14 @@ export async function loadVideoEngine(): Promise<{ produceFullVideo: (opts: Prod
 export async function produceRemotionVideo(opts: ProduceFullVideoOptions): Promise<ProduceFullVideoResult> {
   const engine = await loadVideoEngine()
   return engine.produceFullVideo(opts)
+}
+
+/**
+ * 用 AI 逐幕编码路线出片（ai-coded）：让 LLM 为每镜编写带 useCurrentFrame 动画的
+ * Remotion TSX（含 tsc 校验 + 自动修复），画面真正逐帧动起来，而非模板静态布局。
+ * 返回 render.outputPath 为最终 MP4。
+ */
+export async function produceRemotionAiVideo(opts: AiStudioPipelineOptions): Promise<ProduceFullVideoResult> {
+  const engine = await loadVideoEngine()
+  return engine.runAiStudioPipeline(opts)
 }
