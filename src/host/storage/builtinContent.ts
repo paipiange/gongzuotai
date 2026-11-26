@@ -19,7 +19,7 @@ import { ensureRemoteAsset, remoteAssetIfCached, remoteAssetCacheRoot } from './
  * 并在 seed 里按版本号做增量即可。
  */
 
-export const BUILTIN_CONTENT_VERSION = 2
+export const BUILTIN_CONTENT_VERSION = 3
 
 const SEED_VERSION_KEY = 'builtin_content_version'
 
@@ -162,6 +162,22 @@ export const BUILTIN_TEMPLATES: CreateTemplateInput[] = [
 请先输出逐页分镜方案（每页：序号、标题、上格场景、下格场景、出场人物、表情、关键道具、重点字、是否双分镜），供确认后再逐页出图。`,
   },
   {
+    category: '图片',
+    name: '挡脸拍照',
+    description: '上传一张人物照片，生成手机对镜自拍、用手机挡住脸的照片，保留人物穿搭与身形，突出时尚氛围。',
+    promptTemplate: `以参考图为人物原型，生成一张「手机对镜自拍、用手机挡住脸」的照片。
+
+【核心要求】
+1. 严格保留参考图中人物的发型、发色、服装、配饰与身形体态，不要换人、不要换装、不要改变肤色。
+2. 姿势：人物对着镜子举起手机自拍，手机屏幕正对镜头、自然地把下半张脸/整张脸挡住，看不到五官或只露出一部分眉眼。
+3. 背景：简洁的室内对镜自拍场景，镜子边缘、柔和暖调灯光，保留参考图的氛围感。
+4. 光线与色调：与参考图一致的柔和室内光，整体质感接近真实手机自拍，避免过度磨皮或失真。
+
+【输出要求】
+- 真实照片质感，竖版构图，人物完整入镜，画面自然、有生活气息。
+- 只生成一张独立图片，不要拼接、不要分镜、不要文字、不要乱码。`,
+  },
+  {
     category: '通用',
     name: '通用长文写作框架',
     description: '适用于报告、总结、行业分析等长文的通用骨架。',
@@ -285,12 +301,20 @@ export function seedBuiltinContent(db: Database.Database): { templates: number; 
   let templateCount = 0
   let inspirationCount = 0
 
+  // 内置模板/灵感以 name/title 作为稳定标识。递增 BUILTIN_CONTENT_VERSION 追加
+  // 第二批内置内容时，若直接全量重插会把第一批旧模板重复写入。这里先收集已有
+  // 内置项的名称集合做去重，只插入缺失项，保证「增量追加 + 幂等」同时成立。
+  const existingTemplateNames = new Set(templates.list({ limit: 1000 }).map((t) => t.name))
+  const existingInspirationTitles = new Set(inspirations.list({ limit: 1000 }).map((i) => i.title))
+
   db.transaction(() => {
     for (const input of BUILTIN_TEMPLATES) {
+      if (existingTemplateNames.has(input.name.trim())) continue
       templates.create({ ...input, isBuiltin: true })
       templateCount += 1
     }
     for (const input of BUILTIN_INSPIRATIONS) {
+      if (existingInspirationTitles.has(input.title.trim())) continue
       inspirations.create({ ...input, isBuiltin: true })
       inspirationCount += 1
     }
@@ -315,6 +339,7 @@ const REMOTE_BUILTIN_ASSETS: Array<{ urlPath: string; cachePath: string; sha256:
   { urlPath: 'src/host/assets/template-covers/xhs_grass.jpg', cachePath: 'assets/template-covers/xhs_grass.jpg', sha256: '9ceabdf9c18c40c16a5c0380c7127d08153c92b1396e7d7f37a443e299d244cc' },
   { urlPath: 'src/host/assets/template-covers/xhs_tips.png', cachePath: 'assets/template-covers/xhs_tips.png', sha256: '43dac6ab682f6f41022b8009d4752d9bde521c9d04ca1830d60805c2b43ad0c6' },
   { urlPath: 'src/host/assets/template-covers/zhihu_answer.png', cachePath: 'assets/template-covers/zhihu_answer.png', sha256: '605d9574894b54706dec0629da3fa2f0a42b34f050bec1657003d21217f47a6b' },
+  { urlPath: 'src/host/assets/template-covers/danglian.png', cachePath: 'assets/template-covers/danglian.png', sha256: '8609c560b877b6e06c4c84757457c4c1dcbf26f90274c2152751e9a9f4df238e' },
   // 情侣漫画参考图
   { urlPath: 'src/host/assets/couple-comic/female_reference.png', cachePath: 'assets/couple-comic/female_reference.png', sha256: '30b76260edea9d439b53bd0e2d9fee5dd5ed792b2da38c1882959224191ae52e' },
   { urlPath: 'src/host/assets/couple-comic/male_reference.png', cachePath: 'assets/couple-comic/male_reference.png', sha256: 'c510cfcf2f2f5fc89f745278f08faa5d55ee78de34772fe7932b333ba713c903' },
@@ -403,15 +428,15 @@ const TEMPLATE_COVER_IMAGES = [
   { file: 'video_script.png', mimeType: 'image/png', template: '短视频口播脚本', name: '模板封面·短视频口播脚本', tags: ['模板封面', '内置', '短视频口播脚本'] },
   { file: 'product_launch.png', mimeType: 'image/png', template: '产品上新营销文案', name: '模板封面·产品上新营销文案', tags: ['模板封面', '内置', '产品上新营销文案'] },
   { file: 'longform_writing.png', mimeType: 'image/png', template: '通用长文写作框架', name: '模板封面·通用长文写作框架', tags: ['模板封面', '内置', '通用长文写作框架'] },
+  { file: 'danglian.png', mimeType: 'image/png', template: '挡脸拍照', name: '模板封面·挡脸拍照', tags: ['模板封面', '内置', '挡脸拍照'] },
 ] as const
-
-const TEMPLATE_COVER_VERSION_KEY = 'template_cover_version_v2'
 
 /**
  * 把内置模板的封面图写入素材库，并回填到对应模板的 `cover_asset_id`。
  *
- * 幂等：以 app_settings 里的 `template_cover_version` 标记；入库后版本号写回，
- * 重复启动不会重复插入。返回入库的封面数量。
+ * 幂等策略：按「模板名」逐项判断——只有目标模板的 `cover_asset_id` 仍为空时才
+ * 写入封面并回填。这样后续追加新模板封面（如「挡脸拍照」）时，老用户升级也能
+ * 补 seed 新封面，而已回填的旧封面不会重复插入。返回本次入库的封面数量。
  *
  * 与 `seedCoupleComicAssets` 一样，本函数需要 `AssetRepository`（写磁盘），
  * 由 Host 在 `assets` 实例创建后单独调用。
@@ -422,14 +447,6 @@ export function seedTemplateCovers(
   resourceDir?: string,
   dataRoot?: string,
 ): number {
-  if (getSeedVersion(db, TEMPLATE_COVER_VERSION_KEY) >= 1) return 0
-  // 兜底：即便版本号丢失，只要素材库里已有「模板封面」asset，就不再重复 seed
-  // （避免老用户升级后重复插入封面图）。
-  if (assets.list('image', 1, 0, ['模板封面']).length > 0) {
-    setSeedVersion(db, 1, TEMPLATE_COVER_VERSION_KEY)
-    return 0
-  }
-
   const base = resourceDir ?? join(dirname(fileURLToPath(import.meta.url)), 'assets', 'template-covers')
   const cacheBase = dataRoot ? join(remoteAssetCacheRoot(dataRoot), 'assets', 'template-covers') : null
   const templates = new TemplateRepository(db)
@@ -437,6 +454,10 @@ export function seedTemplateCovers(
 
   db.transaction(() => {
     for (const cover of TEMPLATE_COVER_IMAGES) {
+      // 逐项幂等：目标模板已有封面则跳过，避免重复插入资产。
+      const target = templates.list().find((t) => t.name === cover.template)
+      if (!target) continue
+      if (target.coverAssetId) continue
       const filePath = resolveAssetFile(join(base, cover.file), cacheBase ? join(cacheBase, cover.file) : join(base, cover.file))
       if (!filePath) continue
       const data = readFileSync(filePath)
@@ -451,13 +472,9 @@ export function seedTemplateCovers(
         height,
         tags: [...cover.tags],
       })
-      const template = templates.list().find((t) => t.name === cover.template)
-      if (template) templates.setCoverAssetId(template.id, saved.id)
+      templates.setCoverAssetId(target.id, saved.id)
       count += 1
     }
-    // 只有实际入库了至少一张图才写版本号，避免瘦包首次启动时（包内无图、缓存未下载）
-    // 提前写死版本号，导致下载完成后无法补 seed。
-    if (count > 0) setSeedVersion(db, 1, TEMPLATE_COVER_VERSION_KEY)
   })()
 
   return count

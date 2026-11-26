@@ -353,6 +353,12 @@ export function TemplateUsePanel({ onToast, resumeTask = null, onResumeConsumed,
       onToast(`请填写：${missing.join('、')}`, 'warning')
       return
     }
+    // 非漫画图片模板（如「挡脸拍照」）依赖参考图做图生图，未上传时给明确提示，
+    // 避免文生图凭空捏造一个与用户无关的人物。
+    if (isImg && !isComic && sourceImages.length === 0) {
+      onToast('请先上传一张人物照片作为参考图', 'warning')
+      return
+    }
     const filledPrompt = fillTemplate(active.promptTemplate, values)
     const theme = values['主题/文案'] ?? values['主题'] ?? ''
     const requestedImageCount = isComic ? Math.max(1, Math.min(6, comicImageCount)) : 1
@@ -649,6 +655,32 @@ export function TemplateUsePanel({ onToast, resumeTask = null, onResumeConsumed,
                       <input type="text" value={values[p] ?? ''} placeholder={`请输入「${p}」`} onChange={(event) => setValues((prev) => ({ ...prev, [p]: event.target.value }))} />
                     </label>
                   ))}
+                </div>
+              )}
+
+              {isImg && !isComicTpl && (
+                <div className="pa-field pa-field--full">
+                  <span>参考图片（上传人物照片，支持 Ctrl+V 粘贴）</span>
+                  <div className="pa-template-detail__dropzone">
+                    <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple onChange={handleUpload} className="pa-visually-hidden" />
+                    <button type="button" className="pa-template-detail__dropzone-btn" onClick={() => fileInputRef.current?.click()}>
+                      <ImageSquare aria-hidden="true" size={22} weight="duotone" />
+                      <span>{sourceImages.length ? '继续添加图片' : '点击或拖拽上传'}</span>
+                    </button>
+                    {sourceImages.length > 0 && (
+                      <button type="button" className="pa-icon-button" aria-label="清除全部原图" title="清除全部原图" onClick={() => setSourceImages([])}><X aria-hidden="true" size={16} /></button>
+                    )}
+                  </div>
+                  {sourceImages.length > 0 && (
+                    <div className="pa-template-center__ref-list">
+                      {sourceImages.map((img, index) => (
+                        <div key={index} className="pa-template-center__ref-item">
+                          <img src={img} alt={`原图 ${index + 1}`} />
+                          <button type="button" className="pa-icon-button pa-template-center__ref-remove" aria-label={`移除原图 ${index + 1}`} title="移除" onClick={() => removeSourceImage(index)}><X aria-hidden="true" size={14} /></button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
