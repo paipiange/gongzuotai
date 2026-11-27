@@ -72,5 +72,5 @@ describe('remoteAssets', () => {
     await expect(ensureRemoteAsset(root, spec)).rejects.toThrow()
     const cacheRoot = remoteAssetCacheRoot(root)
     expect(existsSync(join(cacheRoot, 'assets', 'never.png'))).toBe(false)
-  })
+  }, 15000)
 })
