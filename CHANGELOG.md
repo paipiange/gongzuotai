@@ -2,6 +2,12 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 格式，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.3.8] - 2026-11-27
+
+### 变更
+
+- **下线内置 AI 视频生成**：内置视频生成（模型写动画 / ComfyUI 出帧 / Remotion 双引擎）效果不达预期，点击「使用 Merziller 视频工具」时改为弹窗，引导用户使用原作者的开源项目 [dsh-video-workbench](https://github.com/Merziller/dsh-video-workbench)，并提供「打开」「复制链接」两个按钮。
+
 ## [0.3.7] - 2026-11-26
 
 ### 新增
