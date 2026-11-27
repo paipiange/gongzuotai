@@ -5089,6 +5089,34 @@
   border-top: 1px solid var(--pa-border-soft);
 }
 
+/* ===== 视频生成下线提示弹窗 ===== */
+.pa-root .pa-modal.pa-video-redirect {
+  width: min(560px, 100%);
+}
+.pa-root .pa-video-redirect__lead {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+.pa-root .pa-video-redirect__link {
+  display: inline-block;
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--pa-border);
+  border-radius: var(--pa-radius);
+  background: color-mix(in srgb, var(--pa-bg) 60%, var(--pa-border-soft));
+  color: var(--pa-accent);
+  font-weight: 600;
+  word-break: break-all;
+  text-decoration: none;
+}
+.pa-root .pa-video-redirect__link:hover {
+  border-color: var(--pa-accent);
+}
+.pa-root .pa-video-redirect .pa-primary-button,
+.pa-root .pa-video-redirect .pa-secondary-button {
+  text-decoration: none;
+}
+
 /* ===== Q 版情侣漫画：发布 / 导出 ===== */
 .pa-root .pa-comic-publish {
   width: min(780px, 100%);

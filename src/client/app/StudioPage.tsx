@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  ArrowSquareOut,
   Copy,
   DownloadSimple,
   Fire,
@@ -23,6 +24,9 @@ import { GroupedModelPicker, backendToGroup, decodePick, type ModelGroup } from 
 import { extractImageFilesFromClipboard, readImageAsDataUrl } from './pasteImages'
 import { SectionHeading, studioLabels, type ToastState } from './primitives'
 import { storedTaskOrigin } from './taskResume'
+
+/** 视频生成已下线，推荐跳转的 Merziller 开源视频工作台。 */
+const VIDEO_REDIRECT_URL = 'https://github.com/Merziller/dsh-video-workbench'
 
 export function StudioPage({ studio, initialCreation, resumeTask = null, onResumeConsumed, onBack, onSave, onToast, onOpenSettings }: {
   studio: StudioId
@@ -72,6 +76,7 @@ export function StudioPage({ studio, initialCreation, resumeTask = null, onResum
   const [videoProgress, setVideoProgress] = useState<{ stage: string; text: string }>({ stage: 'idle', text: '' })
   const [videoResultId, setVideoResultId] = useState<string | null>(null)
   const [videoUsedFallback, setVideoUsedFallback] = useState(false)
+  const [showVideoRedirect, setShowVideoRedirect] = useState(false)
 
   useEffect(() => {
     if (!resumeTask || isImage || handledResumeTaskRef.current === resumeTask.id) return
@@ -239,12 +244,12 @@ export function StudioPage({ studio, initialCreation, resumeTask = null, onResum
   }
 
   const runGenerate = async () => {
-    if (!topic.trim()) {
-      onToast('请先填写创作主题', 'warning')
+    if (isVideo) {
+      setShowVideoRedirect(true)
       return
     }
-    if (isVideo) {
-      await submitVideo()
+    if (!topic.trim()) {
+      onToast('请先填写创作主题', 'warning')
       return
     }
     if (isImage) {
@@ -521,6 +526,15 @@ export function StudioPage({ studio, initialCreation, resumeTask = null, onResum
     }
   }
 
+  const copyRedirectUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(VIDEO_REDIRECT_URL)
+      onToast('链接已复制到剪贴板', 'success')
+    } catch {
+      onToast('复制失败，请手动复制链接', 'warning')
+    }
+  }
+
   const exportDraft = async () => {
     if (!content.trim() && !topic.trim()) {
       onToast('请先填写并保存内容', 'warning')
@@ -729,13 +743,13 @@ export function StudioPage({ studio, initialCreation, resumeTask = null, onResum
           <label className="pa-field"><span>补充要求</span><input value={requirement} onChange={(event) => setRequirement(event.target.value)} placeholder={isVideo ? '画面内容、镜头风格等（可选）' : '目标受众、篇幅、结构或画面比例'} /></label>
           <label className="pa-field"><span>标签</span><input value={tags.join(', ')} onChange={(event) => setTags(event.target.value.split(/[,，、\s]+/).map((t) => t.trim()).filter(Boolean))} placeholder="用逗号或空格分隔，如：品牌故事, 春日" /></label>
           <button type="submit" className="pa-primary-button pa-studio-submit" disabled={generating}>
-            <Sparkle aria-hidden="true" size={18} weight="fill" />{generating ? '停止生成' : isVideo ? '开始生成视频' : '开始生成'}
+            <Sparkle aria-hidden="true" size={18} weight="fill" />{isVideo ? '使用 Merziller 视频工具' : '开始生成'}
           </button>
           <div className="pa-studio-save-row">
             <button type="button" className="pa-secondary-button" disabled={isVideo} onClick={() => save('draft')}><FloppyDisk aria-hidden="true" size={17} />保存草稿</button>
             <button type="button" className="pa-secondary-button" disabled={isVideo} onClick={() => save('queued')}><PaperPlaneTilt aria-hidden="true" size={17} />加入待发布</button>
           </div>
-          {isVideo && <p className="pa-form-notice">视频由本机 Edge/Chrome 逐帧渲染 + FFmpeg 合成，全程本地、不上传内容；生成需要数秒到数十秒。</p>}
+          {isVideo && <p className="pa-form-notice">本工作台已下线内置 AI 视频生成，推荐使用 Merziller 的开源视频工作台，点击上方按钮了解。</p>}
         </form>
         <section className="pa-panel pa-studio-canvas">
           <div className="pa-studio-canvas__toolbar">
@@ -791,6 +805,25 @@ export function StudioPage({ studio, initialCreation, resumeTask = null, onResum
           )}
         </section>
       </div>
+      )}
+      {showVideoRedirect && (
+        <div className="pa-modal-backdrop" onClick={() => setShowVideoRedirect(false)}>
+          <div className="pa-modal pa-video-redirect" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="视频生成说明">
+            <div className="pa-modal__head">
+              <h3>视频生成说明</h3>
+              <button type="button" className="pa-icon-button" aria-label="关闭" onClick={() => setShowVideoRedirect(false)}><X aria-hidden="true" size={18} /></button>
+            </div>
+            <div className="pa-modal__body">
+              <p className="pa-video-redirect__lead">直接用 Merziller 大佬的视频：</p>
+              <a className="pa-video-redirect__link" href={VIDEO_REDIRECT_URL} target="_blank" rel="noreferrer">{VIDEO_REDIRECT_URL}</a>
+              <p className="pa-form-notice">本工作台不再内置 AI 视频生成，推荐使用原作者 Merziller 的开源视频工作台。</p>
+            </div>
+            <div className="pa-modal__footer">
+              <a className="pa-primary-button" href={VIDEO_REDIRECT_URL} target="_blank" rel="noreferrer"><ArrowSquareOut aria-hidden="true" size={17} />打开</a>
+              <button type="button" className="pa-secondary-button" onClick={() => void copyRedirectUrl()}><Copy aria-hidden="true" size={17} />复制链接</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
